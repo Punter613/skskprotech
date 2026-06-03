@@ -1,604 +1,354 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SKSK ProTech – AI Auto Estimator [BETA]</title>
-<style>
-* { margin:0; padding:0; box-sizing:border-box }
-body { 
-  background:#000; 
-  color:#fff; 
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  padding:1rem;
-  max-width:900px;
-  margin:0 auto;
-  line-height:1.6
-}
-input,textarea,select,button { 
-  width:100%; 
-  padding:.7rem; 
-  margin:.4rem 0; 
-  background:#111; 
-  color:#fff; 
-  border:1px solid #333; 
-  border-radius:8px; 
-  font-size:1rem;
-  font-family:inherit
-}
-input:focus,textarea:focus { outline:none; border-color:#dc2626 }
-button { 
-  background:#dc2626; 
-  font-weight:600; 
-  cursor:pointer; 
-  border:2px solid #b91c1c;
-  transition:all 0.2s
-}
-button:hover:not(:disabled) { background:#b91c1c; transform:translateY(-1px) }
-button:disabled { opacity:.5; cursor:not-allowed }
-.card { 
-  background:#111; 
-  border:1px solid #27272a; 
-  border-radius:12px; 
-  padding:1.2rem; 
-  margin-bottom:1rem;
-  box-shadow:0 4px 20px rgba(0,0,0,0.5)
-}
-.header { text-align:center; padding:1.5rem 0 }
-.logo { 
-  font-size:2.5rem; 
-  font-weight:800; 
-  letter-spacing:0.05em;
-  background:linear-gradient(135deg,#dc2626,#ef4444);
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  margin-bottom:.5rem
-}
-.beta-badge { 
-  display:inline-block;
-  background:#ef4444;
-  color:#000;
-  padding:.2rem .6rem;
-  border-radius:4px;
-  font-size:.7rem;
-  font-weight:700;
-  margin-left:.5rem;
-  letter-spacing:0.05em
-}
-.tagline { color:#9ca3af; font-size:.95rem; margin:.3rem 0 }
-.subtitle { color:#6b7280; font-size:.85rem; font-style:italic }
-h2 { margin-bottom:.8rem; font-size:1.3rem }
-h3 { margin-bottom:.4rem; font-size:1.1rem; color:#e5e7eb }
-label { 
-  display:block; 
-  font-size:.8rem; 
-  color:#9ca3af; 
-  margin-bottom:.3rem;
-  font-weight:500
-}
-small { font-size:.75rem; color:#6b7280; display:block; margin-top:.2rem }
-.quick-rate { display:flex; gap:.3rem; margin-top:.4rem }
-.quick-btn { 
-  flex:1; 
-  padding:.5rem; 
-  font-size:.75rem; 
-  background:#020617; 
-  border:1px solid #374151;
-  cursor:pointer;
-  transition:all 0.2s
-}
-.quick-btn:hover { border-color:#dc2626; color:#f9fafb; transform:translateY(-1px) }
-.error,.success { 
-  padding:.6rem; 
-  border-radius:8px; 
-  margin:.5rem 0; 
-  font-size:.85rem;
-  display:none
-}
-.error { background:#dc262625; border:1px solid #dc2626; color:#fca5a5 }
-.success { background:#22c55e25; border:1px solid #22c55e; color:#bbf7d0 }
-.spinner { 
-  display:inline-block; 
-  width:16px; 
-  height:16px; 
-  border:2px solid #fff; 
-  border-top-color:transparent; 
-  border-radius:50%; 
-  animation:spin 0.8s linear infinite 
-}
-@keyframes spin { to { transform:rotate(360deg) } }
-.info-box { 
-  background:#020617; 
-  border:1px solid #27272a; 
-  padding:.7rem; 
-  border-radius:8px; 
-  margin-bottom:.6rem 
-}
-.part-row { 
-  display:flex; 
-  justify-content:space-between; 
-  font-size:.9rem; 
-  margin:.3rem 0;
-  color:#d1d5db
-}
-.part-row.total { 
-  border-top:1px solid #374151; 
-  padding-top:.4rem; 
-  margin-top:.4rem; 
-  font-weight:600;
-  color:#e5e7eb
-}
-.total-box { 
-  background:linear-gradient(90deg,#dc2626,#b91c1c); 
-  padding:1rem; 
-  border-radius:10px; 
-  display:flex; 
-  justify-content:space-between; 
-  font-weight:700; 
-  font-size:1.1rem;
-  margin:.8rem 0;
-  box-shadow:0 4px 12px rgba(220,38,38,0.3)
-}
-.tax-box { 
-  border:1px solid #fbbf24; 
-  background:rgba(251,191,36,0.08); 
-  padding:.7rem; 
-  border-radius:8px; 
-  font-size:.85rem 
-}
-.tax-row { 
-  display:flex; 
-  justify-content:space-between; 
-  margin:.2rem 0; 
-  color:#fef08a 
-}
-.tax-row.takehome { 
-  border-top:1px solid #fbbf24; 
-  padding-top:.4rem; 
-  margin-top:.4rem; 
-  font-weight:600; 
-  color:#fefce8 
-}
-.support-box { 
-  background:linear-gradient(135deg,#1e293b,#0f172a);
-  border:1px solid #334155;
-  padding:1.2rem;
-  border-radius:12px;
-  text-align:center;
-  margin:1.5rem 0
-}
-.support-title { 
-  font-size:1.1rem;
-  font-weight:600;
-  color:#e5e7eb;
-  margin-bottom:.5rem
-}
-.support-text { 
-  color:#94a3b8;
-  font-size:.85rem;
-  margin-bottom:1rem;
-  line-height:1.5
-}
-.cashapp-btn { 
-  display:inline-block;
-  background:#00d632;
-  color:#000;
-  padding:.8rem 1.5rem;
-  border-radius:8px;
-  text-decoration:none;
-  font-weight:700;
-  font-size:1rem;
-  transition:all 0.2s;
-  border:none;
-  cursor:pointer;
-  box-shadow:0 4px 12px rgba(0,214,50,0.3)
-}
-.cashapp-btn:hover { 
-  background:#00bf2d; 
-  transform:translateY(-2px);
-  box-shadow:0 6px 16px rgba(0,214,50,0.4)
-}
-.footer { 
-  text-align:center; 
-  padding:2rem 0 1rem; 
-  color:#6b7280; 
-  font-size:.75rem;
-  border-top:1px solid #27272a;
-  margin-top:2rem
-}
-.footer a { color:#9ca3af; text-decoration:none }
-.footer a:hover { color:#dc2626 }
-.notice-tag {
-  background:#222; 
-  padding:.5rem; 
-  margin:.3rem 0; 
-  border-left:3px solid #dc2626; 
-  border-radius:0 6px 6px 0;
-  display:flex; 
-  justify-content:space-between;
-  align-items:center;
-  font-size:.9rem
-}
-</style>
+  <meta charset="UTF-8" />
+  <title>SKSK ProTech – AI Auto Estimator [BETA]</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #050608;
+      color: #f5f5f5;
+    }
+    header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #222;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #050608;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 {
+      font-size: 1.1rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #9ae6b4;
+    }
+    header span {
+      font-size: 0.8rem;
+      color: #a0aec0;
+    }
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+      gap: 1.5rem;
+    }
+    @media (max-width: 800px) {
+      main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    .card {
+      background: #0b0d10;
+      border-radius: 0.75rem;
+      border: 1px solid #1f2933;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+    }
+    .card h2 {
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #a0aec0;
+      margin-bottom: 0.75rem;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #a0aec0;
+      margin-top: 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+    input, textarea, select {
+      width: 100%;
+      background: #050608;
+      border-radius: 0.5rem;
+      border: 1px solid #2d3748;
+      padding: 0.5rem 0.6rem;
+      color: #e2e8f0;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    input:focus, textarea:focus, select:focus {
+      border-color: #63b3ed;
+      box-shadow: 0 0 0 1px #63b3ed33;
+    }
+    textarea {
+      min-height: 70px;
+      resize: vertical;
+    }
+    .row {
+      display: flex;
+      gap: 0.75rem;
+    }
+    .row > div {
+      flex: 1;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #38b2ac, #4299e1);
+      color: #f7fafc;
+      font-weight: 600;
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      background: #111827;
+      color: #a0aec0;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .pill span.dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #48bb78;
+    }
+    .estimate-section h3 {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #a0aec0;
+      margin-top: 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+    .estimate-section p {
+      font-size: 0.9rem;
+      margin: 0.15rem 0;
+      color: #e2e8f0;
+    }
+    .estimate-section small {
+      font-size: 0.75rem;
+      color: #a0aec0;
+    }
+    .estimate-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem 1rem;
+      margin-top: 0.5rem;
+    }
+    .estimate-grid div {
+      font-size: 0.85rem;
+      color: #e2e8f0;
+    }
+    .estimate-total {
+      margin-top: 0.75rem;
+      padding-top: 0.5rem;
+      border-top: 1px dashed #2d3748;
+      font-weight: 600;
+      font-size: 1rem;
+      color: #f6e05e;
+    }
+    .status {
+      font-size: 0.8rem;
+      color: #a0aec0;
+      margin-top: 0.5rem;
+    }
+    .status strong {
+      color: #edf2f7;
+    }
+    .tagline {
+      font-size: 0.8rem;
+      color: #a0aec0;
+      margin-top: 0.25rem;
+    }
+  </style>
 </head>
 <body>
-
-<div class="header">
-  <div class="logo">
-    SKSK ProTech
-    <span class="beta-badge">BETA</span>
-  </div>
-  <div class="tagline">AI-Powered Auto Estimator for Mobile Mechanics</div>
-  <div class="subtitle">Testing Phase • Features Added as Development Continues</div>
-</div>
-
-<div class="card">
-  <h2>📋 Job Estimate</h2>
-  
-  <label>Customer Name *</label>
-  <input id="customerName" placeholder="John Smith" required>
-  
-  <label>Phone</label>
-  <input id="customerPhone" type="tel" placeholder="330-555-1212">
-  
-  <label>Email</label>
-  <input id="customerEmail" type="email" placeholder="customer@example.com">
-  
-  <label>Vehicle</label>
-  <input id="vehicle" placeholder="2008 Ford F-150 5.4L V8">
-  
-  <label>Your Labor Rate ($/hr)</label>
-  <div style="display:flex; align-items:center; gap:.4rem">
-    <span style="color:#22c55e; font-size:1.3rem">$</span>
-    <input id="laborRate" type="number" value="65" min="0" max="200" step="5" style="max-width:110px">
-    <span style="color:#9ca3af; font-size:.9rem">/hr</span>
-  </div>
-  <div class="quick-rate">
-    <button class="quick-btn" data-rate="45">Friends $45</button>
-    <button class="quick-btn" data-rate="65">Standard $65</button>
-    <button class="quick-btn" data-rate="90">Premium $90</button>
-  </div>
-  <small>Adjust per job: Friends (40-50) • Standard (50-75) • Premium (75-100)</small>
-
-  <hr style="border:0; border-top:1px solid #27272a; margin:1rem 0">
-
-  <label>📟 OBD-II Trouble Codes</label>
-  <input id="obdCodes" placeholder="e.g., P0171, P0302 (separated by commas)">
-
-  <label>🗣️ Customer States (Symptoms & Complaints)</label>
-  <textarea id="customerStates" placeholder="e.g., Burning oil smell at idle, smoke from passenger side near firewall" rows="2"></textarea>
-
-  <label>🔍 Mechanic Findings & Field Notices</label>
-  <div id="noticesList" style="margin:.5rem 0"></div>
-  <div style="display:flex; gap:.4rem; margin-bottom:.5rem">
-    <input id="newNotice" placeholder="e.g., Fresh wet oil tracking down exhaust downpipe" style="margin:0">
-    <button id="addNoticeBtn" style="width:auto; margin:0; padding:0 1rem; background:#27272a; border-color:#3f3f46">+ Add</button>
-  </div>
-  <small>Type what your eyes and ears find, click Add, then generate or re-run the estimate.</small>
-
-  <div id="errorBox" class="error"></div>
-  <div id="successBox" class="success"></div>
-
-  <button id="submitBtn" style="margin-top:1rem">⚡ Generate Estimate</button>
-</div>
-
-<div class="card">
-  <h2>💰 Estimate</h2>
-  <div id="estimateDisplay">
-    <p style="color:#6b7280; text-align:center; padding:2rem">
-      No estimate yet. Fill out job details above and hit Generate.
-    </p>
-  </div>
-</div>
-
-<div class="support-box">
-  <div class="support-title">💙 Voluntary Support</div>
-  <div class="support-text">
-    This tool is 100% free, no signup required.<br>
-    If it saved you time and you'd like to help with<br>
-    server costs, any amount is appreciated but never expected.
-  </div>
-  <a href="https://cash.app/$Punter613" target="_blank" class="cashapp-btn">
-    💵 Support via Cash App
-  </a>
-  <div style="margin-top:.8rem; font-size:.75rem; color:#64748b">
-    Built in spare time • Shared for free
-  </div>
-</div>
-
-<div class="footer">
-  <div style="margin-bottom:.5rem">
-    <strong style="color:#9ca3af">About This Tool</strong>
-  </div>
-  <div style="max-width:600px; margin:0 auto; line-height:1.6">
-    Built by a former mechanic living with vision loss and chronic migraines.
-    Can't work regular hours anymore, but on good days I tinker with code.
-    This started as a way to stay connected to the trade.
-  </div>
-  <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid #27272a">
-    Beta Version • Features added irregularly as health permits<br>
-    © 2024 SKSK ProTech • <a href="#" id="aboutLink">FAQ</a>
-  </div>
-</div>
-
-<div id="aboutModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:999; padding:2rem; overflow-y:auto">
-  <div class="card" style="max-width:600px; margin:2rem auto">
-    <h2>❓ FAQ</h2>
-    
-    <h3 style="margin-top:1rem">Who made this?</h3>
-    <p style="color:#9ca3af; font-size:.9rem">
-      A mechanic who can't turn wrenches anymore but still loves the trade.
-    </p>
-    
-    <h3 style="margin-top:1rem">Why is it free?</h3>
-    <p style="color:#9ca3af; font-size:.9rem">
-      Because mechanics helped me when I needed it. Paying it forward.
-    </p>
-    
-    <h3 style="margin-top:1rem">How can I help?</h3>
-    <p style="color:#9ca3af; font-size:.9rem">
-      Use it. Share it with other mechanics. If you want to chip in for 
-      hosting costs, cool. If not, that's cool too.
-    </p>
-    
-    <h3 style="margin-top:1rem">Will you add [feature]?</h3>
-    <p style="color:#9ca3af; font-size:.9rem">
-      Maybe! On good days I tinker with it. No promises on timing due to 
-      health issues (migraines, light sensitivity). Features get added when I'm able.
-    </p>
-    
-    <h3 style="margin-top:1rem">Is my data private?</h3>
-    <p style="color:#9ca3af; font-size:.9rem">
-      Yes. Estimates are stored temporarily. No tracking, no selling data.
-    </p>
-    
-    <button id="closeAbout" style="margin-top:1rem">Close</button>
-  </div>
-</div>
-
-<script>
-const BACKEND_URL = location.hostname === "localhost" 
-  ? "http://localhost:4000" 
-  : "https://p613-backend.onrender.com";
-
-// Form Element Selectors
-const customerName = document.getElementById("customerName");
-const customerPhone = document.getElementById("customerPhone");
-const customerEmail = document.getElementById("customerEmail");
-const vehicle = document.getElementById("vehicle");
-const laborRate = document.getElementById("laborRate");
-const obdCodes = document.getElementById("obdCodes");
-const customerStates = document.getElementById("customerStates");
-const newNotice = document.getElementById("newNotice");
-const addNoticeBtn = document.getElementById("addNoticeBtn");
-const noticesList = document.getElementById("noticesList");
-
-const errorBox = document.getElementById("errorBox");
-const successBox = document.getElementById("successBox");
-const submitBtn = document.getElementById("submitBtn");
-const estimateDisplay = document.getElementById("estimateDisplay");
-const aboutModal = document.getElementById("aboutModal");
-const aboutLink = document.getElementById("aboutLink");
-const closeAbout = document.getElementById("closeAbout");
-
-// Global state tracking array for dynamic mechanic notices
-let mechanicNoticesArray = [];
-
-function formatCurrency(amt) {
-  return new Intl.NumberFormat("en-US", {style:"currency", currency:"USD"}).format(amt || 0);
-}
-
-// Quick labor rate buttons
-document.querySelectorAll(".quick-btn").forEach(btn => {
-  btn.onclick = () => {
-    laborRate.value = btn.getAttribute("data-rate");
-  };
-});
-
-// Manage dynamic mechanic notices list
-addNoticeBtn.onclick = (e) => {
-  e.preventDefault();
-  const text = newNotice.value.trim();
-  if(text) {
-    mechanicNoticesArray.push(text);
-    renderNotices();
-    newNotice.value = "";
-  }
-};
-
-function renderNotices() {
-  if(mechanicNoticesArray.length === 0) {
-    noticesList.innerHTML = "";
-    return;
-  }
-  noticesList.innerHTML = mechanicNoticesArray.map((notice, i) => `
-    <div class="notice-tag">
-      <span>🔎 ${notice}</span>
-      <span onclick="removeNotice(${i})" style="color:#ef4444; cursor:pointer; font-weight:700; padding-left:.5rem">×</span>
+  <header>
+    <div>
+      <h1>SKSK ProTech · AI Auto Estimator</h1>
+      <div class="tagline">From symptom to invoice in one pass — built for mobile mechanics.</div>
     </div>
-  `).join("");
-}
+    <div class="pill">
+      <span class="dot"></span>
+      <span>BETA · Node · Express</span>
+    </div>
+  </header>
 
-window.removeNotice = (index) => {
-  mechanicNoticesArray.splice(index, 1);
-  renderNotices();
-};
+  <main>
+    <!-- LEFT: INPUT / DIAGNOSTIC -->
+    <section class="card">
+      <h2>Diagnostic intake</h2>
 
-// FAQ modal triggers
-aboutLink.onclick = (e) => {
-  e.preventDefault();
-  aboutModal.style.display = "block";
-};
-closeAbout.onclick = () => {
-  aboutModal.style.display = "none";
-};
+      <label for="customerName">Customer name</label>
+      <input id="customerName" placeholder="Jane Doe" />
 
-// Generate estimate execution
-submitBtn.onclick = async () => {
-  errorBox.style.display = "none";
-  successBox.style.display = "none";
+      <label for="customerPhone">Customer phone</label>
+      <input id="customerPhone" placeholder="(555) 555‑1212" />
 
-  const name = customerName.value.trim();
-  const rawCodes = obdCodes.value.trim();
-  const rawStates = customerStates.value.trim();
-  
-  if(!name){
-    errorBox.textContent = "Customer name is required";
-    errorBox.style.display = "block";
-    return;
-  }
-  
-  if(!rawCodes && !rawStates && mechanicNoticesArray.length === 0){
-    errorBox.textContent = "Please fill in at least one diagnostic section (OBD Codes, Customer States, or Mechanic Findings)";
-    errorBox.style.display = "block";
-    return;
-  }
-
-  // Parse OBD codes cleanly by splitting on commas
-  const codesParsed = rawCodes ? rawCodes.split(",").map(c => c.trim().toUpperCase()).filter(c => c) : [];
-
-  // Build the composite description string for backward compatibility with your existing server endpoint
-  let standardDescription = "";
-  if(codesParsed.length > 0) standardDescription += `OBD-II Codes: ${codesParsed.join(", ")}. `;
-  if(rawStates) standardDescription += `Customer states: ${rawStates}. `;
-  if(mechanicNoticesArray.length > 0) standardDescription += `Mechanic findings: ${mechanicNoticesArray.join("; ")}.`;
-
-  const payload = {
-    customer: {
-      name: name,
-      phone: customerPhone.value.trim(),
-      email: customerEmail.value.trim()
-    },
-    vehicle: vehicle.value.trim() || "Unknown Vehicle",
-    description: standardDescription.trim(),
-    obdCodes: codesParsed,
-    customerStates: rawStates ? [rawStates] : [],
-    mechanicNotices: mechanicNoticesArray,
-    laborRate: Number(laborRate.value) || 65
-  };
-
-  submitBtn.disabled = true;
-  submitBtn.innerHTML = '<span class="spinner"></span> Generating...';
-  estimateDisplay.innerHTML = '<div style="text-align:center; padding:2rem"><div class="spinner" style="width:40px; height:40px; border-width:3px"></div><p style="margin-top:1rem; color:#9ca3af">AI building estimate...</p></div>';
-
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/generate-estimate`, {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    if(!data.ok) throw new Error(data.error || "Failed");
-
-    displayEstimate(data.estimate);
-    successBox.textContent = "✅ Estimate generated successfully";
-    successBox.style.display = "block";
-  } catch(err) {
-    errorBox.textContent = err.message || "Connection error. Try again.";
-    errorBox.style.display = "block";
-    estimateDisplay.innerHTML = '<p style="color:#6b7280; text-align:center; padding:2rem">Failed to generate. Try again.</p>';
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = "⚡ Generate Estimate";
-  }
-};
-
-function displayEstimate(est) {
-  const currentLaborRate = est.laborRate || 65;
-  const laborHours = est.laborHours || 0;
-  const laborCost = est.laborCost ?? (laborHours * currentLaborRate);
-  const partsCost = est.partsCost || 0;
-  const suppliesPercent = est.shopSuppliesPercent ?? 7;
-  const shopSupplies = est.shopSupplies ?? (partsCost * (suppliesPercent / 100));
-  const subtotal = est.subtotal ?? (laborCost + partsCost + shopSupplies);
-  const taxSetAside = subtotal * 0.28;
-  const takeHome = subtotal - taxSetAside;
-
-  const partsHTML = Array.isArray(est.parts) && est.parts.length > 0
-    ? `<div class="info-box">
-        <h3>Parts</h3>
-        ${est.parts.map(p => `<div class="part-row"><span>${p.name}</span><span>${formatCurrency(p.cost || 0)}</span></div>`).join("")}
-        <div class="part-row total">
-          <span>Parts Total</span><span>${formatCurrency(partsCost)}</span>
+      <div class="row">
+        <div>
+          <label for="vehicleYear">Year</label>
+          <input id="vehicleYear" placeholder="2015" />
         </div>
-      </div>`
-    : "";
-
-  // Render the step-by-step technical procedures array from the backend AI engine
-  const stepsHTML = Array.isArray(est.workSteps) && est.workSteps.length > 0
-    ? `<div class="info-box">
-        <h3>🔧 Diagnostic & Repair Steps</h3>
-        <ol style="padding-left:1.2rem; font-size:.9rem; color:#d1d5db">
-          ${est.workSteps.map(step => `<li style="margin-bottom:.3rem">${step}</li>`).join("")}
-        </ol>
-      </div>`
-    : "";
-
-  const tipsHTML = Array.isArray(est.tips) && est.tips.length > 0
-    ? `<div class="info-box" style="border-color:#22c55e">
-        <h3 style="color:#86efac">💡 Pro Tips</h3>
-        <ul style="color:#bbf7d0; font-size:.85rem; padding-left:1.2rem">${est.tips.map(t => `<li>${t}</li>`).join("")}</ul>
-      </div>`
-    : "";
-
-  const warningsHTML = Array.isArray(est.warnings) && est.warnings.length > 0
-    ? `<div class="info-box" style="border-color:#dc2626">
-        <h3 style="color:#fecaca">⚠️ Watch For / Probabilities</h3>
-        <ul style="color:#fecaca; font-size:.85rem; padding-left:1.2rem">${est.warnings.map(w => `<li>${w}</li>`).join("")}</ul>
-      </div>`
-    : "";
-
-  estimateDisplay.innerHTML = `
-    <div class="info-box">
-      <h3>${est.jobType || "Repair"}</h3>
-      <p style="color:#9ca3af; font-size:.9rem">${est.shortDescription || "AI-generated estimate"}</p>
-    </div>
-
-    <div class="info-box">
-      <h3>Labor</h3>
-      <div class="part-row">
-        <span>${laborHours.toFixed(1)} hrs @ ${formatCurrency(currentLaborRate)}/hr</span>
-        <span>${formatCurrency(laborCost)}</span>
+        <div>
+          <label for="vehicleMake">Make</label>
+          <input id="vehicleMake" placeholder="Ford" />
+        </div>
+        <div>
+          <label for="vehicleModel">Model</label>
+          <input id="vehicleModel" placeholder="F‑150" />
+        </div>
       </div>
-    </div>
 
-    ${partsHTML}
+      <label for="state">Customer state (for tax)</label>
+      <select id="state">
+        <option value="">Select state…</option>
+        <option value="OH">Ohio</option>
+        <option value="PA">Pennsylvania</option>
+        <option value="MI">Michigan</option>
+        <option value="NY">New York</option>
+      </select>
 
-    <div class="info-box">
-      <div class="part-row">
-        <span>Shop Supplies (${suppliesPercent}%)</span>
-        <span>${formatCurrency(shopSupplies)}</span>
+      <label for="symptoms">Customer‑reported symptoms</label>
+      <textarea id="symptoms" placeholder="Grinding when turning left, worse over bumps…"></textarea>
+
+      <label for="codes">OBD‑II codes (comma‑separated)</label>
+      <input id="codes" placeholder="P0301, P0420" />
+
+      <label for="mechanicFindings">Mechanic findings</label>
+      <textarea id="mechanicFindings" placeholder="Front left CV axle boot torn, grease sling, play in joint…"></textarea>
+
+      <button id="generateBtn">Build AI estimate</button>
+      <div id="status" class="status"></div>
+    </section>
+
+    <!-- RIGHT: ESTIMATE / CUSTOMER COPY -->
+    <section class="card">
+      <h2>Estimate & invoice preview</h2>
+      <div id="estimateContainer" class="estimate-section">
+        <p>Fill out the intake on the left and click <strong>Build AI estimate</strong>.</p>
+        <p>We’ll generate:</p>
+        <ul style="margin-top:0.4rem; padding-left:1.1rem; font-size:0.85rem; color:#a0aec0;">
+          <li>Customer‑facing explanation</li>
+          <li>Tech‑facing diagnostic notes</li>
+          <li>Labor, parts, shop supplies, tax set‑aside</li>
+          <li>Invoice‑ready totals</li>
+        </ul>
       </div>
-    </div>
+    </section>
+  </main>
 
-    ${stepsHTML}
-    ${tipsHTML}
-    ${warningsHTML}
+  <script>
+    const generateBtn = document.getElementById('generateBtn');
+    const statusEl = document.getElementById('status');
+    const estimateContainer = document.getElementById('estimateContainer');
 
-    <div class="total-box">
-      <span>Total Estimate</span>
-      <span>${formatCurrency(subtotal)}</span>
-    </div>
+    function setStatus(msg) {
+      statusEl.textContent = msg || '';
+    }
 
-    <div class="tax-box">
-      <div style="margin-bottom:.5rem; font-weight:600; color:#fde047">💰 Tax Set-Aside (for you only)</div>
-      <div class="tax-row">
-        <span>Job Total</span>
-        <span>${formatCurrency(subtotal)}</span>
-      </div>
-      <div class="tax-row">
-        <span>Set aside ~28% for taxes</span>
-        <span>-${formatCurrency(taxSetAside)}</span>
-      </div>
-      <div class="tax-row takehome">
-        <span>Your Take-Home (after tax stash)</span>
-        <span>${formatCurrency(takeHome)}</span>
-      </div>
-      <small style="color:#fef08a; margin-top:.4rem">This never shows on customer invoices - for your tax planning only.</small>
-    </div>
-  `;
-}
-</script>
+    function renderEstimate(data) {
+      if (!data || !data.estimate) {
+        estimateContainer.innerHTML = '<p>Unable to build estimate. Check inputs and try again.</p>';
+        return;
+      }
+
+      const e = data.estimate;
+      const c = data.customer || {};
+      const v = data.vehicle || {};
+      const copy = data.copy || {};
+      const tech = data.tech || {};
+
+      estimateContainer.innerHTML = `
+        <h3>Customer summary</h3>
+        <p>${copy.customerSummary || 'Here is your repair estimate based on the information provided.'}</p>
+        <small>${copy.disclaimer || 'This is an estimate, not a final invoice. Actual costs may vary after teardown and inspection.'}</small>
+
+        <h3 style="margin-top:1rem;">Vehicle & concern</h3>
+        <p><strong>Customer:</strong> ${c.name || 'N/A'} · ${c.phone || ''}</p>
+        <p><strong>Vehicle:</strong> ${v.year || ''} ${v.make || ''} ${v.model || ''}</p>
+        <p><strong>Primary concern:</strong> ${copy.primaryConcern || 'As reported by customer and verified by technician.'}</p>
+
+        <h3 style="margin-top:1rem;">Estimate breakdown</h3>
+        <div class="estimate-grid">
+          <div>Labor hours:</div><div>${e.laborHours.toFixed(2)}</div>
+          <div>Labor total:</div><div>$${e.laborTotal.toFixed(2)}</div>
+          <div>Parts total:</div><div>$${e.partsTotal.toFixed(2)}</div>
+          <div>Shop supplies:</div><div>$${e.shopSupplies.toFixed(2)}</div>
+          <div>Tax set‑aside:</div><div>$${e.tax.toFixed(2)}</div>
+        </div>
+        <div class="estimate-total">
+          Estimate total: $${e.grandTotal.toFixed(2)}
+        </div>
+
+        <h3 style="margin-top:1rem;">Tech notes</h3>
+        <p style="white-space:pre-wrap;">${tech.diagnosticNotes || 'Diagnostic notes will appear here for technician reference.'}</p>
+        <small>${tech.engineMeta || ''}</small>
+      `;
+    }
+
+    generateBtn.addEventListener('click', async () => {
+      const payload = {
+        customer: {
+          name: document.getElementById('customerName').value.trim(),
+          phone: document.getElementById('customerPhone').value.trim(),
+        },
+        vehicle: {
+          year: document.getElementById('vehicleYear').value.trim(),
+          make: document.getElementById('vehicleMake').value.trim(),
+          model: document.getElementById('vehicleModel').value.trim(),
+        },
+        state: document.getElementById('state').value,
+        diagnostic: {
+          symptoms: document.getElementById('symptoms').value.trim(),
+          codes: document.getElementById('codes').value.split(',').map(c => c.trim()).filter(Boolean),
+        },
+        mechanic: {
+          findings: document.getElementById('mechanicFindings').value.trim(),
+        }
+      };
+
+      setStatus('AI building estimate…');
+      generateBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/generate-estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          throw new Error('Server error: ' + res.status);
+        }
+
+        const data = await res.json();
+        renderEstimate(data);
+        setStatus('Estimate generated · Ready for customer review.');
+      } catch (err) {
+        console.error(err);
+        setStatus('Error generating estimate. Check console/logs.');
+        estimateContainer.innerHTML = '<p>Something went wrong generating the estimate.</p>';
+      } finally {
+        generateBtn.disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>
