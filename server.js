@@ -92,7 +92,8 @@ const FLAT_RATES = {
 };
 
 function getFlatRate(description) {
-  const desc = description.toLowerCase().trim();
+  const desc = (description || '').toLowerCase().trim();
+  if (!desc) return null;
   for (const [job, hours] of Object.entries(FLAT_RATES)) {
     if (desc.includes(job)) return { job, hours };
   }
@@ -112,54 +113,155 @@ function getHourGuidance(description) {
 }
 
 // ========================================
-// AI PROMPT BUILDER (3-INPUT INTEGRATED)
+// EVIDENCE ANALYZER (OBD + CUSTOMER + MECHANIC)
 // ========================================
-function buildPrompt({ customer, vehicle, obdCodes, customerStates, mechanicNotices, laborRate }) {
+function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices = [] }) {
+  let confidence = 0;
+  let suggestedJobType = "Diagnosis";
+  let detectedRepair = null;
+
+  const codesArr = Array.isArray(obdCodes) ? obdCodes : [];
+  const statesArr = Array.isArray(customerStates) ? customerStates : [];
+  const noticesArr = Array.isArray(mechanicNotices) ? mechanicNotices : [];
+
+  const findingsText = [
+    ...codesArr,
+    ...statesArr,
+    ...noticesArr
+  ].join(" ").toLowerCase();
+
+  const repairSignals = [
+    {
+      kw: "torn cv boot",
+      repair: "CV axle replacement",
+      hours: 1.5,
+      parts: [{ name: "CV axle shaft assembly", cost: 125 }]
+    },
+    {
+      kw: "axle clicking",
+      repair: "CV axle replacement",
+      hours: 1.5,
+      parts: [{ name: "CV axle shaft assembly", cost: 125 }]
+    },
+    {
+      kw: "cv axle",
+      repair: "CV axle replacement",
+      hours: 1.5,
+      parts: [{ name: "CV axle shaft assembly", cost: 125 }]
+    },
+    {
+      kw: "valve cover leaking",
+      repair: "Valve cover gasket replacement",
+      hours: 2.0,
+      parts: [{ name: "Valve cover gasket set", cost: 35 }]
+    },
+    {
+      kw: "oil on exhaust",
+      repair: "Valve cover gasket replacement",
+      hours: 2.0,
+      parts: [{ name: "Valve cover gasket set", cost: 35 }]
+    },
+    {
+      kw: "wheel bearing noise",
+      repair: "Wheel bearing replacement",
+      hours: 1.5,
+      parts: [{ name: "Wheel bearing hub assembly", cost: 85 }]
+    }
+  ];
+
+  for (const sig of repairSignals) {
+    if (findingsText.includes(sig.kw)) {
+      confidence += 60;
+      detectedRepair = sig;
+    }
+  }
+
+  if (noticesArr.length > 0) confidence += 20;
+  if (codesArr.length > 0) confidence += 10;
+  if (statesArr.length > 0) confidence += 5;
+
+  if (confidence >= 60) suggestedJobType = "Repair";
+
+  return { confidence, suggestedJobType, detectedRepair };
+}
+
+// ========================================
+// AI PROMPT BUILDER (3-INPUT + DECISION ENGINE)
+// ========================================
+function buildPrompt({ customer, vehicle, description, obdCodes, customerStates, mechanicNotices, laborRate }) {
   const effectiveRate = laborRate || DEFAULT_LABOR_RATE;
-  
+
   const codesStr = Array.isArray(obdCodes) && obdCodes.length > 0 ? obdCodes.join(', ') : 'None';
   const statesStr = Array.isArray(customerStates) && customerStates.length > 0 ? customerStates.join('; ') : 'None';
   const noticesStr = Array.isArray(mechanicNotices) && mechanicNotices.length > 0 ? mechanicNotices.join('; ') : 'None';
+
+  const evidence = analyzeEvidence({ obdCodes, customerStates, mechanicNotices });
+
+  const forcedJobType = evidence.suggestedJobType; // "Diagnosis" or "Repair"
+  const forcedParts = evidence.detectedRepair ? evidence.detectedRepair.parts : [];
+  const forcedHours = evidence.detectedRepair ? evidence.detectedRepair.hours : null;
+  const forcedRepairName = evidence.detectedRepair ? evidence.detectedRepair.repair : null;
+
+  const forcedPartsText = forcedParts.length
+    ? forcedParts.map(p => `${p.name} (~$${p.cost})`).join(', ')
+    : 'AI must choose appropriate parts based on confirmed failure.';
+
+  const forcedHoursText = forcedHours
+    ? `Use approximately ${forcedHours} labor hours for this repair unless strong justification exists to adjust.`
+    : 'Choose realistic labor hours based on typical mobile mechanic times.';
 
   return `You are an expert mobile mechanic estimator with 20+ years of complex field diagnostic experience.
 
 🔒 MANDATORY LABOR RATE: $${effectiveRate}/hour (NEVER alter this rate).
 
-Your task is to analyze three distinct entry pools of vehicle diagnostics to establish an accurate assessment:
+You receive three diagnostic input streams:
 1. 📟 OBD-II Trouble Codes (Objective computer errors)
-2. 🗣️ Customer States (Subjective symptom complaints - filter this with a grain of salt)
-3. 🔍 Mechanic Findings & Notices (Hard physical field observations from the technician under the hood)
+2. 🗣️ Customer States (Subjective symptom complaints - treat carefully)
+3. 🔍 Mechanic Findings & Notices (Highest-weight physical observations)
 
-CRITICAL VEHICLE ARCHITECTURE RECOGNITION RULES:
-- You must honor physical constraints and manufacturer configurations. 
-- Example: For Ford V8 platforms (e.g., 5.4L Triton), Cylinder #1 is front passenger side. Passenger side is Bank 1 (Cylinders 1-4). Driver side is Bank 2 (Cylinders 5-8). Cross-reference OBD-II codes (like P0171 Lean Bank 1, P0302 Cylinder 2 misfire) with physical leaks detected on that exact bank before rendering names.
+You MUST integrate all three to decide whether this is:
+- A pure "Diagnosis" job (no confirmed failure yet), or
+- A "Repair" job (confirmed component failure with clear remedy).
 
-DIAGNOSTIC APPROACH AND DATA INTEGRATION:
-- If the mechanic notices do NOT confirm a single final component failure yet, output a "jobType": "Diagnosis" estimate. Keep parts empty and use "warnings" to detail your root cause probabilities (%).
-- If the mechanic notices provide conclusive evidence of a failure (e.g., "observed fresh oil wet on exhaust downpipe tracking from valve cover"), structure the output as a "jobType": "Repair" with real repair flat-rate labor times and appropriate parts components.
+DECISION ENGINE (ALREADY RUN FOR YOU):
+- Suggested jobType: "${forcedJobType}"
+- Confidence score: ${evidence.confidence} (0-100)
+- Detected repair pattern: ${forcedRepairName || 'None (AI must infer if appropriate)'}
 
-🎯 DETAIL PERFORMANCE LEVEL:
-- "workSteps": Create targeted, sequential troubleshooting or installation items tailored precisely to this vehicle setup.
-- "warnings": Map out the percentage possibilities for the root causes clearly based on the interaction of all three inputs.
+RULES:
+- If jobType = "Diagnosis":
+  - "parts": MUST be an empty array []
+  - Focus "workSteps" on tests, inspections, and measurements
+  - "warnings": MUST list possible causes with probabilities and rough cost ranges
+- If jobType = "Repair":
+  - "parts": MUST include a realistic parts list
+  - Use this parts guidance: ${forcedPartsText}
+  - ${forcedHoursText}
+  - "workSteps": MUST describe the actual repair procedure with verification steps
+  - "warnings": MUST include possible complications (seized bolts, hidden damage, etc.)
 
-JSON RESPONSE REQUIRED (Strict JSON only, no markdown wrapping, no text outside braces):
+CRITICAL VEHICLE ARCHITECTURE RECOGNITION:
+- Honor physical constraints and manufacturer configurations.
+- Example: For Ford V8 platforms (e.g., 5.4L Triton), Cylinder #1 is front passenger side. Passenger side is Bank 1 (Cylinders 1-4). Driver side is Bank 2 (Cylinders 5-8). Cross-reference OBD-II codes (like P0171 Lean Bank 1, P0302 Cylinder 2 misfire) with physical leaks or failures on that exact bank before naming components.
+
+JSON RESPONSE REQUIRED (Strict JSON only, no markdown, no commentary):
 {
-  "jobType": "Diagnosis" | "Repair" | "Service",
+  "jobType": "${forcedJobType}",
   "shortDescription": "Brief summary including system and vehicle info",
   "laborHours": 1.5,
   "laborRate": ${effectiveRate},
   "workSteps": [
-    "Step 1 with diagnostic parameters",
-    "Step 2 with technical installation details"
+    "Step 1 with diagnostic parameters or repair actions",
+    "Step 2 with technical details and verification"
   ],
   "parts": [
-    {"name": "Part Name Required", "cost": 45}
+    {"name": "Part Name", "cost": 45}
   ],
   "shopSuppliesPercent": 7,
   "timeline": "1-2 hours" | "Same day" | "Next day",
-  "notes": "Context summary analyzing the inputs together",
+  "notes": "Context summary analyzing all inputs together",
   "tips": [
-    "Practical advice on special tools or procedures"
+    "Practical advice on tools, access, or safety"
   ],
   "warnings": [
     "MOST LIKELY (XX%): Reason - expected cost details",
@@ -167,18 +269,19 @@ JSON RESPONSE REQUIRED (Strict JSON only, no markdown wrapping, no text outside 
   ]
 }
 
-🚨 VEHICLE CASE PROFILE DATA:
+🚨 VEHICLE CASE PROFILE:
 CUSTOMER: ${customer.name}
 VEHICLE: ${vehicle || 'Not specified'}
-📟 INTERFACED OBD CODES: ${codesStr}
-🗣️ RECONSTRUCTED CUSTOMER COMPLAINT: ${statesStr}
-🔍 TECHNICIAN ON-SITE FINDINGS: ${noticesStr}
+LEGACY DESCRIPTION: ${description || 'None'}
+📟 OBD CODES: ${codesStr}
+🗣️ CUSTOMER STATES: ${statesStr}
+🔍 MECHANIC FINDINGS: ${noticesStr}
 
-Generate your diagnostic estimate object now:`;
+Generate your JSON estimate object now (no extra text, JSON only):`;
 }
 
 // ========================================
-// VALIDATION SCHEMAS (UPDATED FOR 3-INPUT STRUCTURE)
+// VALIDATION SCHEMAS (3-INPUT STRUCTURE)
 // ========================================
 const GenerateSchema = z.object({
   customer: z.object({
@@ -187,7 +290,7 @@ const GenerateSchema = z.object({
     email: z.string().optional()
   }),
   vehicle: z.string().optional(),
-  description: z.string().min(3), // Maintained for legacy compatibility
+  description: z.string().optional().default(''), // Loose fallback schema parameter
   obdCodes: z.array(z.string()).optional().default([]),
   customerStates: z.array(z.string()).optional().default([]),
   mechanicNotices: z.array(z.string()).optional().default([]),
@@ -202,8 +305,8 @@ app.get('/', (req, res) => {
   res.json({ 
     status: 'ok', 
     service: 'SKSK ProTech Backend',
-    version: '3.1.0',
-    features: ['Groq AI Multi-Input', 'Flat Rates', 'Tax Tracking', 'Invoice System', 'VIN Lookup', 'Stripe Payments']
+    version: '3.2.0',
+    features: ['Groq AI Multi-Input + Decision Engine', 'Flat Rates', 'Tax Tracking', 'Invoice System', 'VIN Lookup', 'Stripe Payments']
   });
 });
 
@@ -218,8 +321,7 @@ app.post('/api/generate-estimate', async (req, res) => {
 
     console.log(`[ESTIMATE] ${customer.name} | ${vehicle || 'N/A'} | Codes: ${obdCodes.length} | Findings: ${mechanicNotices.length}`);
 
-    // Build prompt combining the specialized tracking parameters
-    const prompt = buildPrompt({ customer, vehicle, obdCodes, customerStates, mechanicNotices, laborRate });
+    const prompt = buildPrompt({ customer, vehicle, description, obdCodes, customerStates, mechanicNotices, laborRate });
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -257,14 +359,16 @@ app.post('/api/generate-estimate', async (req, res) => {
     }
 
     estimate.laborRate = laborRate;
-    
-    // Fallback flat-rate enforcement matching
-    const flatRateMatch = getFlatRate(description);
-    if (flatRateMatch && typeof flatRateMatch.hours === 'number') {
-      estimate.laborHours = flatRateMatch.hours;
-      console.log(`[FLAT RATE] Forced ${flatRateMatch.hours}hrs for "${flatRateMatch.job}"`);
+
+    // Flat-rate fallback execution checks
+    if (description) {
+      const flatRateMatch = getFlatRate(description);
+      if (flatRateMatch && typeof flatRateMatch.hours === 'number') {
+        estimate.laborHours = flatRateMatch.hours;
+        console.log(`[FLAT RATE] Forced ${flatRateMatch.hours}hrs for "${flatRateMatch.job}"`);
+      }
     }
-    
+
     estimate.shopSuppliesPercent = estimate.shopSuppliesPercent ?? 7;
     estimate.laborHours = parseFloat(estimate.laborHours || 0);
     estimate.parts = (estimate.parts || []).map(p => ({ 
@@ -303,8 +407,8 @@ app.post('/api/generate-estimate', async (req, res) => {
     const { data: savedJob, error: jobErr } = await supabase.from('jobs').insert({
       customer_id: customerRecord.id,
       status: 'estimate',
-      description: estimate.shortDescription || description,
-      raw_description: description,
+      description: estimate.shortDescription || description || 'Diagnostic Estimate',
+      raw_description: description || 'Multi-input system generated',
       job_type: estimate.jobType || 'Auto Repair',
       vehicle: vehicle || null,
       estimated_labor_hours: estimate.laborHours,
@@ -329,7 +433,16 @@ app.post('/api/generate-estimate', async (req, res) => {
 
     res.json({
       ok: true,
-      estimate: { ...estimate, laborCost, partsCost, shopSupplies, subtotal, taxRate, recommendedTaxSetaside, netAfterTax },
+      estimate: { 
+        ...estimate, 
+        laborCost, 
+        partsCost, 
+        shopSupplies, 
+        subtotal, 
+        taxRate, 
+        recommendedTaxSetaside, 
+        netAfterTax 
+      },
       savedJob,
       customer: customerRecord
     });
@@ -568,8 +681,8 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
 // START SERVER
 // ========================================
 app.listen(PORT, () => {
-  console.log(`🔥 SKSK ProTech Backend v3.1 on port ${PORT}`);
-  console.log(`🤖 Groq AI Multi-Input Tracking Active`);
+  console.log(`🔥 SKSK ProTech Backend v3.2 on port ${PORT}`);
+  console.log(`🤖 Groq AI Multi-Input + Decision Engine Active`);
   console.log(`💰 Tax tracking enabled`);
   if (stripe) console.log(`💳 Stripe payments enabled`);
 });
