@@ -6,6 +6,7 @@ const { z } = require('zod');
 
 const app = express();
 
+// Enable CORS for all routes upfront
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -13,10 +14,9 @@ app.use(cors({
   credentials: false
 }));
 app.options('*', cors());
-app.use(express.json());
 
 // ========================================
-// ENV
+// ENV & INITIALIZATION
 // ========================================
 const PORT                  = process.env.PORT || 4000;
 const GROQ_API_KEY          = process.env.GROQ_API_KEY;
@@ -35,8 +35,43 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 let stripe = null;
 if (STRIPE_SECRET_KEY) {
   stripe = require('stripe')(STRIPE_SECRET_KEY);
-  console.log('💳 Stripe initialized');
+  console.log('静态 💳 Stripe initialized');
 }
+
+// ========================================
+// STRIPE WEBHOOK (Must be defined BEFORE express.json())
+// ========================================
+app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe) return res.status(500).send('Stripe not configured');
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const code = generateAccessCode();
+      await supabase.from('access_codes').insert({ code, tier: 'pro', customer_name: session.client_reference_id || session.customer_email, email: session.customer_email, is_active: true, max_uses: 999, stripe_customer_id: session.customer, stripe_subscription_id: session.subscription, stripe_subscription_status: 'active' });
+      console.log(`[ACCESS CODE] ${code} for ${session.customer_email}`);
+    } else if (event.type === 'customer.subscription.updated') {
+      const sub = event.data.object;
+      await supabase.from('access_codes').update({ is_active: ['active','trialing'].includes(sub.status), stripe_subscription_status: sub.status }).eq('stripe_subscription_id', sub.id);
+    } else if (event.type === 'customer.subscription.deleted') {
+      const sub = event.data.object;
+      await supabase.from('access_codes').update({ is_active: false, stripe_subscription_status: 'canceled' }).eq('stripe_subscription_id', sub.id);
+    }
+  } catch (err) {
+    console.error('[WEBHOOK HANDLER ERROR]', err);
+  }
+  res.json({ received: true });
+});
+
+// ========================================
+// GLOBAL JSON MIDDLEWARE (Safe for all subsequent routes)
+// ========================================
+app.use(express.json());
 
 // ========================================
 // FLAT RATES
@@ -99,17 +134,14 @@ function getFlatRate(description) {
 
 // ========================================
 // REPAIR SIGNAL LIBRARY
-// Multi-repair detection — scans ALL 3 layers, collects ALL hits
-// Priority: mechanic findings > OBD codes > customer states
 // ========================================
 const REPAIR_SIGNALS = [
-  // ── CV / AXLE ────────────────────────────────────────────────────────
   {
     id: 'cv_axle',
     keywords: ['torn cv boot', 'cv boot torn', 'ripped cv boot', 'axle boot torn',
                'axle clicking', 'cv axle', 'clicking on turns', 'clicking when turning'],
     symptomKeywords: ['clicking turn', 'clicking when turn', 'clicking on turn', 'clunk turn'],
-    layer: 'mechanic_or_obd',     // mechanic finding = confirmed; customer state = suspected
+    layer: 'mechanic_or_obd',
     repair: 'CV Axle Shaft Replacement',
     hours: 1.5,
     minSteps: 6,
@@ -132,8 +164,6 @@ const REPAIR_SIGNALS = [
       'WRONG SIDE: Double-check you\'re replacing the clicking side — test drive before teardown confirms which side'
     ]
   },
-
-  // ── TIE ROD ──────────────────────────────────────────────────────────
   {
     id: 'tie_rod',
     keywords: ['tie rod boot missing', 'tie rod boot torn', 'tie rod worn', 'tie rod loose',
@@ -165,8 +195,6 @@ const REPAIR_SIGNALS = [
       'CORRODED KNUCKLE TAPER — tie rod puller required; hammer method damages threads and knuckle bore'
     ]
   },
-
-  // ── SWAY BAR LINKS ───────────────────────────────────────────────────
   {
     id: 'sway_bar_links',
     keywords: ['sway bar link broken', 'sway bar link loose', 'stabilizer link', 'end link broken',
@@ -194,8 +222,6 @@ const REPAIR_SIGNALS = [
       'TORQUE AT RIDE HEIGHT: Torquing with suspension hanging preloads the bushing wrong — always torque with wheels on ground'
     ]
   },
-
-  // ── BALL JOINT ───────────────────────────────────────────────────────
   {
     id: 'ball_joint',
     keywords: ['ball joint worn', 'ball joint loose', 'ball joint play', 'torn ball joint boot',
@@ -225,8 +251,6 @@ const REPAIR_SIGNALS = [
       'PRESS REQUIRED: Many ball joints are pressed in — need ball joint press or shop press, not just standard tools'
     ]
   },
-
-  // ── STRUT / SHOCK ────────────────────────────────────────────────────
   {
     id: 'strut',
     keywords: ['strut leaking', 'strut bad', 'shock leaking', 'shock worn', 'bounce test fail',
@@ -257,8 +281,6 @@ const REPAIR_SIGNALS = [
       'BEARING PLATE: Inspect strut mount bearing while apart — $40 now vs. $150 labor later'
     ]
   },
-
-  // ── WHEEL BEARING ────────────────────────────────────────────────────
   {
     id: 'wheel_bearing',
     keywords: ['wheel bearing noise', 'bearing worn', 'bearing play', 'hub bearing',
@@ -286,8 +308,6 @@ const REPAIR_SIGNALS = [
       'AXLE NUT TORQUE: Must be torqued to spec (often 150-200 ft-lbs) — improper torque destroys new bearing fast'
     ]
   },
-
-  // ── VALVE COVER GASKET ───────────────────────────────────────────────
   {
     id: 'valve_cover_gasket',
     keywords: ['valve cover leaking', 'oil on valve cover', 'valve cover gasket', 'oil on exhaust',
@@ -316,8 +336,6 @@ const REPAIR_SIGNALS = [
       'MULTIPLE LAYERS: Some engines (e.g., V6/V8) have upper and lower intake manifolds in the way — add 1-2hrs'
     ]
   },
-
-  // ── BRAKE PADS (from description/states fallback) ─────────────────────
   {
     id: 'brakes',
     keywords: ['grinding brakes', 'squealing brakes', 'brake pads worn', 'metal on metal brakes',
@@ -347,8 +365,6 @@ const REPAIR_SIGNALS = [
       'BRAKE FLUID: Check fluid level while caliper is compressed — dark/contaminated fluid = flush needed'
     ]
   },
-
-  // ── HEAD GASKET TELLS ─────────────────────────────────────────────────
   {
     id: 'head_gasket_suspect',
     keywords: ['white smoke exhaust', 'milky oil', 'coolant in oil', 'oil in coolant',
@@ -356,10 +372,10 @@ const REPAIR_SIGNALS = [
     symptomKeywords: ['overheating', 'white smoke', 'losing coolant no leak', 'milky dipstick'],
     layer: 'either',
     repair: 'Head Gasket Diagnostic (Suspected Failure)',
-    jobType: 'Diagnosis',  // Override to Diagnosis — confirm before committing to repair
+    jobType: 'Diagnosis',
     hours: 1.5,
     minSteps: 6,
-    parts: [],  // Diagnosis first
+    parts: [],
     workSteps: [
       'Check oil dipstick for milky/frothy contamination — coolant in oil is definitive',
       'Check coolant reservoir for oily film or brown sludge',
@@ -378,43 +394,33 @@ const REPAIR_SIGNALS = [
 
 // ========================================
 // SYMPTOM → REPAIR ROUTING
-// Routes customer complaint patterns to suspected systems
-// Used to weight AI prompt even without mechanic confirmation
 // ========================================
 const SYMPTOM_ROUTES = [
   { patterns: ['click', 'clicking', 'pop on turn', 'snap turn'],
     when: ['turn', 'turning', 'full lock', 'steering wheel'],
     likelyCause: 'CV axle shaft (inner or outer joint)', confidence: 70 },
-
   { patterns: ['clunk', 'knock', 'bang', 'thud'],
     when: ['bump', 'pothole', 'rough road', 'hit bump', 'over bump', 'speed bump'],
     likelyCause: 'Sway bar end links (most common), ball joint, or strut mount', confidence: 65 },
-
   { patterns: ['grind', 'grinding', 'growl', 'growling', 'hum', 'roar'],
     when: ['speed', 'highway', 'lane change', 'turning slowly', 'wheel'],
     likelyCause: 'Wheel bearing failure', confidence: 70 },
-
   { patterns: ['squeal', 'squeak', 'grind'],
     when: ['brake', 'stop', 'stopping', 'slow down'],
     likelyCause: 'Worn brake pads or seized caliper', confidence: 80 },
-
   { patterns: ['pull', 'pulls', 'drift', 'wander'],
     when: ['left', 'right', 'highway', 'hands off wheel', 'steering'],
     likelyCause: 'Alignment, tie rod, or brake caliper drag', confidence: 60 },
-
   { patterns: ['bounce', 'float', 'sway', 'dive', 'bottoms'],
     when: ['bump', 'speed bump', 'corner', 'braking', 'turning'],
     likelyCause: 'Worn struts or shock absorbers', confidence: 65 },
-
   { patterns: ['white smoke', 'steam', 'overheat', 'losing coolant', 'milky'],
     when: ['exhaust', 'running', 'driving', 'dipstick', 'reservoir'],
     likelyCause: 'Head gasket failure or coolant system breach', confidence: 75 }
 ];
 
 // ========================================
-// MULTI-REPAIR EVIDENCE ANALYZER
-// Returns ALL detected repairs, not just the first hit
-// Layer weighting: mechanic (1.0) > OBD (0.7) > customer (0.4)
+// EVIDENCE ANALYZER
 // ========================================
 function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices = [] }) {
   const codesText    = (Array.isArray(obdCodes)        ? obdCodes        : []).join(' ').toLowerCase();
@@ -422,18 +428,15 @@ function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices =
   const noticesText  = (Array.isArray(mechanicNotices) ? mechanicNotices : []).join(' ').toLowerCase();
 
   const allText = `${codesText} ${statesText} ${noticesText}`;
-
   const detectedRepairs = [];
   const seenIds = new Set();
 
-  // ── Scan repair signal library ──────────────────────────────────────
   for (const signal of REPAIR_SIGNALS) {
     if (seenIds.has(signal.id)) continue;
 
     let confidence = 0;
     let triggeredBy = [];
 
-    // Mechanic findings — highest weight (confirmed visual/physical)
     for (const kw of signal.keywords) {
       if (noticesText.includes(kw)) {
         confidence += 70;
@@ -442,7 +445,6 @@ function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices =
       }
     }
 
-    // OBD codes — objective but not physical
     for (const kw of signal.keywords) {
       if (codesText.includes(kw)) {
         confidence += 50;
@@ -451,16 +453,14 @@ function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices =
       }
     }
 
-    // Customer states — subjective, lower weight
     const symptomKws = signal.symptomKeywords || [];
     for (const kw of symptomKws) {
       if (statesText.includes(kw)) {
-        confidence = Math.max(confidence, 40); // symptom alone = suspected, not confirmed
+        confidence = Math.max(confidence, 40);
         triggeredBy.push(`customer: "${kw}"`);
         break;
       }
     }
-    // Also check main keywords in customer text at lower weight
     for (const kw of signal.keywords) {
       if (statesText.includes(kw) && !triggeredBy.some(t => t.includes(kw))) {
         confidence = Math.max(confidence, 45);
@@ -480,7 +480,6 @@ function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices =
     }
   }
 
-  // ── Symptom route analysis (for AI guidance even without signal match) ──
   const symptomInsights = [];
   for (const route of SYMPTOM_ROUTES) {
     const patternMatch = route.patterns.some(p => statesText.includes(p) || noticesText.includes(p));
@@ -493,9 +492,6 @@ function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices =
     }
   }
 
-  // ── Overall job type decision ─────────────────────────────────────────
-  // If ANY confirmed (≥60) repair detected = Repair job
-  // If only suspected (40-59) = Diagnosis + flag suspicions
   const hasConfirmed  = detectedRepairs.some(r => r.confidence >= 60);
   const hasSuspected  = detectedRepairs.some(r => r.confidence >= 40 && r.confidence < 60);
   const overallType   = hasConfirmed ? 'Repair' : hasSuspected ? 'Diagnosis' : 'Diagnosis';
@@ -506,7 +502,7 @@ function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices =
   return {
     overallJobType: overallType,
     totalConfidence,
-    detectedRepairs,          // ALL detected — may be multiple
+    detectedRepairs,
     symptomInsights,
     hasMultipleRepairs: detectedRepairs.filter(r => r.confidence >= 60).length > 1
   };
@@ -514,7 +510,6 @@ function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices =
 
 // ========================================
 // PROMPT BUILDER v4
-// Passes full multi-repair context to AI
 // ========================================
 function buildPrompt({ customer, vehicle, description, obdCodes, customerStates, mechanicNotices, laborRate }) {
   const effectiveRate = laborRate || DEFAULT_LABOR_RATE;
@@ -524,7 +519,6 @@ function buildPrompt({ customer, vehicle, description, obdCodes, customerStates,
   const statesStr  = Array.isArray(customerStates)  && customerStates.length  ? customerStates.join('; ')  : 'None';
   const noticesStr = Array.isArray(mechanicNotices) && mechanicNotices.length ? mechanicNotices.join('; ') : 'None';
 
-  // Build detected repairs context for AI
   let repairsContext = '';
   if (evidence.detectedRepairs.length > 0) {
     repairsContext = evidence.detectedRepairs.map((r, i) => {
@@ -543,7 +537,6 @@ DETECTED REPAIR ${i + 1}: "${r.repair}"
     repairsContext = 'No specific repair patterns detected — generate diagnostic estimate based on symptoms.';
   }
 
-  // Symptom insights for the AI
   const insightsStr = evidence.symptomInsights.length > 0
     ? evidence.symptomInsights.map(s => `• ${s.likelyCause} (${s.confidence}% probability)`).join('\n')
     : 'No additional symptom patterns detected.';
@@ -687,7 +680,6 @@ app.post('/api/generate-estimate', async (req, res) => {
 
     console.log(`[ESTIMATE v4] ${customer.name} | ${vehicle || 'N/A'} | OBD:${obdCodes.length} | States:${customerStates.length} | Findings:${mechanicNotices.length}`);
 
-    // Run pre-analysis so we can log what the engine detected
     const evidence = analyzeEvidence({ obdCodes, customerStates, mechanicNotices });
     console.log(`[ENGINE] JobType:${evidence.overallJobType} | Confidence:${evidence.totalConfidence}% | Repairs detected: ${evidence.detectedRepairs.length}`);
     evidence.detectedRepairs.forEach(r => {
@@ -734,10 +726,8 @@ app.post('/api/generate-estimate', async (req, res) => {
       return res.status(500).json({ error: 'AI returned invalid JSON', raw: text.substring(0, 500) });
     }
 
-    // ── Post-process ────────────────────────────────────────────────────
     estimate.laborRate = laborRate;
 
-    // Flat-rate override check
     if (description) {
       const flatMatch = getFlatRate(description);
       if (flatMatch && typeof flatMatch.hours === 'number') {
@@ -746,17 +736,14 @@ app.post('/api/generate-estimate', async (req, res) => {
       }
     }
 
-    // Enforce minimum work steps
     const MIN_STEPS = 5;
     if (!Array.isArray(estimate.workSteps) || estimate.workSteps.length < MIN_STEPS) {
-      // Append detected repair steps if AI shorted us
       const detectedWithSteps = evidence.detectedRepairs.find(r => r.workSteps && r.workSteps.length >= MIN_STEPS);
       if (detectedWithSteps) {
         estimate.workSteps = detectedWithSteps.workSteps;
       }
     }
 
-    // Enforce detected parts if AI returned empty parts on a Repair job
     if (estimate.jobType === 'Repair' && (!estimate.parts || estimate.parts.length === 0)) {
       const allDetectedParts = evidence.detectedRepairs.flatMap(r => r.parts || []);
       if (allDetectedParts.length > 0) {
@@ -765,7 +752,6 @@ app.post('/api/generate-estimate', async (req, res) => {
       }
     }
 
-    // Enforce minimum warnings if AI skipped them
     if (!Array.isArray(estimate.warnings) || estimate.warnings.length === 0) {
       const allWarnings = evidence.detectedRepairs.flatMap(r => r.warnings || []);
       if (allWarnings.length > 0) estimate.warnings = allWarnings.slice(0, 5);
@@ -783,7 +769,6 @@ app.post('/api/generate-estimate', async (req, res) => {
       status: r.confidence >= 60 ? 'Confirmed' : 'Suspected'
     }));
 
-    // ── Totals ──────────────────────────────────────────────────────────
     const laborCost             = Number((estimate.laborHours * estimate.laborRate).toFixed(2));
     const partsCost             = estimate.parts.reduce((s, p) => s + Number(p.cost || 0), 0);
     const shopSupplies          = Number((partsCost * (estimate.shopSuppliesPercent / 100)).toFixed(2));
@@ -792,7 +777,6 @@ app.post('/api/generate-estimate', async (req, res) => {
     const recommendedTaxSetaside = Number((subtotal * 0.28).toFixed(2));
     const netAfterTax           = Number((subtotal - recommendedTaxSetaside).toFixed(2));
 
-    // ── Customer upsert ──────────────────────────────────────────────────
     let customerRecord = null;
     if (customer.email) {
       const { data: d } = await supabase.from('customers').select('*').eq('email', customer.email).limit(1);
@@ -810,7 +794,6 @@ app.post('/api/generate-estimate', async (req, res) => {
       customerRecord = d;
     }
 
-    // ── Save job ─────────────────────────────────────────────────────────
     const { data: savedJob, error: jobErr } = await supabase.from('jobs').insert({
       customer_id:                    customerRecord.id,
       status:                         'estimate',
@@ -909,7 +892,7 @@ app.get('/api/vin-lookup/:vin', async (req, res) => {
     const trim = getField(109);
     const displacement = getField(11);
     const cylinders = getField(9);
-    const driveType = getField(15); // AWD/FWD/RWD
+    const driveType = getField(15);
     let displayString = [year, make, model, trim, (displacement && cylinders) ? `${displacement}L V${cylinders}` : null].filter(Boolean).join(' ');
     res.json({ ok: true, vin, year, make, model, trim, displacement, cylinders, driveType, displayString: displayString.trim() });
   } catch (err) {
@@ -927,7 +910,7 @@ app.get('/api/jobs', async (req, res) => {
 });
 
 // ========================================
-// STRIPE
+// STRIPE SESSIONS
 // ========================================
 const PRICING = {
   pro_monthly: { price: 2900, interval: 'month', name: 'SKSK ProTech Pro - Monthly' },
@@ -961,35 +944,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
-app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  if (!stripe) return res.status(500).send('Stripe not configured');
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-  try {
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object;
-      const code = generateAccessCode();
-      await supabase.from('access_codes').insert({ code, tier: 'pro', customer_name: session.client_reference_id || session.customer_email, email: session.customer_email, is_active: true, max_uses: 999, stripe_customer_id: session.customer, stripe_subscription_id: session.subscription, stripe_subscription_status: 'active' });
-      console.log(`[ACCESS CODE] ${code} for ${session.customer_email}`);
-    } else if (event.type === 'customer.subscription.updated') {
-      const sub = event.data.object;
-      await supabase.from('access_codes').update({ is_active: ['active','trialing'].includes(sub.status), stripe_subscription_status: sub.status }).eq('stripe_subscription_id', sub.id);
-    } else if (event.type === 'customer.subscription.deleted') {
-      const sub = event.data.object;
-      await supabase.from('access_codes').update({ is_active: false, stripe_subscription_status: 'canceled' }).eq('stripe_subscription_id', sub.id);
-    }
-  } catch (err) {
-    console.error('[WEBHOOK HANDLER ERROR]', err);
-  }
-  res.json({ received: true });
-});
-
 // ========================================
-// START
+// START SERVER
 // ========================================
 app.listen(PORT, () => {
   console.log(`🔥 SKSK ProTech Backend v4.0 on port ${PORT}`);
