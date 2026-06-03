@@ -112,197 +112,73 @@ function getHourGuidance(description) {
 }
 
 // ========================================
+// AI PROMPT BUILDER (3-INPUT INTEGRATED)
 // ========================================
-// SECTION 4: AI PROMPT BUILDER (ENHANCED)
-// REPLACE YOUR EXISTING buildPrompt() FUNCTION WITH THIS
-// ========================================
-
-function buildPrompt({ customer, vehicle, description, laborRate }) {
+function buildPrompt({ customer, vehicle, obdCodes, customerStates, mechanicNotices, laborRate }) {
   const effectiveRate = laborRate || DEFAULT_LABOR_RATE;
   
-  // ========================================
-  // SYMPTOM DETECTION
-  // Detect if user described a symptom vs specific repair
-  // ========================================
-  const symptomKeywords = [
-    'no heat', 'no ac', 'overheating', 'rough idle', 'wont start', 'won\'t start',
-    'no start', 'stalling', 'stalls', 'smoking', 'leaking', 'leak', 'noise', 
-    'clicking', 'grinding', 'squealing', 'squeaking', 'vibration', 'shaking', 
-    'pulling', 'hesitation', 'hesitates', 'check engine', 'light on', 'mil on',
-    'smell', 'burning', 'not working', 'doesn\'t work', 'misfire', 'misfiring',
-    'hard to start', 'cranks but', 'turns over', 'sputtering', 'jerking',
-    'sluggish', 'loss of power', 'no power', 'running rough'
-  ];
-  
-  const isSymptom = symptomKeywords.some(keyword => 
-    description.toLowerCase().includes(keyword)
-  );
-  
-  // ========================================
-  // DIAGNOSTIC GUIDANCE (for symptoms)
-  // ========================================
-  const diagnosticGuidance = isSymptom ? `
+  const codesStr = Array.isArray(obdCodes) && obdCodes.length > 0 ? obdCodes.join(', ') : 'None';
+  const statesStr = Array.isArray(customerStates) && customerStates.length > 0 ? customerStates.join('; ') : 'None';
+  const noticesStr = Array.isArray(mechanicNotices) && mechanicNotices.length > 0 ? mechanicNotices.join('; ') : 'None';
 
-🚨 CRITICAL: This is a SYMPTOM, not a confirmed repair!
+  return `You are an expert mobile mechanic estimator with 20+ years of complex field diagnostic experience.
 
-DIAGNOSTIC APPROACH REQUIRED:
-1. Set "jobType": "Diagnosis"
-2. Set "shortDescription": "Diagnose [symptom] - [vehicle if known]"
-3. Set "laborHours": 1.0-1.5 (diagnostic time only)
-4. Set "parts": [] (empty - no parts until diagnosis confirms issue)
-5. In "workSteps": List diagnostic steps (not repair steps)
-6. In "warnings": List POSSIBLE causes ranked by probability
-7. In "notes": Explain diagnostic fee applies toward repair if approved
+🔒 MANDATORY LABOR RATE: $${effectiveRate}/hour (NEVER alter this rate).
 
-DIAGNOSTIC STEP DETAIL LEVEL (Goldilocks - not too basic, not excessive):
-✅ GOOD: "Remove wheel, inspect brake lines and hoses for cracks/leaks, check pad thickness and wear pattern (uneven = stuck caliper), measure rotor thickness with micrometer, check caliper slide pins for binding"
+Your task is to analyze three distinct entry pools of vehicle diagnostics to establish an accurate assessment:
+1. 📟 OBD-II Trouble Codes (Objective computer errors)
+2. 🗣️ Customer States (Subjective symptom complaints - filter this with a grain of salt)
+3. 🔍 Mechanic Findings & Notices (Hard physical field observations from the technician under the hood)
 
-❌ TOO BASIC: "Check brakes"
+CRITICAL VEHICLE ARCHITECTURE RECOGNITION RULES:
+- You must honor physical constraints and manufacturer configurations. 
+- Example: For Ford V8 platforms (e.g., 5.4L Triton), Cylinder #1 is front passenger side. Passenger side is Bank 1 (Cylinders 1-4). Driver side is Bank 2 (Cylinders 5-8). Cross-reference OBD-II codes (like P0171 Lean Bank 1, P0302 Cylinder 2 misfire) with physical leaks detected on that exact bank before rendering names.
 
-❌ TOO DETAILED: "Using 19mm socket, turn lug nuts counterclockwise exactly 12 rotations, lift with floor jack rated 3-ton minimum..."
+DIAGNOSTIC APPROACH AND DATA INTEGRATION:
+- If the mechanic notices do NOT confirm a single final component failure yet, output a "jobType": "Diagnosis" estimate. Keep parts empty and use "warnings" to detail your root cause probabilities (%).
+- If the mechanic notices provide conclusive evidence of a failure (e.g., "observed fresh oil wet on exhaust downpipe tracking from valve cover"), structure the output as a "jobType": "Repair" with real repair flat-rate labor times and appropriate parts components.
 
-PROBABILITY RANKING (in warnings):
-- List MOST LIKELY cause first (60-80% probability)
-- Then COMMON causes (15-25%)
-- Then LESS COMMON (5-10%)
-- Include cost estimate for each: "Thermostat ($20 + 1.0hr)"
+🎯 DETAIL PERFORMANCE LEVEL:
+- "workSteps": Create targeted, sequential troubleshooting or installation items tailored precisely to this vehicle setup.
+- "warnings": Map out the percentage possibilities for the root causes clearly based on the interaction of all three inputs.
 
-EXAMPLE for "no heat" symptom:
+JSON RESPONSE REQUIRED (Strict JSON only, no markdown wrapping, no text outside braces):
 {
-  "jobType": "Diagnosis",
-  "shortDescription": "Diagnose no heat condition - HVAC system",
+  "jobType": "Diagnosis" | "Repair" | "Service",
+  "shortDescription": "Brief summary including system and vehicle info",
   "laborHours": 1.5,
   "laborRate": ${effectiveRate},
-  "parts": [],
   "workSteps": [
-    "Check coolant level and condition (low = air in system)",
-    "Start engine, feel heater hoses - both should get hot (if not, flow issue)",
-    "Monitor temp gauge - if slow to warm up, likely thermostat",
-    "With engine warm, change temp from cold to hot - listen for blend door motor clicking",
-    "Check cabin air filter - severely clogged reduces airflow",
-    "If available, scan for HVAC fault codes"
-  ],
-  "shopSuppliesPercent": 7,
-  "timeline": "1-2 hours",
-  "notes": "Diagnostic fee applies toward repair cost if work is approved. Multiple possible causes require testing before accurate parts quote.",
-  "tips": [
-    "Start with easiest checks first - coolant level is free",
-    "Heater core clogs are less common but expensive - diagnose thoroughly first"
-  ],
-  "warnings": [
-    "MOST LIKELY (70%): Low coolant or air in system - refill/bleed ($20 + 0.5hr)",
-    "COMMON (20%): Stuck thermostat - replace ($25 + 1.0hr)",
-    "COMMON (15%): Blend door actuator failure - replace ($80 + 2.0hrs)",
-    "LESS LIKELY (10%): Clogged heater core - flush or replace ($150 + 3.0hrs)",
-    "RARE (5%): Failed heater control valve (if equipped) - replace ($60 + 1.5hrs)",
-    "Additional labor/parts determined after diagnosis confirms root cause"
-  ]
-}
-` : `
-
-CONFIRMED REPAIR APPROACH:
-This is a specific repair request (not just a symptom).
-- Quote the repair with parts and labor
-- Provide detailed work steps (Goldilocks detail level)
-- Include possible complications in warnings
-- Tips should help mechanic do job efficiently
-`;
-  
-  return `You are an experienced mobile mechanic estimator with 20+ years diagnostic experience.
-
-🔒 MANDATORY LABOR RATE: $${effectiveRate}/hour
-NEVER change this rate. This is what the customer is being charged.
-
-${diagnosticGuidance}
-
-📋 REALISTIC MOBILE MECHANIC LABOR TIMES:
-
-DIAGNOSTICS (symptom-based jobs):
-- General diagnosis: 1.0-1.5 hrs
-- Electrical diagnosis: 1.5-2.0 hrs  
-- Drivability diagnosis: 1.5-2.0 hrs
-- No-start diagnosis: 1.0-1.5 hrs
-- HVAC diagnosis: 1.0-1.5 hrs
-
-CONFIRMED REPAIRS (specific part replacement):
-- Water pump: 2.5 hrs
-- Thermostat: 1.0 hrs
-- Alternator: 1.5-3.5 hrs (depends on access)
-- Starter: 1.5-3.5 hrs
-- Brake pads (per axle): 1.5-2.0 hrs
-- Brake pads + rotors (per axle): 2.0-2.5 hrs
-- Spark plugs (4-cyl): 0.75-1.0 hrs
-- Spark plugs (V6/V8): 1.0-2.0 hrs
-- Serpentine belt: 0.5-1.0 hrs
-- Oil change: 0.5 hrs
-- Battery: 0.3 hrs
-
-🎯 WORK STEP DETAIL GUIDELINES:
-
-GOLDILOCKS LEVEL (what we want):
-- Include key troubleshooting checks during work
-- Mention critical torque specs or procedures
-- Note common complications to watch for
-- Professional but not hand-holding
-
-EXAMPLES:
-✅ Brakes: "Remove wheel, inspect lines/hoses for damage, check pad wear pattern (uneven = stuck caliper), apply thin film of grease to pad backs, lubricate caliper slide pins, compress piston while watching for fluid leaks, torque lug nuts to spec"
-
-✅ Thermostat: "Drain coolant into container, remove upper hose, note thermostat orientation before removal, clean mating surfaces thoroughly, install with spring toward engine, refill and bleed system, verify temp gauge reaches normal operating range"
-
-✅ Alternator: "Disconnect battery negative first, photograph belt routing before removal, check belt condition while off, inspect alternator connections for corrosion, torque mounting bolts to spec, verify battery warning light goes off after start"
-
-JSON RESPONSE REQUIRED:
-{
-  "jobType": "Diagnosis" OR "Repair" OR "Service",
-  "shortDescription": "Brief one-line summary",
-  "laborHours": 2.5,
-  "laborRate": ${effectiveRate},
-  "workSteps": [
-    "Step 1 with troubleshooting details",
-    "Step 2 with key procedures",
-    "Step 3 with verification checks"
+    "Step 1 with diagnostic parameters",
+    "Step 2 with technical installation details"
   ],
   "parts": [
-    {"name": "Part Name", "cost": 50}
+    {"name": "Part Name Required", "cost": 45}
   ],
   "shopSuppliesPercent": 7,
-  "timeline": "Same day" OR "2-3 hours" OR "Next day",
-  "notes": "Important context for customer",
+  "timeline": "1-2 hours" | "Same day" | "Next day",
+  "notes": "Context summary analyzing the inputs together",
   "tips": [
-    "Helpful advice for mechanic doing work",
-    "Tool recommendations or best practices"
+    "Practical advice on special tools or procedures"
   ],
   "warnings": [
-    "Things to watch for during job",
-    "If X found, may need Y (with cost estimate)"
+    "MOST LIKELY (XX%): Reason - expected cost details",
+    "COMMON (XX%): Alternative reason details"
   ]
 }
 
-🚨 CRITICAL RULES:
-1. Return ONLY valid JSON, no markdown backticks
-2. laborRate MUST be ${effectiveRate} exactly
-3. If SYMPTOM → Diagnosis job, empty parts array, list possible causes
-4. If SPECIFIC REPAIR → Quote with parts, detailed steps
-5. Work steps = Goldilocks detail (not basic, not excessive)
-6. Tips = for mechanic (tools, techniques, safety)
-7. Warnings = possible complications ranked by probability
-8. Filter out irrelevant issues (don't list water pump for starter problem)
-9. Be conservative with labor hours - mobile mechanics work faster
-10. Parts should be aftermarket pricing (not OEM dealer prices)
-
+🚨 VEHICLE CASE PROFILE DATA:
 CUSTOMER: ${customer.name}
 VEHICLE: ${vehicle || 'Not specified'}
-JOB DESCRIPTION: ${description}
+📟 INTERFACED OBD CODES: ${codesStr}
+🗣️ RECONSTRUCTED CUSTOMER COMPLAINT: ${statesStr}
+🔍 TECHNICIAN ON-SITE FINDINGS: ${noticesStr}
 
-Generate estimate now (JSON only, no other text):`;
+Generate your diagnostic estimate object now:`;
 }
 
 // ========================================
-// END SECTION 4
-// ========================================
-// ========================================
-// VALIDATION SCHEMAS
+// VALIDATION SCHEMAS (UPDATED FOR 3-INPUT STRUCTURE)
 // ========================================
 const GenerateSchema = z.object({
   customer: z.object({
@@ -311,7 +187,10 @@ const GenerateSchema = z.object({
     email: z.string().optional()
   }),
   vehicle: z.string().optional(),
-  description: z.string().min(3),
+  description: z.string().min(3), // Maintained for legacy compatibility
+  obdCodes: z.array(z.string()).optional().default([]),
+  customerStates: z.array(z.string()).optional().default([]),
+  mechanicNotices: z.array(z.string()).optional().default([]),
   jobType: z.string().optional(),
   laborRate: z.number().optional()
 });
@@ -323,8 +202,8 @@ app.get('/', (req, res) => {
   res.json({ 
     status: 'ok', 
     service: 'SKSK ProTech Backend',
-    version: '3.0.0',
-    features: ['Groq AI', 'Flat Rates', 'Tax Tracking', 'Invoice System', 'VIN Lookup', 'Stripe Payments']
+    version: '3.1.0',
+    features: ['Groq AI Multi-Input', 'Flat Rates', 'Tax Tracking', 'Invoice System', 'VIN Lookup', 'Stripe Payments']
   });
 });
 
@@ -334,12 +213,13 @@ app.get('/', (req, res) => {
 app.post('/api/generate-estimate', async (req, res) => {
   try {
     const parsed = GenerateSchema.parse(req.body);
-    const { customer, vehicle, description } = parsed;
+    const { customer, vehicle, description, obdCodes, customerStates, mechanicNotices } = parsed;
     const laborRate = parsed.laborRate || DEFAULT_LABOR_RATE;
 
-    console.log(`[ESTIMATE] ${customer.name} | ${vehicle || 'N/A'} | $${laborRate}/hr`);
+    console.log(`[ESTIMATE] ${customer.name} | ${vehicle || 'N/A'} | Codes: ${obdCodes.length} | Findings: ${mechanicNotices.length}`);
 
-    const prompt = buildPrompt({ customer, vehicle, description, laborRate });
+    // Build prompt combining the specialized tracking parameters
+    const prompt = buildPrompt({ customer, vehicle, obdCodes, customerStates, mechanicNotices, laborRate });
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -378,6 +258,7 @@ app.post('/api/generate-estimate', async (req, res) => {
 
     estimate.laborRate = laborRate;
     
+    // Fallback flat-rate enforcement matching
     const flatRateMatch = getFlatRate(description);
     if (flatRateMatch && typeof flatRateMatch.hours === 'number') {
       estimate.laborHours = flatRateMatch.hours;
@@ -581,21 +462,11 @@ app.get('/api/jobs', async (req, res) => {
 // ========================================
 // STRIPE INTEGRATION
 // ========================================
-
 const PRICING = {
-  pro_monthly: {
-    price: 2900,
-    interval: 'month',
-    name: 'SKSK ProTech Pro - Monthly'
-  },
-  pro_yearly: {
-    price: 29000,
-    interval: 'year',
-    name: 'SKSK ProTech Pro - Yearly'
-  }
+  pro_monthly: { price: 2900, interval: 'month', name: 'SKSK ProTech Pro - Monthly' },
+  pro_yearly: { price: 29000, interval: 'year', name: 'SKSK ProTech Pro - Yearly' }
 };
 
-// Generate random access code
 function generateAccessCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -605,19 +476,11 @@ function generateAccessCode() {
   return code;
 }
 
-// Create Stripe checkout session
 app.post('/api/create-checkout-session', async (req, res) => {
-  if (!stripe) {
-    return res.status(500).json({ error: 'Stripe not configured' });
-  }
-
+  if (!stripe) return res.status(500).json({ error: 'Stripe not configured' });
   try {
     const { plan, customerEmail, customerName } = req.body;
-    
-    if (!plan || !PRICING[plan]) {
-      return res.status(400).json({ error: 'Invalid plan' });
-    }
-    
+    if (!plan || !PRICING[plan]) return res.status(400).json({ error: 'Invalid plan' });
     const pricing = PRICING[plan];
     
     const session = await stripe.checkout.sessions.create({
@@ -625,57 +488,35 @@ app.post('/api/create-checkout-session', async (req, res) => {
       mode: 'subscription',
       customer_email: customerEmail || undefined,
       client_reference_id: customerName || undefined,
-      
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: pricing.name,
-              description: 'Full access: Unlimited estimates, customer DB, VIN lookup, invoices, expense tracking, tax reports',
-            },
-            unit_amount: pricing.price,
-            recurring: {
-              interval: pricing.interval,
-            },
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: pricing.name,
+            description: 'Full access: Unlimited estimates, customer DB, VIN lookup, invoices, expense tracking, tax reports',
           },
-          quantity: 1,
+          unit_amount: pricing.price,
+          recurring: { interval: pricing.interval },
         },
-      ],
-      
+        quantity: 1,
+      }],
       success_url: `${FRONTEND_URL}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${FRONTEND_URL}?canceled=true`,
-      
-      metadata: {
-        plan: plan,
-        tier: 'pro'
-      },
+      metadata: { plan, tier: 'pro' },
     });
     
     console.log(`[STRIPE] Checkout session created: ${session.id}`);
-    
-    res.json({ 
-      ok: true, 
-      sessionId: session.id,
-      url: session.url 
-    });
-    
+    res.json({ ok: true, sessionId: session.id, url: session.url });
   } catch (err) {
     console.error('[STRIPE CHECKOUT ERROR]', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Stripe webhook handler
 app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  if (!stripe) {
-    return res.status(500).send('Stripe not configured');
-  }
-
+  if (!stripe) return res.status(500).send('Stripe not configured');
   const sig = req.headers['stripe-signature'];
-  
   let event;
-  
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET);
   } catch (err) {
@@ -684,60 +525,42 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
   }
   
   console.log(`[STRIPE EVENT] ${event.type}`);
-  
   try {
     switch (event.type) {
       case 'checkout.session.completed':
         const session = event.data.object;
-        const customerEmail = session.customer_email;
-        const customerName = session.client_reference_id;
-        const stripeCustomerId = session.customer;
-        const subscriptionId = session.subscription;
-        
         const accessCode = generateAccessCode();
-        
         await supabase.from('access_codes').insert({
           code: accessCode,
           tier: 'pro',
-          customer_name: customerName || customerEmail,
-          email: customerEmail,
+          customer_name: session.client_reference_id || session.customer_email,
+          email: session.customer_email,
           is_active: true,
           max_uses: 999,
-          stripe_customer_id: stripeCustomerId,
-          stripe_subscription_id: subscriptionId,
+          stripe_customer_id: session.customer,
+          stripe_subscription_id: session.subscription,
           stripe_subscription_status: 'active'
         });
-        
-        console.log(`[ACCESS CODE CREATED] ${accessCode} for ${customerEmail}`);
+        console.log(`[ACCESS CODE CREATED] ${accessCode} for ${session.customer_email}`);
         break;
-        
       case 'customer.subscription.updated':
-        const subscription = event.data.object;
-        const isActive = subscription.status === 'active' || subscription.status === 'trialing';
-        
+        const sub = event.data.object;
         await supabase.from('access_codes').update({ 
-          is_active: isActive,
-          stripe_subscription_status: subscription.status
-        }).eq('stripe_subscription_id', subscription.id);
-        
-        console.log(`[SUBSCRIPTION UPDATED] ${subscription.id} -> ${subscription.status}`);
+          is_active: sub.status === 'active' || sub.status === 'trialing',
+          stripe_subscription_status: sub.status
+        }).eq('stripe_subscription_id', sub.id);
         break;
-        
       case 'customer.subscription.deleted':
-        const deletedSub = event.data.object;
-        
+        const delSub = event.data.object;
         await supabase.from('access_codes').update({ 
           is_active: false,
           stripe_subscription_status: 'canceled'
-        }).eq('stripe_subscription_id', deletedSub.id);
-        
-        console.log(`[SUBSCRIPTION DELETED] ${deletedSub.id}`);
+        }).eq('stripe_subscription_id', delSub.id);
         break;
     }
   } catch (err) {
     console.error('[WEBHOOK HANDLER ERROR]', err);
   }
-  
   res.json({ received: true });
 });
 
@@ -745,10 +568,8 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
 // START SERVER
 // ========================================
 app.listen(PORT, () => {
-  console.log(`🔥 SKSK ProTech Backend v3.0 on port ${PORT}`);
-  console.log(`🤖 Groq AI + 80+ flat rates active`);
+  console.log(`🔥 SKSK ProTech Backend v3.1 on port ${PORT}`);
+  console.log(`🤖 Groq AI Multi-Input Tracking Active`);
   console.log(`💰 Tax tracking enabled`);
-  if (stripe) {
-    console.log(`💳 Stripe payments enabled`);
-  }
+  if (stripe) console.log(`💳 Stripe payments enabled`);
 });
