@@ -208,11 +208,21 @@ small { font-size:.75rem; color:#6b7280; display:block; margin-top:.2rem }
 }
 .footer a { color:#9ca3af; text-decoration:none }
 .footer a:hover { color:#dc2626 }
+.notice-tag {
+  background:#222; 
+  padding:.5rem; 
+  margin:.3rem 0; 
+  border-left:3px solid #dc2626; 
+  border-radius:0 6px 6px 0;
+  display:flex; 
+  justify-content:space-between;
+  align-items:center;
+  font-size:.9rem
+}
 </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <div class="header">
   <div class="logo">
     SKSK ProTech
@@ -222,7 +232,6 @@ small { font-size:.75rem; color:#6b7280; display:block; margin-top:.2rem }
   <div class="subtitle">Testing Phase • Features Added as Development Continues</div>
 </div>
 
-<!-- MAIN FORM -->
 <div class="card">
   <h2>📋 Job Estimate</h2>
   
@@ -251,16 +260,28 @@ small { font-size:.75rem; color:#6b7280; display:block; margin-top:.2rem }
   </div>
   <small>Adjust per job: Friends (40-50) • Standard (50-75) • Premium (75-100)</small>
 
-  <label>Job Description *</label>
-  <textarea id="description" placeholder="Example: Water pump replacement, front brake pads and rotors" rows="4" required></textarea>
+  <hr style="border:0; border-top:1px solid #27272a; margin:1rem 0">
+
+  <label>📟 OBD-II Trouble Codes</label>
+  <input id="obdCodes" placeholder="e.g., P0171, P0302 (separated by commas)">
+
+  <label>🗣️ Customer States (Symptoms & Complaints)</label>
+  <textarea id="customerStates" placeholder="e.g., Burning oil smell at idle, smoke from passenger side near firewall" rows="2"></textarea>
+
+  <label>🔍 Mechanic Findings & Field Notices</label>
+  <div id="noticesList" style="margin:.5rem 0"></div>
+  <div style="display:flex; gap:.4rem; margin-bottom:.5rem">
+    <input id="newNotice" placeholder="e.g., Fresh wet oil tracking down exhaust downpipe" style="margin:0">
+    <button id="addNoticeBtn" style="width:auto; margin:0; padding:0 1rem; background:#27272a; border-color:#3f3f46">+ Add</button>
+  </div>
+  <small>Type what your eyes and ears find, click Add, then generate or re-run the estimate.</small>
 
   <div id="errorBox" class="error"></div>
   <div id="successBox" class="success"></div>
 
-  <button id="submitBtn">⚡ Generate Estimate</button>
+  <button id="submitBtn" style="margin-top:1rem">⚡ Generate Estimate</button>
 </div>
 
-<!-- ESTIMATE DISPLAY -->
 <div class="card">
   <h2>💰 Estimate</h2>
   <div id="estimateDisplay">
@@ -270,7 +291,6 @@ small { font-size:.75rem; color:#6b7280; display:block; margin-top:.2rem }
   </div>
 </div>
 
-<!-- SUPPORT BOX -->
 <div class="support-box">
   <div class="support-title">💙 Voluntary Support</div>
   <div class="support-text">
@@ -286,7 +306,6 @@ small { font-size:.75rem; color:#6b7280; display:block; margin-top:.2rem }
   </div>
 </div>
 
-<!-- FOOTER -->
 <div class="footer">
   <div style="margin-bottom:.5rem">
     <strong style="color:#9ca3af">About This Tool</strong>
@@ -302,7 +321,6 @@ small { font-size:.75rem; color:#6b7280; display:block; margin-top:.2rem }
   </div>
 </div>
 
-<!-- ABOUT MODAL (hidden by default) -->
 <div id="aboutModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:999; padding:2rem; overflow-y:auto">
   <div class="card" style="max-width:600px; margin:2rem auto">
     <h2>❓ FAQ</h2>
@@ -343,6 +361,18 @@ const BACKEND_URL = location.hostname === "localhost"
   ? "http://localhost:4000" 
   : "https://p613-backend.onrender.com";
 
+// Form Element Selectors
+const customerName = document.getElementById("customerName");
+const customerPhone = document.getElementById("customerPhone");
+const customerEmail = document.getElementById("customerEmail");
+const vehicle = document.getElementById("vehicle");
+const laborRate = document.getElementById("laborRate");
+const obdCodes = document.getElementById("obdCodes");
+const customerStates = document.getElementById("customerStates");
+const newNotice = document.getElementById("newNotice");
+const addNoticeBtn = document.getElementById("addNoticeBtn");
+const noticesList = document.getElementById("noticesList");
+
 const errorBox = document.getElementById("errorBox");
 const successBox = document.getElementById("successBox");
 const submitBtn = document.getElementById("submitBtn");
@@ -351,18 +381,50 @@ const aboutModal = document.getElementById("aboutModal");
 const aboutLink = document.getElementById("aboutLink");
 const closeAbout = document.getElementById("closeAbout");
 
+// Global state tracking array for dynamic mechanic notices
+let mechanicNoticesArray = [];
+
 function formatCurrency(amt) {
   return new Intl.NumberFormat("en-US", {style:"currency", currency:"USD"}).format(amt || 0);
 }
 
-// Quick rate buttons
+// Quick labor rate buttons
 document.querySelectorAll(".quick-btn").forEach(btn => {
   btn.onclick = () => {
-    document.getElementById("laborRate").value = btn.getAttribute("data-rate");
+    laborRate.value = btn.getAttribute("data-rate");
   };
 });
 
-// About modal
+// Manage dynamic mechanic notices list
+addNoticeBtn.onclick = (e) => {
+  e.preventDefault();
+  const text = newNotice.value.trim();
+  if(text) {
+    mechanicNoticesArray.push(text);
+    renderNotices();
+    newNotice.value = "";
+  }
+};
+
+function renderNotices() {
+  if(mechanicNoticesArray.length === 0) {
+    noticesList.innerHTML = "";
+    return;
+  }
+  noticesList.innerHTML = mechanicNoticesArray.map((notice, i) => `
+    <div class="notice-tag">
+      <span>🔎 ${notice}</span>
+      <span onclick="removeNotice(${i})" style="color:#ef4444; cursor:pointer; font-weight:700; padding-left:.5rem">×</span>
+    </div>
+  `).join("");
+}
+
+window.removeNotice = (index) => {
+  mechanicNoticesArray.splice(index, 1);
+  renderNotices();
+};
+
+// FAQ modal triggers
 aboutLink.onclick = (e) => {
   e.preventDefault();
   aboutModal.style.display = "block";
@@ -371,28 +433,47 @@ closeAbout.onclick = () => {
   aboutModal.style.display = "none";
 };
 
-// Generate estimate
+// Generate estimate execution
 submitBtn.onclick = async () => {
   errorBox.style.display = "none";
   successBox.style.display = "none";
 
   const name = customerName.value.trim();
-  const desc = description.value.trim();
+  const rawCodes = obdCodes.value.trim();
+  const rawStates = customerStates.value.trim();
   
-  if(!name || !desc){
-    errorBox.textContent = "Customer name and job description required";
+  if(!name){
+    errorBox.textContent = "Customer name is required";
+    errorBox.style.display = "block";
+    return;
+  }
+  
+  if(!rawCodes && !rawStates && mechanicNoticesArray.length === 0){
+    errorBox.textContent = "Please fill in at least one diagnostic section (OBD Codes, Customer States, or Mechanic Findings)";
     errorBox.style.display = "block";
     return;
   }
 
+  // Parse OBD codes cleanly by splitting on commas
+  const codesParsed = rawCodes ? rawCodes.split(",").map(c => c.trim().toUpperCase()).filter(c => c) : [];
+
+  // Build the composite description string for backward compatibility with your existing server endpoint
+  let standardDescription = "";
+  if(codesParsed.length > 0) standardDescription += `OBD-II Codes: ${codesParsed.join(", ")}. `;
+  if(rawStates) standardDescription += `Customer states: ${rawStates}. `;
+  if(mechanicNoticesArray.length > 0) standardDescription += `Mechanic findings: ${mechanicNoticesArray.join("; ")}.`;
+
   const payload = {
     customer: {
-      name: customerName.value,
-      phone: customerPhone.value,
-      email: customerEmail.value
+      name: name,
+      phone: customerPhone.value.trim(),
+      email: customerEmail.value.trim()
     },
-    vehicle: vehicle.value,
-    description: desc,
+    vehicle: vehicle.value.trim() || "Unknown Vehicle",
+    description: standardDescription.trim(),
+    obdCodes: codesParsed,
+    customerStates: rawStates ? [rawStates] : [],
+    mechanicNotices: mechanicNoticesArray,
     laborRate: Number(laborRate.value) || 65
   };
 
@@ -424,12 +505,12 @@ submitBtn.onclick = async () => {
 };
 
 function displayEstimate(est) {
-  const laborRate = est.laborRate || 65;
+  const currentLaborRate = est.laborRate || 65;
   const laborHours = est.laborHours || 0;
-  const laborCost = est.laborCost ?? (laborHours * laborRate);
+  const laborCost = est.laborCost ?? (laborHours * currentLaborRate);
   const partsCost = est.partsCost || 0;
   const suppliesPercent = est.shopSuppliesPercent ?? 7;
-  const shopSupplies = est.shopSupplies ?? ((laborCost + partsCost) * (suppliesPercent / 100));
+  const shopSupplies = est.shopSupplies ?? (partsCost * (suppliesPercent / 100));
   const subtotal = est.subtotal ?? (laborCost + partsCost + shopSupplies);
   const taxSetAside = subtotal * 0.28;
   const takeHome = subtotal - taxSetAside;
@@ -444,16 +525,26 @@ function displayEstimate(est) {
       </div>`
     : "";
 
-  const tipsHTML = Array.isArray(est.tips) && est.tips.length
+  // Render the step-by-step technical procedures array from the backend AI engine
+  const stepsHTML = Array.isArray(est.workSteps) && est.workSteps.length > 0
+    ? `<div class="info-box">
+        <h3>🔧 Diagnostic & Repair Steps</h3>
+        <ol style="padding-left:1.2rem; font-size:.9rem; color:#d1d5db">
+          ${est.workSteps.map(step => `<li style="margin-bottom:.3rem">${step}</li>`).join("")}
+        </ol>
+      </div>`
+    : "";
+
+  const tipsHTML = Array.isArray(est.tips) && est.tips.length > 0
     ? `<div class="info-box" style="border-color:#22c55e">
         <h3 style="color:#86efac">💡 Pro Tips</h3>
         <ul style="color:#bbf7d0; font-size:.85rem; padding-left:1.2rem">${est.tips.map(t => `<li>${t}</li>`).join("")}</ul>
       </div>`
     : "";
 
-  const warningsHTML = Array.isArray(est.warnings) && est.warnings.length
+  const warningsHTML = Array.isArray(est.warnings) && est.warnings.length > 0
     ? `<div class="info-box" style="border-color:#dc2626">
-        <h3 style="color:#fecaca">⚠️ Watch For</h3>
+        <h3 style="color:#fecaca">⚠️ Watch For / Probabilities</h3>
         <ul style="color:#fecaca; font-size:.85rem; padding-left:1.2rem">${est.warnings.map(w => `<li>${w}</li>`).join("")}</ul>
       </div>`
     : "";
@@ -467,7 +558,7 @@ function displayEstimate(est) {
     <div class="info-box">
       <h3>Labor</h3>
       <div class="part-row">
-        <span>${laborHours.toFixed(1)} hrs @ ${formatCurrency(laborRate)}/hr</span>
+        <span>${laborHours.toFixed(1)} hrs @ ${formatCurrency(currentLaborRate)}/hr</span>
         <span>${formatCurrency(laborCost)}</span>
       </div>
     </div>
@@ -481,6 +572,7 @@ function displayEstimate(est) {
       </div>
     </div>
 
+    ${stepsHTML}
     ${tipsHTML}
     ${warningsHTML}
 
