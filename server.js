@@ -1,191 +1,383 @@
+// server.js
+// SKSK ProTech – Single-file, production-ready Express + Supabase (+ Stripe-ready)
+
+// -------------------------
+// Environment & Dependencies
+// -------------------------
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const bodyParser = require('body-parser');
+const { createClient } = require('@supabase/supabase-js');
+const Stripe = require('stripe');
 
+// -------------------------
+// Config
+// -------------------------
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Basic middleware
-app.use(cors({ origin: '*', methods: ['GET', 'POST'], allowedHeaders: ['Content-Type'] }));
-app.use(express.json());
-app.use(express.static('.')); // serve index.html from root
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || null;
 
-// In‑memory store for demo; replace with Supabase/DB later
-const invoices = new Map();
+// Supabase client
+const supabase = SUPABASE_URL && SUPABASE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_KEY)
+  : null;
 
-/**
- * Simple tax map by state (demo only).
- */
-const TAX_BY_STATE = {
-  OH: 0.0725,
-  PA: 0.06,
-  MI: 0.06,
-  NY: 0.08875,
-};
+// Stripe client (optional)
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null;
 
-/**
- * Core estimate engine.
- * In production, this is where you'd call Groq / LLM with a structured prompt.
- * Here we simulate deterministic logic so you can wire UI → API → invoice.
- */
-function buildEstimateFromPayload(payload) {
-  const { customer = {}, vehicle = {}, state, diagnostic = {}, mechanic = {} } = payload;
+// -------------------------
+// Middleware
+// -------------------------
+app.use(cors());
+app.use(bodyParser.json());
 
-  const baseLaborRate = 120; // $/hr
-  const baseShopSuppliesRate = 0.05; // 5% of labor+parts
-  const taxRate = TAX_BY_STATE[state] || 0.07;
+// Simple health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'SKSK ProTech API' });
+});
 
-  // Very simple heuristic for demo:
-  const symptomText = (diagnostic.symptoms || '').toLowerCase();
-  const findingsText = (mechanic.findings || '').toLowerCase();
-  const codes = diagnostic.codes || [];
+// -------------------------
+// Utility: Diagnostic Normalization
+// -------------------------
+function normalizeDiagnostic(diagnostic = {}) {
+  const codes = Array.isArray(diagnostic.codes)
+    ? diagnostic.codes
+    : typeof diagnostic.codes === 'string'
+      ? diagnostic.codes.split(',').map(c => c.trim()).filter(Boolean)
+      : [];
 
-  let laborHours = 1.0;
-  let partsTotal = 150;
-
-  // Adjust labor/parts based on hints
-  if (symptomText.includes('grinding') || findingsText.includes('cv')) {
-    laborHours = 2.5;
-    partsTotal = 220;
-  }
-  if (codes.includes('P0301') || codes.includes('P0300')) {
-    laborHours += 1.0;
-    partsTotal += 80;
-  }
-  if (symptomText.includes('no start') || symptomText.includes('won\'t start')) {
-    laborHours += 1.5;
-  }
-
-  const laborTotal = laborHours * baseLaborRate;
-  const subtotal = laborTotal + partsTotal;
-  const shopSupplies = subtotal * baseShopSuppliesRate;
-  const taxable = subtotal + shopSupplies;
-  const tax = taxable * taxRate;
-  const grandTotal = taxable + tax;
-
-  // Customer‑facing copy
-  const customerSummary = [
-    `Based on your vehicle's symptoms, diagnostic data, and technician findings, this estimate reflects the expected labor, parts, and shop supplies required to correct the concern.`,
-    `If additional issues are discovered during teardown or inspection, we will contact you before performing any extra work.`
-  ].join(' ');
-
-  const primaryConcern = diagnostic.symptoms
+  const symptoms = Array.isArray(diagnostic.symptoms)
     ? diagnostic.symptoms
-    : 'Primary concern as reported by customer and verified by technician.';
-
-  const disclaimer = 'This is an estimate, not a final invoice. Actual costs may vary after teardown and inspection.';
-
-  // Tech‑facing copy
-  const diagnosticNotes = [
-    `Customer‑reported symptoms: ${diagnostic.symptoms || 'N/A'}`,
-    `OBD‑II codes: ${(codes && codes.length) ? codes.join(', ') : 'None provided'}`,
-    `Mechanic findings: ${mechanic.findings || 'N/A'}`,
-    '',
-    `Engine: heuristic demo engine (replace with LLM pipeline).`,
-    `Multi‑repair detection: heuristic based on symptoms + codes.`,
-  ].join('\n');
-
-  const engineMeta = `Engine: SKSK ProTech demo · Labor rate: $${baseLaborRate}/hr · Tax: ${(taxRate * 100).toFixed(2)}%`;
+    : typeof diagnostic.symptoms === 'string'
+      ? diagnostic.symptoms.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
 
   return {
-    customer: {
-      name: customer.name || '',
-      phone: customer.phone || '',
-    },
-    vehicle: {
-      year: vehicle.year || '',
-      make: vehicle.make || '',
-      model: vehicle.model || '',
-    },
-    state: state || '',
-    estimate: {
-      laborHours,
-      laborTotal,
-      partsTotal,
-      shopSupplies,
-      tax,
-      grandTotal,
-    },
-    copy: {
-      customerSummary,
-      primaryConcern,
-      disclaimer,
-    },
-    tech: {
-      diagnosticNotes,
-      engineMeta,
-    },
+    ...diagnostic,
+    codes,
+    symptoms
   };
 }
 
-/**
- * Health check
- */
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'sksk-protech-ai-estimator', time: new Date().toISOString() });
-});
+// -------------------------
+// Core: Estimate Builder
+// -------------------------
+function buildEstimateFromPayload(payload = {}) {
+  const {
+    customer = {},
+    vehicle = {},
+    state,
+    diagnostic = {},
+    mechanic = {}
+  } = payload;
 
-/**
- * Generate estimate (core pipeline entrypoint)
- * Request JSON:
- * {
- *   customer: { name, phone },
- *   vehicle: { year, make, model },
- *   state: "OH",
- *   diagnostic: { symptoms, codes: [] },
- *   mechanic: { findings }
- * }
- */
-app.post('/api/generate-estimate', (req, res) => {
+  const normalizedDiagnostic = normalizeDiagnostic(diagnostic);
+  const { codes } = normalizedDiagnostic;
+
+  const estimate = {
+    customer,
+    vehicle,
+    mechanic,
+    state,
+    diagnostic: normalizedDiagnostic,
+    labor: [],
+    parts: [],
+    totals: {}
+  };
+
+  // Example ABS/ESC logic – customize as needed
+  if (codes.includes('C1206')) {
+    estimate.labor.push({
+      description: 'Diagnose ABS/ESC system (C1206)',
+      hours: 1.0,
+      rate: 65,
+      total: 65
+    });
+  }
+
+  if (codes.includes('C1233') || codes.includes('C1234')) {
+    estimate.labor.push({
+      description: 'Inspect wheel speed sensor wiring',
+      hours: 1.0,
+      rate: 65,
+      total: 65
+    });
+  }
+
+  // You can add more rules here based on codes, symptoms, vehicle, etc.
+
+  const laborTotal = estimate.labor.reduce((sum, l) => sum + (l.total || 0), 0);
+  const partsTotal = estimate.parts.reduce((sum, p) => sum + (p.total || 0), 0);
+  const subtotal = laborTotal + partsTotal;
+  const taxRate = 0.07; // adjust or make configurable
+  const tax = subtotal * taxRate;
+
+  estimate.totals = {
+    laborTotal,
+    partsTotal,
+    taxRate,
+    tax,
+    grandTotal: subtotal + tax
+  };
+
+  return estimate;
+}
+
+// -------------------------
+// Core: Invoice Builder
+// -------------------------
+function buildInvoiceFromEstimate(estimate = {}) {
+  const {
+    customer = {},
+    vehicle = {},
+    mechanic = {},
+    diagnostic = {},
+    labor = [],
+    parts = [],
+    totals = {}
+  } = estimate;
+
+  return {
+    type: 'invoice',
+    timestamp: new Date().toISOString(),
+    customer,
+    vehicle,
+    mechanic,
+    diagnosticSummary: {
+      codes: diagnostic.codes || [],
+      symptoms: diagnostic.symptoms || [],
+      confirmedIssue: diagnostic.confirmedIssue || 'Issue resolved'
+    },
+    lineItems: {
+      labor,
+      parts
+    },
+    totals: {
+      ...totals,
+      paid: totals.grandTotal || 0,
+      balance: 0
+    },
+    footer: 'Thank you for choosing SKSK ProTech!'
+  };
+}
+
+// -------------------------
+// Supabase Helpers
+// -------------------------
+async function saveJobRecord(job) {
+  if (!supabase) return { error: 'Supabase not configured', data: null };
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(job)
+    .select()
+    .single();
+
+  return { data, error };
+}
+
+async function updateJobRecord(id, updates) {
+  if (!supabase) return { error: 'Supabase not configured', data: null };
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  return { data, error };
+}
+
+async function getJobRecord(id) {
+  if (!supabase) return { error: 'Supabase not configured', data: null };
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  return { data, error };
+}
+
+// -------------------------
+// Routes: Diagnose → Estimate → Invoice
+// -------------------------
+
+// POST /api/diagnose
+// Accepts raw diagnostic payload, normalizes it, and optionally stores a job record
+app.post('/api/diagnose', async (req, res) => {
   try {
     const payload = req.body || {};
-    const result = buildEstimateFromPayload(payload);
+    const { customer = {}, vehicle = {}, mechanic = {}, diagnostic = {}, state } = payload;
 
-    // Create a simple invoice record
-    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const invoiceRecord = {
-      id,
-      createdAt: new Date().toISOString(),
-      ...result,
+    const normalizedDiagnostic = normalizeDiagnostic(diagnostic);
+
+    const jobRecord = {
+      customer,
+      vehicle,
+      mechanic,
+      diagnostic: normalizedDiagnostic,
+      state: state || 'diagnosed',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     };
-    invoices.set(id, invoiceRecord);
+
+    let saved = { data: jobRecord, error: null };
+    if (supabase) {
+      saved = await saveJobRecord(jobRecord);
+      if (saved.error) {
+        console.error('Supabase save error:', saved.error);
+      }
+    }
 
     res.json({
-      invoiceId: id,
-      ...result,
+      success: true,
+      job: saved.data || jobRecord
     });
   } catch (err) {
-    console.error('Error in /api/generate-estimate:', err);
-    res.status(500).json({ error: 'Failed to generate estimate' });
+    console.error('Error in /api/diagnose:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
-/**
- * Store diagnostic session (stub for now)
- * You can later persist this to Supabase or another DB.
- */
-app.post('/api/diagnostic', (req, res) => {
-  // For now, just echo back
-  res.json({
-    status: 'stored',
-    payload: req.body || {},
-    note: 'Replace with DB persistence (Supabase, Postgres, etc.)',
-  });
-});
+// POST /api/estimate
+// Builds an estimate from payload (or existing job) and updates job record
+app.post('/api/estimate', async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const { jobId } = payload;
 
-/**
- * Fetch invoice by ID
- */
-app.get('/api/invoice/:id', (req, res) => {
-  const id = req.params.id;
-  const invoice = invoices.get(id);
-  if (!invoice) {
-    return res.status(404).json({ error: 'Invoice not found' });
+    let basePayload = payload;
+
+    if (jobId && supabase) {
+      const { data: job, error } = await getJobRecord(jobId);
+      if (error) {
+        console.error('Supabase get job error:', error);
+      } else if (job) {
+        basePayload = {
+          ...job,
+          diagnostic: job.diagnostic,
+          customer: job.customer,
+          vehicle: job.vehicle,
+          mechanic: job.mechanic,
+          state: job.state
+        };
+      }
+    }
+
+    const estimate = buildEstimateFromPayload(basePayload);
+
+    let updatedJob = null;
+    if (supabase && jobId) {
+      const { data, error } = await updateJobRecord(jobId, {
+        estimate,
+        state: 'estimated',
+        updated_at: new Date().toISOString()
+      });
+      if (error) {
+        console.error('Supabase update job error:', error);
+      } else {
+        updatedJob = data;
+      }
+    }
+
+    res.json({
+      success: true,
+      estimate,
+      job: updatedJob
+    });
+  } catch (err) {
+    console.error('Error in /api/estimate:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
-  res.json(invoice);
 });
 
-// Start server
+// POST /api/invoice
+// Converts an estimate into an invoice and updates job record
+app.post('/api/invoice', async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const { jobId, estimate: estimateFromClient } = payload;
+
+    let estimate = estimateFromClient;
+
+    if (!estimate && jobId && supabase) {
+      const { data: job, error } = await getJobRecord(jobId);
+      if (error) {
+        console.error('Supabase get job error:', error);
+      } else if (job && job.estimate) {
+        estimate = job.estimate;
+      }
+    }
+
+    if (!estimate) {
+      return res.status(400).json({ success: false, error: 'No estimate provided or found' });
+    }
+
+    const invoice = buildInvoiceFromEstimate(estimate);
+
+    let updatedJob = null;
+    if (supabase && jobId) {
+      const { data, error } = await updateJobRecord(jobId, {
+        invoice,
+        state: 'completed',
+        updated_at: new Date().toISOString()
+      });
+      if (error) {
+        console.error('Supabase update job error:', error);
+      } else {
+        updatedJob = data;
+      }
+    }
+
+    res.json({
+      success: true,
+      invoice,
+      job: updatedJob
+    });
+  } catch (err) {
+    console.error('Error in /api/invoice:', err);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// -------------------------
+// Optional: Stripe-ready route (disabled until key is set)
+// -------------------------
+app.post('/api/pay', async (req, res) => {
+  try {
+    if (!stripe) {
+      return res.status(400).json({ success: false, error: 'Stripe not configured' });
+    }
+
+    const { amount, currency = 'usd', payment_method_id } = req.body || {};
+    if (!amount || !payment_method_id) {
+      return res.status(400).json({ success: false, error: 'Missing amount or payment_method_id' });
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency,
+      payment_method: payment_method_id,
+      confirm: true
+    });
+
+    res.json({ success: true, paymentIntent });
+  } catch (err) {
+    console.error('Error in /api/pay:', err);
+    res.status(500).json({ success: false, error: 'Payment failed', details: err.message });
+  }
+});
+
+// -------------------------
+// Start Server
+// -------------------------
 app.listen(PORT, () => {
-  console.log(`SKSK ProTech AI Estimator listening on port ${PORT}`);
+  console.log(`SKSK ProTech API running on port ${PORT}`);
 });
