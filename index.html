@@ -17,6 +17,8 @@
       --muted: #b7b7c2;
       --border: rgba(255,255,255,0.08);
       --shadow: 0 20px 60px rgba(0,0,0,0.45);
+      --success: #3ddc97;
+      --danger: #ff6b6b;
     }
 
     * { box-sizing: border-box; }
@@ -29,24 +31,23 @@
         radial-gradient(circle at top, rgba(193,18,31,0.22), transparent 35%),
         linear-gradient(180deg, #09090d 0%, #050506 100%);
       color: var(--text);
-      display: grid;
-      place-items: center;
-      padding: 24px;
+      padding: 20px;
     }
 
     .shell {
-      width: min(100%, 480px);
+      width: min(100%, 760px);
+      margin: 0 auto;
       background: linear-gradient(180deg, rgba(22,22,28,0.96), rgba(12,12,16,0.96));
       border: 1px solid var(--border);
       border-radius: 24px;
-      padding: 28px 20px 24px;
+      padding: 24px;
       box-shadow: var(--shadow);
       backdrop-filter: blur(10px);
     }
 
     .brand {
       margin: 0;
-      font-size: 2.1rem;
+      font-size: 2rem;
       line-height: 1;
       letter-spacing: -0.04em;
     }
@@ -57,18 +58,93 @@
     }
 
     .tag {
-      margin: 10px 0 22px;
+      margin: 10px 0 20px;
       color: var(--muted);
       font-size: 1rem;
     }
 
-    .grid {
+    .tabs {
       display: grid;
-      gap: 12px;
-      margin-top: 10px;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 18px;
     }
 
-    button {
+    .tab {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 14px 12px;
+      background: linear-gradient(135deg, #1b1b22, #0f0f14);
+      color: var(--text);
+      font-weight: 700;
+      min-height: 50px;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      border-color: rgba(255,59,48,0.55);
+      background: linear-gradient(135deg, #7f0f18, #1b0a0d);
+    }
+
+    .panel {
+      display: none;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .panel.active { display: block; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .grid-1 {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: #0e0e13;
+      color: var(--text);
+      border-radius: 14px;
+      padding: 14px 14px;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: rgba(255,59,48,0.7);
+      box-shadow: 0 0 0 3px rgba(255,59,48,0.15);
+    }
+
+    .actions {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .btn {
       appearance: none;
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 16px;
@@ -84,31 +160,25 @@
         0 10px 24px rgba(0,0,0,0.35);
       min-height: 52px;
       width: 100%;
+      cursor: pointer;
       text-align: left;
       transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
     }
 
-    button:hover {
+    .btn:hover {
       border-color: rgba(255,59,48,0.45);
       transform: translateY(-1px);
     }
 
-    button:active {
-      transform: translateY(1px) scale(0.99);
-      background:
-        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0)),
-        linear-gradient(135deg, #221014, #120b0f);
-    }
-
-    .primary {
+    .btn.primary {
       background:
         linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0)),
         linear-gradient(135deg, #7f0f18, #1b0a0d);
       border-color: rgba(255,59,48,0.35);
     }
 
-    .primary:hover {
-      border-color: rgba(255,59,48,0.8);
+    .btn.success {
+      border-color: rgba(61,220,151,0.35);
     }
 
     .status {
@@ -119,14 +189,36 @@
       border: 1px solid rgba(255,255,255,0.06);
       color: var(--muted);
       font-size: 0.92rem;
-      min-height: 44px;
+      min-height: 52px;
+      white-space: pre-wrap;
     }
 
     .footer {
-      margin-top: 18px;
+      margin-top: 16px;
       font-size: 0.85rem;
       color: #8f8f99;
       text-align: center;
+    }
+
+    .small {
+      font-size: 0.84rem;
+      color: #9b9baa;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 640px) {
+      .tabs, .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .shell {
+        padding: 18px;
+      }
+
+      .brand {
+        font-size: 1.7rem;
+      }
     }
   </style>
 </head>
@@ -135,12 +227,169 @@
     <h1 class="brand">SKSK <span>ProTech</span></h1>
     <p class="tag">Mobile Mechanic AI</p>
 
-    <div class="grid">
-      <button class="primary" id="btnEstimate">Estimate</button>
-      <button id="btnDiagnose">Diagnose</button>
-      <button id="btnInvoice">Invoice PDF</button>
-      <button id="btnShare">Share</button>
+    <div class="tabs">
+      <button class="tab active" data-tab="estimateTab">Estimate</button>
+      <button class="tab" data-tab="diagnoseTab">Diagnose</button>
+      <button class="tab" data-tab="invoiceTab">Invoice</button>
+      <button class="tab" data-tab="shareTab">Share</button>
     </div>
+
+    <section class="panel active" id="estimateTab">
+      <div class="grid">
+        <div>
+          <label for="customerName">Customer name</label>
+          <input id="customerName" type="text" placeholder="John Doe">
+        </div>
+        <div>
+          <label for="customerPhone">Phone</label>
+          <input id="customerPhone" type="text" placeholder="555-0123">
+        </div>
+        <div>
+          <label for="customerEmail">Email</label>
+          <input id="customerEmail" type="email" placeholder="john@example.com">
+        </div>
+        <div>
+          <label for="laborRate">Labor rate</label>
+          <input id="laborRate" type="number" value="65" min="0" step="1">
+        </div>
+        <div>
+          <label for="partsCost">Parts cost</label>
+          <input id="partsCost" type="number" value="80" min="0" step="1">
+        </div>
+        <div>
+          <label for="vin">VIN</label>
+          <input id="vin" type="text" placeholder="Optional">
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:12px;">
+        <div>
+          <label for="vehicleYear">Year</label>
+          <input id="vehicleYear" type="text" placeholder="2008">
+        </div>
+        <div>
+          <label for="vehicleMake">Make</label>
+          <input id="vehicleMake" type="text" placeholder="Ford">
+        </div>
+        <div>
+          <label for="vehicleModel">Model</label>
+          <input id="vehicleModel" type="text" placeholder="F150">
+        </div>
+        <div>
+          <label for="vehicleTrim">Trim</label>
+          <input id="vehicleTrim" type="text" placeholder="Optional">
+        </div>
+      </div>
+
+      <div class="grid-1" style="margin-top:12px;">
+        <div>
+          <label for="customerStates">Customer states</label>
+          <textarea id="customerStates" placeholder="Engine knocking, poor acceleration"></textarea>
+        </div>
+        <div>
+          <label for="mechanicNotices">Mechanic notices</label>
+          <textarea id="mechanicNotices" placeholder="Spark plugs fouled, rough idle"></textarea>
+        </div>
+        <div>
+          <label for="obdCodes">OBD codes, comma separated</label>
+          <input id="obdCodes" type="text" placeholder="P0300, P0171">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="btnEstimate">Generate Estimate</button>
+      </div>
+
+      <div class="small">
+        Fill out the estimate fields above, then tap Generate Estimate. The app will send the data to
+        <code>/api/estimate</code>.
+      </div>
+    </section>
+
+    <section class="panel" id="diagnoseTab">
+      <div class="grid">
+        <div>
+          <label for="diagVin">VIN</label>
+          <input id="diagVin" type="text" placeholder="Optional">
+        </div>
+        <div>
+          <label for="diagMileage">Mileage</label>
+          <input id="diagMileage" type="number" placeholder="Optional">
+        </div>
+      </div>
+
+      <div class="grid-1" style="margin-top:12px;">
+        <div>
+          <label for="diagSymptoms">Symptoms</label>
+          <textarea id="diagSymptoms" placeholder="Noise when turning, hard start, check engine light"></textarea>
+        </div>
+        <div>
+          <label for="diagCodes">Codes, comma separated</label>
+          <input id="diagCodes" type="text" placeholder="P0300, P0171">
+        </div>
+        <div>
+          <label for="diagNotes">Notes</label>
+          <textarea id="diagNotes" placeholder="Battery tested weak, alternator charging at 13.2V"></textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="btnDiagnose">Submit Diagnosis</button>
+      </div>
+
+      <div class="small">
+        Use this to send a real symptom report to <code>/api/diagnose</code>.
+      </div>
+    </section>
+
+    <section class="panel" id="invoiceTab">
+      <div class="grid">
+        <div>
+          <label for="invoiceTotal">Invoice total</label>
+          <input id="invoiceTotal" type="number" value="200" min="0" step="1">
+        </div>
+        <div>
+          <label for="invoiceNumber">Invoice number</label>
+          <input id="invoiceNumber" type="text" placeholder="Optional">
+        </div>
+      </div>
+
+      <div class="grid-1" style="margin-top:12px;">
+        <div>
+          <label for="invoiceCustomer">Customer name</label>
+          <input id="invoiceCustomer" type="text" placeholder="Test Customer">
+        </div>
+        <div>
+          <label for="invoiceNotes">Notes</label>
+          <textarea id="invoiceNotes" placeholder="Parts included, labor covered, tax added"></textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="btnInvoice">Generate Invoice PDF</button>
+      </div>
+
+      <div class="small">
+        This sends invoice data to <code>/api/invoice</code>.
+      </div>
+    </section>
+
+    <section class="panel" id="shareTab">
+      <div class="grid-1">
+        <div>
+          <label for="shareText">Share text</label>
+          <textarea id="shareText">SKSK ProTech — Mobile Mechanic AI</textarea>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn success" id="btnShare">Share</button>
+      </div>
+
+      <div class="small">
+        Uses the browser share sheet when available.
+      </div>
+    </section>
 
     <div class="status" id="status">Ready.</div>
     <div class="footer">Professional. Sharp. Built to move fast.</div>
@@ -150,70 +399,144 @@
     const statusEl = document.getElementById('status');
     const setStatus = msg => { statusEl.textContent = msg; };
 
-    async function readJson(res) {
-      const text = await res.text();
-      try { return JSON.parse(text); } catch { return { error: text || `HTTP ${res.status}` }; }
+    function splitList(value) {
+      return value
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
     }
+
+    function splitLines(value) {
+      return value
+        .split('
+')
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    async function readBody(res) {
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return { error: text || `HTTP ${res.status}` };
+      }
+    }
+
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
 
     document.getElementById('btnEstimate').addEventListener('click', async () => {
       setStatus('Sending estimate...');
       try {
+        const payload = {
+          customer: {
+            name: document.getElementById('customerName').value.trim(),
+            phone: document.getElementById('customerPhone').value.trim(),
+            email: document.getElementById('customerEmail').value.trim()
+          },
+          vehicle: {
+            year: document.getElementById('vehicleYear').value.trim(),
+            make: document.getElementById('vehicleMake').value.trim(),
+            model: document.getElementById('vehicleModel').value.trim(),
+            trim: document.getElementById('vehicleTrim').value.trim()
+          },
+          obdCodes: splitList(document.getElementById('obdCodes').value),
+          customerStates: splitLines(document.getElementById('customerStates').value),
+          mechanicNotices: splitLines(document.getElementById('mechanicNotices').value),
+          laborRate: Number(document.getElementById('laborRate').value || 0),
+          partsCost: Number(document.getElementById('partsCost').value || 0),
+          vin: document.getElementById('vin').value.trim()
+        };
+
         const res = await fetch('/api/estimate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ labor: 120, parts: 80, vin: '' })
+          body: JSON.stringify(payload)
         });
-        const data = await readJson(res);
-        if (!res.ok) throw new Error(data.error || 'Estimate failed');
-        setStatus(`Estimate ready: $${data.estimate.total}`);
+
+        const data = await readBody(res);
+        if (!res.ok) throw new Error(data.error || `Estimate failed (${res.status})`);
+
+        const total = data.estimate?.total ?? data.total ?? 'done';
+        setStatus(`Estimate ready: $${total}`);
       } catch (err) {
-        setStatus(err.message || 'Estimate failed');
+        setStatus(err.message || 'Estimate failed.');
       }
     });
 
     document.getElementById('btnDiagnose').addEventListener('click', async () => {
       setStatus('Sending diagnosis...');
       try {
+        const payload = {
+          vin: document.getElementById('diagVin').value.trim(),
+          mileage: Number(document.getElementById('diagMileage').value || 0),
+          symptoms: splitLines(document.getElementById('diagSymptoms').value),
+          codes: splitList(document.getElementById('diagCodes').value),
+          notes: splitLines(document.getElementById('diagNotes').value)
+        };
+
         const res = await fetch('/api/diagnose', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vin: '', symptoms: ['noise'], codes: [] })
+          body: JSON.stringify(payload)
         });
-        const data = await readJson(res);
-        if (!res.ok) throw new Error(data.error || 'Diagnosis failed');
+
+        const data = await readBody(res);
+        if (!res.ok) throw new Error(data.error || `Diagnosis failed (${res.status})`);
+
         setStatus('Diagnosis submitted.');
       } catch (err) {
-        setStatus(err.message || 'Diagnosis failed');
+        setStatus(err.message || 'Diagnosis failed.');
       }
     });
 
     document.getElementById('btnInvoice').addEventListener('click', async () => {
       setStatus('Generating invoice...');
       try {
+        const payload = {
+          total: Number(document.getElementById('invoiceTotal').value || 0),
+          invoiceNumber: document.getElementById('invoiceNumber').value.trim(),
+          customer: {
+            name: document.getElementById('invoiceCustomer').value.trim()
+          },
+          notes: document.getElementById('invoiceNotes').value.trim()
+        };
+
         const res = await fetch('/api/invoice', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ total: 200, customer: { name: 'Test' } })
+          body: JSON.stringify(payload)
         });
+
         if (!res.ok) {
-          const data = await readJson(res);
-          throw new Error(data.error || 'Invoice failed');
+          const data = await readBody(res);
+          throw new Error(data.error || `Invoice failed (${res.status})`);
         }
+
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
         setStatus('Invoice opened.');
       } catch (err) {
-        setStatus(err.message || 'Invoice failed');
+        setStatus(err.message || 'Invoice failed.');
       }
     });
 
     document.getElementById('btnShare').addEventListener('click', async () => {
+      const text = document.getElementById('shareText').value.trim();
+
       if (navigator.share) {
         try {
           await navigator.share({
             title: 'SKSK ProTech',
-            text: 'Mobile Mechanic AI',
+            text,
             url: location.href
           });
           setStatus('Shared.');
@@ -221,7 +544,12 @@
           setStatus('Share canceled.');
         }
       } else {
-        setStatus('Sharing is not supported on this device.');
+        try {
+          await navigator.clipboard.writeText(`${text} ${location.href}`);
+          setStatus('Share text copied to clipboard.');
+        } catch {
+          setStatus('Sharing is not supported on this device.');
+        }
       }
     });
 
@@ -232,4 +560,4 @@
     }
   </script>
 </body>
-</html>
+  </html>
