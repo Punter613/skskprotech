@@ -7,6 +7,10 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="AI-powered mobile mechanic diagnostic estimates with real-time pricing" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23050505' width='192' height='192'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='%23ff2a2a' text-anchor='middle' dominant-baseline='middle'>⚙️</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23050505' width='180' height='180' rx='40'/><text x='90' y='90' font-size='100' font-weight='bold' fill='%23ff2a2a' text-anchor='middle' dominant-baseline='middle'>⚙️</text></svg>">
   <title>SKSK ProTech — Mobile Mechanic Estimate</title>
   <style>
     :root {
@@ -34,6 +38,8 @@
       color: var(--text);
       min-height: 100vh;
       touch-action: manipulation;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
 
     .container {
@@ -95,6 +101,7 @@
       outline: none;
       -webkit-appearance: none;
       appearance: none;
+      font-family: inherit;
     }
 
     input::placeholder, textarea::placeholder {
@@ -122,6 +129,7 @@
       appearance: none;
       min-height: 48px;
       transition: filter 0.2s ease, opacity 0.2s ease;
+      font-family: inherit;
     }
 
     button:hover:not(:disabled) { 
@@ -235,6 +243,37 @@
       border-top: 1px solid #292929;
     }
 
+    .install-prompt {
+      display: none;
+      background: linear-gradient(180deg, #1a1a1a, #0d0d0d);
+      border: 2px solid var(--accent-gold);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .install-prompt.show {
+      display: block;
+    }
+
+    .install-prompt button {
+      margin-top: 0.5rem;
+      background: linear-gradient(180deg, var(--accent-gold), #d4941f);
+      padding: 12px;
+      font-size: 0.95rem;
+    }
+
+    ul {
+      margin: 0.35rem 0 0.75rem 1.2rem;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 0.35rem;
+      color: #ff5b5b;
+    }
+
     @media (max-width: 480px) {
       .container {
         padding: 0.75rem;
@@ -251,6 +290,13 @@
 </head>
 <body>
   <div class="container">
+    <div id="installPrompt" class="install-prompt">
+      <p style="margin: 0 0 0.5rem; color: var(--accent-gold); font-weight: bold;">Install SKSK ProTech</p>
+      <small style="color: var(--muted);">Get instant access on your home screen</small>
+      <button id="installBtn" style="margin: 0.75rem 0 0;">Install App</button>
+      <button id="dismissInstall" style="background: #444; margin: 0.25rem 0 0;">Dismiss</button>
+    </div>
+
     <div class="card">
       <h1>SKSK ProTech</h1>
       <p class="subtitle">Mobile Mechanic AI Estimate Generator</p>
@@ -281,8 +327,51 @@
   </div>
 
   <script>
-    // ✅ FIXED: Add quotes around API URL
-    const API_BASE = "https://p613-backend.onrender.com";
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(reg => {
+          console.log('[App] Service Worker registered:', reg.scope);
+        })
+        .catch(err => {
+          console.warn('[App] Service Worker registration failed:', err);
+        });
+    }
+
+    // Install PWA prompt
+    let deferredPrompt;
+    const installPrompt = document.getElementById('installPrompt');
+    const installBtn = document.getElementById('installBtn');
+    const dismissInstall = document.getElementById('dismissInstall');
+
+    window.addEventListener('beforeinstallprompt', event => {
+      event.preventDefault();
+      deferredPrompt = event;
+      installPrompt.classList.add('show');
+    });
+
+    installBtn?.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const outcome = await deferredPrompt.userChoice;
+        console.log('[App] Install outcome:', outcome.outcome);
+        deferredPrompt = null;
+        installPrompt.classList.remove('show');
+      }
+    });
+
+    dismissInstall?.addEventListener('click', () => {
+      installPrompt.classList.remove('show');
+      deferredPrompt = null;
+    });
+
+    window.addEventListener('appinstalled', () => {
+      console.log('[App] PWA installed successfully');
+      installPrompt.classList.remove('show');
+    });
+
+    // API Configuration
+    const API_BASE = 'https://p613-backend.onrender.com';
     const TIMEOUT_MS = 20000;
 
     const generateBtn = document.getElementById('generateBtn');
@@ -330,6 +419,21 @@
       p.appendChild(strong);
       p.appendChild(document.createTextNode(value || ''));
       parent.appendChild(p);
+    }
+
+    function renderListSection(parent, title, items, emptyText, titleClass) {
+      parent.appendChild(el('h3', title, titleClass));
+      if (items && items.length) {
+        const ul = document.createElement('ul');
+        items.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          ul.appendChild(li);
+        });
+        parent.appendChild(ul);
+      } else {
+        parent.appendChild(el('p', emptyText));
+      }
     }
 
     function renderEstimate(data) {
@@ -382,6 +486,30 @@
       notes.textContent = e.diagnosticNotes || '';
       estimateContainer.appendChild(notes);
       estimateContainer.appendChild(el('small', e.engineMeta || ''));
+
+      renderListSection(
+        estimateContainer,
+        'Known Issues for This Vehicle',
+        e.knownIssues || [],
+        'No known issues found.',
+        'label-gold'
+      );
+
+      renderListSection(
+        estimateContainer,
+        'Pro Tips',
+        e.proTips || [],
+        'No pro tips available.',
+        'label-green'
+      );
+
+      renderListSection(
+        estimateContainer,
+        'Related Failures to Watch For',
+        e.relatedFailures || [],
+        'No related failures listed.',
+        'label-purple'
+      );
     }
 
     async function fetchWithTimeout(url, options = {}) {
@@ -406,12 +534,12 @@
       const payload = {
         customer: {
           name: document.getElementById('customerName').value.trim(),
-          phone: document.getElementById('customerPhone').value.trim(),
+          phone: document.getElementById('customerPhone').value.trim()
         },
         vehicle: {
           year: document.getElementById('vehicleYear').value.trim(),
           make: document.getElementById('vehicleMake').value.trim(),
-          model: document.getElementById('vehicleModel').value.trim(),
+          model: document.getElementById('vehicleModel').value.trim()
         },
         obdCodes: document.getElementById('codes').value
           .split(',')

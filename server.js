@@ -14,6 +14,10 @@ const DEFAULT_LABOR_RATE = Number(process.env.DEFAULT_LABOR_RATE || 65);
 const TAX_RATE = Number(process.env.TAX_RATE || 0.07);
 const SHOP_SUPPLIES_RATE = Number(process.env.SHOP_SUPPLIES_RATE || 0.07);
 
+const INTEL_ENABLED = true;
+const CHARM_ENABLED = false;
+const LIVE_SEARCH_ENABLED = false;
+
 const STRIPE_ENABLED = false;
 let stripe = null;
 if (STRIPE_ENABLED) {
@@ -42,11 +46,38 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 
+const knownIssuesDB = {
+  Ford: {
+    F150: {
+      '2004-2008': {
+        commonIssues: [
+          'Spark plug shell separation on 5.4L 3-valve engines',
+          'Cam phaser rattle at idle and low RPM',
+          'Timing chain stretch causing cam/crank correlation codes',
+          'Exhaust manifold stud breakage leading to ticking noise',
+          'Fuel pump driver module corrosion on frame rail'
+        ],
+        proTips: [
+          'Use a dedicated broken spark plug extractor on 5.4L 3-valve engines.',
+          'Always torque new spark plugs to spec and use anti-seize sparingly.',
+          'Inspect exhaust manifolds and studs for leaks and broken hardware.',
+          'Check fuel pump driver module for corrosion and mounting location.'
+        ],
+        relatedFailures: [
+          'Coil-on-plug failures causing misfires under load.',
+          'VCT solenoid sticking causing drivability issues.',
+          'Oil leaks from valve covers and oil pan.'
+        ]
+      }
+    }
+  }
+};
+
 function normalizeVehicle(v) {
   if (!v) return { raw: 'Unknown Vehicle', year: '', make: '', model: '' };
 
   if (typeof v === 'string') {
-    const parts = v.trim().split(/s+/);
+    const parts = v.trim().split(/\s+/);
     return {
       raw: v,
       year: parts[0] || '',
@@ -94,14 +125,110 @@ function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices =
 
   for (const sig of signals) {
     if (sig.kw.some(k => text.includes(k))) {
-      return { jobType: 'Repair', detected: sig };
+      return {
+        jobType: 'Repair',
+        detected: sig
+      };
     }
   }
 
-  return { jobType: 'Diagnosis', detected: null };
+  return {
+    jobType: 'Diagnosis',
+    detected: null
+  };
 }
 
-function buildPrompt(payload) {
+function lookupKnownIssues(year, make, model) {
+  const y = parseInt(year, 10);
+  if (!y || !make || !model) return null;
+
+  const makeBlock = knownIssuesDB[make];
+  if (!makeBlock) return null;
+
+  const modelBlock = makeBlock[model];
+  if (!modelBlock) return null;
+
+  for (const rangeKey of Object.keys(modelBlock)) {
+    const [start, end] = rangeKey.split('-').map(n => parseInt(n, 10));
+    if (y >= start && y <= end) {
+      return modelBlock[rangeKey];
+    }
+  }
+
+  return null;
+}
+
+async function fetchCharmIntel(vehicle) {
+  if (!CHARM_ENABLED) return { issues: [], tips: [], related: [] };
+
+  try {
+    const make = String(vehicle.make || '').toLowerCase();
+    const model = String(vehicle.model || '').toLowerCase();
+    const year = String(vehicle.year || '').trim();
+
+    if (!year || !make || !model) return { issues: [], tips: [], related: [] };
+
+    const url = `https://charm.li/${year}-${make}-${model}`;
+    const res = await fetch(url);
+
+    if (!res.ok) return { issues: [], tips: [], related: [] };
+
+    const html = await res.text();
+    const lines = html.split('\n').map(l => l.trim());
+
+    const issues = lines
+      .filter(l => l.startsWith('•') || l.startsWith('-'))
+      .slice(0, 10);
+
+    return { issues, tips: [], related: [] };
+  } catch (err) {
+    console.error('[CHARM FAIL]', err);
+    return { issues: [], tips: [], related: [] };
+  }
+}
+
+async function fetchLiveIntel(vehicle, concernText) {
+  if (!LIVE_SEARCH_ENABLED) return { findings: [] };
+  return { findings: [] };
+}
+
+async function aggregateVehicleIntel(payload) {
+  if (!INTEL_ENABLED) {
+    return {
+      charmIssues: [],
+      liveFindings: [],
+      dbCommonIssues: [],
+      dbProTips: [],
+      dbRelatedFailures: []
+    };
+  }
+
+  const vehicle = normalizeVehicle(payload.vehicle);
+
+  const dbIntel = lookupKnownIssues(vehicle.year, vehicle.make, vehicle.model) || {
+    commonIssues: [],
+    proTips: [],
+    relatedFailures: []
+  };
+
+  const [charm, live] = await Promise.all([
+    fetchCharmIntel(vehicle),
+    fetchLiveIntel(
+      vehicle,
+      (payload.customerStates || []).join(' ') + ' ' + (payload.mechanicNotices || []).join(' ')
+    )
+  ]);
+
+  return {
+    charmIssues: charm.issues || [],
+    liveFindings: live.findings || [],
+    dbCommonIssues: dbIntel.commonIssues || [],
+    dbProTips: dbIntel.proTips || [],
+    dbRelatedFailures: dbIntel.relatedFailures || []
+  };
+}
+
+function buildPrompt(payload, intel) {
   const vehicle = normalizeVehicle(payload.vehicle);
   const evidence = analyzeEvidence(payload);
   const forcedParts = evidence.detected?.parts || [];
@@ -109,6 +236,7 @@ function buildPrompt(payload) {
 
   return `
 You are an ASE-certified mobile mechanic estimator with 20+ years of field experience.
+
 MANDATORY LABOR RATE: $${payload.laborRate || DEFAULT_LABOR_RATE}/hour.
 
 VEHICLE:
@@ -122,9 +250,24 @@ DIAGNOSTIC INPUTS:
 - Customer States: ${payload.customerStates.join('; ') || 'None'}
 - Mechanic Findings: ${payload.mechanicNotices.join('; ') || 'None'}
 
+KNOWN ISSUES (Charm.li):
+${(intel?.charmIssues || []).join('\n') || 'None'}
+
+LIVE SEARCH FINDINGS:
+${(intel?.liveFindings || []).join('\n') || 'None'}
+
+INTERNAL KNOWN ISSUES:
+${(intel?.dbCommonIssues || []).join('\n') || 'None'}
+
+PRO TIPS:
+${(intel?.dbProTips || []).join('\n') || 'None'}
+
+RELATED FAILURES TO WATCH FOR:
+${(intel?.dbRelatedFailures || []).join('\n') || 'None'}
+
 FORCED ENGINE DECISION:
 - Job Type: ${evidence.jobType}
-- Forced Parts: ${forcedParts.length ? forcedParts.map(p => p.name).join(', ') : 'AI must determine'}
+- Forced Parts: ${forcedParts.map(p => p.name).join(', ') || 'AI must determine'}
 - Forced Hours: ${forcedHours || 'AI must determine'}
 
 Return JSON only with these keys:
@@ -143,6 +286,9 @@ Return JSON only with these keys:
   "primaryConcern": "Restated customer concern",
   "diagnosticNotes": "Tech-facing notes",
   "engineMeta": "Internal reasoning summary",
+  "knownIssues": [],
+  "proTips": [],
+  "relatedFailures": [],
   "disclaimer": "Estimates may change after inspection"
 }
 `;
@@ -215,7 +361,8 @@ app.post('/api/estimate', async (req, res) => {
     }
 
     const validated = DiagnosticSchema.parse(payload);
-    const prompt = buildPrompt(validated);
+    const intel = await aggregateVehicleIntel(validated);
+    const prompt = buildPrompt(validated, intel);
 
     if (!GROQ_API_KEY) {
       return res.status(500).json({ success: false, error: 'Missing GROQ_API_KEY' });
@@ -272,7 +419,10 @@ app.post('/api/estimate', async (req, res) => {
       tax,
       grandTotal,
       customer: validated.customer,
-      vehicle: normalizeVehicle(validated.vehicle)
+      vehicle: normalizeVehicle(validated.vehicle),
+      knownIssues: ai.knownIssues || intel.dbCommonIssues || [],
+      proTips: ai.proTips || intel.dbProTips || [],
+      relatedFailures: ai.relatedFailures || intel.dbRelatedFailures || []
     };
 
     if (jobId && supabase) {
