@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SKSK ProTech — Mobile Mechanic Estimate</title>
-
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -91,42 +90,33 @@
     }
   </style>
 </head>
-
 <body>
   <div class="container">
-
     <h1>SKSK ProTech</h1>
     <p>Mobile Mechanic AI Estimate Generator</p>
 
-    <!-- CUSTOMER -->
     <h2>Customer Info</h2>
     <input id="customerName" placeholder="Customer name" />
     <input id="customerPhone" placeholder="Phone number" />
 
-    <!-- VEHICLE -->
     <h2>Vehicle Info</h2>
     <input id="vehicleYear" placeholder="Year (e.g. 2008)" />
     <input id="vehicleMake" placeholder="Make (e.g. Kia)" />
     <input id="vehicleModel" placeholder="Model (e.g. Sorento)" />
 
-    <!-- SYMPTOMS -->
     <h2>Symptoms</h2>
     <textarea id="symptoms" rows="3" placeholder="Describe the issue..."></textarea>
 
-    <!-- OBD CODES -->
     <h2>OBD Codes</h2>
     <input id="codes" placeholder="Comma-separated codes (P0300, P0171)" />
 
-    <!-- MECHANIC FINDINGS -->
     <h2>Mechanic Findings</h2>
     <textarea id="mechanicFindings" rows="3" placeholder="Technician notes (optional)"></textarea>
 
     <button id="generateBtn">Generate Estimate</button>
 
     <div id="status"></div>
-
     <div id="estimateContainer" class="estimate-box"></div>
-
   </div>
 
   <script>
@@ -152,30 +142,30 @@
 
       estimateContainer.innerHTML = `
         <h3>Customer Summary</h3>
-        <p>${copy.customerSummary}</p>
-        <small>${copy.disclaimer}</small>
+        <p>${copy.customerSummary || ''}</p>
+        <small>${copy.disclaimer || ''}</small>
 
         <h3 style="margin-top:1rem;">Vehicle & Concern</h3>
         <p><strong>Customer:</strong> ${c.name || ''} · ${c.phone || ''}</p>
-        <p><strong>Vehicle:</strong> ${v.year} ${v.make} ${v.model}</p>
-        <p><strong>Primary Concern:</strong> ${copy.primaryConcern}</p>
+        <p><strong>Vehicle:</strong> ${v.year || ''} ${v.make || ''} ${v.model || ''}</p>
+        <p><strong>Primary Concern:</strong> ${copy.primaryConcern || ''}</p>
 
         <h3 style="margin-top:1rem;">Estimate Breakdown</h3>
         <div class="estimate-grid">
-          <div>Labor hours:</div><div>${e.laborHours.toFixed(2)}</div>
-          <div>Labor total:</div><div>$${e.laborTotal.toFixed(2)}</div>
-          <div>Parts total:</div><div>$${e.partsTotal.toFixed(2)}</div>
-          <div>Shop supplies:</div><div>$${e.shopSupplies.toFixed(2)}</div>
-          <div>Tax set‑aside:</div><div>$${e.tax.toFixed(2)}</div>
+          <div>Labor hours:</div><div>${Number(e.laborHours || 0).toFixed(2)}</div>
+          <div>Labor total:</div><div>$${Number(e.laborTotal || 0).toFixed(2)}</div>
+          <div>Parts total:</div><div>$${Number(e.partsTotal || 0).toFixed(2)}</div>
+          <div>Shop supplies:</div><div>$${Number(e.shopSupplies || 0).toFixed(2)}</div>
+          <div>Tax set-aside:</div><div>$${Number(e.tax || 0).toFixed(2)}</div>
         </div>
 
         <div class="estimate-total">
-          Estimate total: $${e.grandTotal.toFixed(2)}
+          Estimate total: $${Number(e.grandTotal || 0).toFixed(2)}
         </div>
 
         <h3 style="margin-top:1rem;">Tech Notes</h3>
-        <p style="white-space:pre-wrap;">${tech.diagnosticNotes}</p>
-        <small>${tech.engineMeta}</small>
+        <p style="white-space:pre-wrap;">${tech.diagnosticNotes || ''}</p>
+        <small>${tech.engineMeta || ''}</small>
       `;
     }
 
@@ -190,9 +180,22 @@
           make: document.getElementById('vehicleMake').value.trim(),
           model: document.getElementById('vehicleModel').value.trim(),
         },
-        obdCodes: document.getElementById('codes').value.split(',').map(c => c.trim()).filter(Boolean),
-        customerStates: document.getElementById('symptoms').value.trim().split('\n').filter(Boolean),
-        mechanicNotices: document.getElementById('mechanicFindings').value.trim().split('\n').filter(Boolean),
+        obdCodes: document.getElementById('codes').value
+          .split(',')
+          .map(c => c.trim())
+          .filter(Boolean),
+        customerStates: document.getElementById('symptoms').value
+          .trim()
+          .split('
+')
+          .map(s => s.trim())
+          .filter(Boolean),
+        mechanicNotices: document.getElementById('mechanicFindings').value
+          .trim()
+          .split('
+')
+          .map(s => s.trim())
+          .filter(Boolean),
         laborRate: 65
       };
 
@@ -202,11 +205,15 @@
       try {
         const res = await fetch('/api/estimate', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ incomingPayload: payload }),
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ incomingPayload: payload })
         });
 
-        if (!res.ok) throw new Error('Server error: ' + res.status);
+        if (!res.ok) {
+          throw new Error('Server error: ' + res.status);
+        }
 
         const data = await res.json();
         renderEstimate(data);
@@ -220,136 +227,5 @@
       }
     });
   </script>
-</body>
-</html>
-
-<body>
-  <div class="container">
-
-    <h1>SKSK ProTech</h1>
-    <p>Mobile Mechanic AI Estimate Generator</p>
-
-    <!-- CUSTOMER -->
-    <h2>Customer Info</h2>
-    <input id="customerName" placeholder="Customer name" />
-    <input id="customerPhone" placeholder="Phone number" />
-
-    <!-- VEHICLE -->
-    <h2>Vehicle Info</h2>
-    <input id="vehicleYear" placeholder="Year (e.g. 2008)" />
-    <input id="vehicleMake" placeholder="Make (e.g. Kia)" />
-    <input id="vehicleModel" placeholder="Model (e.g. Sorento)" />
-
-    <!-- SYMPTOMS -->
-    <h2>Symptoms</h2>
-    <textarea id="symptoms" rows="3" placeholder="Describe the issue..."></textarea>
-
-    <!-- OBD CODES -->
-    <h2>OBD Codes</h2>
-    <input id="codes" placeholder="Comma-separated codes (P0300, P0171)" />
-
-    <!-- MECHANIC FINDINGS -->
-    <h2>Mechanic Findings</h2>
-    <textarea id="mechanicFindings" rows="3" placeholder="Technician notes (optional)"></textarea>
-
-    <button id="generateBtn">Generate Estimate</button>
-
-    <div id="status"></div>
-
-    <div id="estimateContainer" class="estimate-box"></div>
-
-  </div>
-
-  <script>
-  const generateBtn = document.getElementById('generateBtn');
-  const statusEl = document.getElementById('status');
-  const estimateContainer = document.getElementById('estimateContainer');
-
-  function setStatus(msg) {
-    statusEl.textContent = msg || '';
-  }
-
-  function renderEstimate(data) {
-    if (!data || !data.estimate) {
-      estimateContainer.innerHTML = '<p>Unable to build estimate.</p>';
-      return;
-    }
-
-    const e = data.estimate;
-    const c = e.customer || {};
-    const v = e.vehicle || {};
-    const copy = e.copy || {};
-    const tech = e.tech || {};
-
-    estimateContainer.innerHTML = `
-      <h3>Customer Summary</h3>
-      <p>${copy.customerSummary}</p>
-      <small>${copy.disclaimer}</small>
-
-      <h3 style="margin-top:1rem;">Vehicle & Concern</h3>
-      <p><strong>Customer:</strong> ${c.name || ''} · ${c.phone || ''}</p>
-      <p><strong>Vehicle:</strong> ${v.year} ${v.make} ${v.model}</p>
-      <p><strong>Primary Concern:</strong> ${copy.primaryConcern}</p>
-
-      <h3 style="margin-top:1rem;">Estimate Breakdown</h3>
-      <div class="estimate-grid">
-        <div>Labor hours:</div><div>${e.laborHours.toFixed(2)}</div>
-        <div>Labor total:</div><div>$${e.laborTotal.toFixed(2)}</div>
-        <div>Parts total:</div><div>$${e.partsTotal.toFixed(2)}</div>
-        <div>Shop supplies:</div><div>$${e.shopSupplies.toFixed(2)}</div>
-        <div>Tax set‑aside:</div><div>$${e.tax.toFixed(2)}</div>
-      </div>
-
-      <div class="estimate-total">
-        Estimate total: $${e.grandTotal.toFixed(2)}
-      </div>
-
-      <h3 style="margin-top:1rem;">Tech Notes</h3>
-      <p style="white-space:pre-wrap;">${tech.diagnosticNotes}</p>
-      <small>${tech.engineMeta}</small>
-    `;
-  }
-
-  generateBtn.addEventListener('click', async () => {
-    const payload = {
-      customer: {
-        name: document.getElementById('customerName').value.trim(),
-        phone: document.getElementById('customerPhone').value.trim(),
-      },
-      vehicle: {
-        year: document.getElementById('vehicleYear').value.trim(),
-        make: document.getElementById('vehicleMake').value.trim(),
-        model: document.getElementById('vehicleModel').value.trim(),
-      },
-      obdCodes: document.getElementById('codes').value.split(',').map(c => c.trim()).filter(Boolean),
-      customerStates: document.getElementById('symptoms').value.trim().split('\n').filter(Boolean),
-      mechanicNotices: document.getElementById('mechanicFindings').value.trim().split('\n').filter(Boolean),
-      laborRate: 65
-    };
-
-    setStatus('AI building estimate…');
-    generateBtn.disabled = true;
-
-    try {
-      const res = await fetch('/api/estimate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ incomingPayload: payload }),
-      });
-
-      if (!res.ok) throw new Error('Server error: ' + res.status);
-
-      const data = await res.json();
-      renderEstimate(data);
-      setStatus('Estimate ready.');
-    } catch (err) {
-      console.error(err);
-      setStatus('Error generating estimate.');
-      estimateContainer.innerHTML = '<p>Something went wrong.</p>';
-    } finally {
-      generateBtn.disabled = false;
-    }
-  });
-</script>
 </body>
 </html>
