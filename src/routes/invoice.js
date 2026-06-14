@@ -5,6 +5,10 @@ const { generateInvoicePdf } = require('../services/pdf');
 
 router.post('/', async (req, res, next) => {
   try {
+    if (!db) {
+      return res.status(503).json({ success: false, error: 'Database not configured' });
+    }
+
     const invoiceId = `INV-${Date.now()}`;
     const body = req.body || {};
     const vinDecoded = await decodeVin(body.vin);
