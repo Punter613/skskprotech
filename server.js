@@ -1,5 +1,172 @@
 // ========================================
-// ZOD VALIDATION
+// CORE DEPENDENCIES & SETUP
+// ========================================
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
+const { z } = require('zod');
+
+const app = express();
+
+// ========================================
+// CORS & JSON MIDDLEWARE
+// ========================================
+app.use(cors({ origin: '*', methods: ['GET', 'POST'], allowedHeaders: ['Content-Type'] }));
+app.use(express.json());
+
+// ========================================
+// ENVIRONMENT VARIABLES
+// ========================================
+const PORT = process.env.PORT || 4000;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const DEFAULT_LABOR_RATE = Number(process.env.DEFAULT_LABOR_RATE || 65);
+
+// Stripe is wired but OFF unless you flip this boolean
+const STRIPE_ENABLED = false;
+let stripe = null;
+if (STRIPE_ENABLED) {
+  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  console.log("💳 Stripe ready (but disabled by config)");
+}
+
+// ========================================
+// SUPABASE CLIENT
+// ========================================
+const supabase = (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  : null;
+
+// ========================================
+// VEHICLE NORMALIZER (Accepts string OR object)
+// ========================================
+function normalizeVehicle(v) {
+  if (!v) return { raw: "Unknown Vehicle", year: "", make: "", model: "" };
+  
+  // If string → parse best we can
+  if (typeof v === "string") {
+    const parts = v.split(" ");
+    return {
+      raw: v,
+      year: parts[0] || "",
+      make: parts[1] || "",
+      model: parts.slice(2).join(" ") || ""
+    };
+  }
+  
+  // If object → build raw string
+  if (typeof v === "object") {
+    const raw = `${v.year || ""} ${v.make || ""} ${v.model || ""}`.trim();
+    return {
+      raw,
+      year: v.year || "",
+      make: v.make || "",
+      model: v.model || ""
+    };
+  }
+  
+  return { raw: "Unknown Vehicle", year: "", make: "", model: "" };
+}
+
+// ========================================
+// MULTI-REPAIR EVIDENCE ENGINE
+// ========================================
+function analyzeEvidence({ obdCodes = [], customerStates = [], mechanicNotices = [] }) {
+  const text = [...obdCodes, ...customerStates, ...mechanicNotices]
+    .join(" ")
+    .toLowerCase();
+  
+  const signals = [
+    {
+      kw: ["torn cv boot", "axle clicking", "cv axle"],
+      repair: "CV Axle Replacement",
+      hours: 1.5,
+      parts: [{ name: "CV axle shaft assembly", cost: 125 }]
+    },
+    {
+      kw: ["valve cover leaking", "oil on exhaust"],
+      repair: "Valve Cover Gasket Replacement",
+      hours: 2.0,
+      parts: [{ name: "Valve cover gasket set", cost: 35 }]
+    },
+    {
+      kw: ["wheel bearing noise", "growling wheel"],
+      repair: "Wheel Bearing Replacement",
+      hours: 1.5,
+      parts: [{ name: "Wheel bearing hub assembly", cost: 85 }]
+    }
+  ];
+  
+  for (const sig of signals) {
+    if (sig.kw.some(k => text.includes(k))) {
+      return {
+        jobType: "Repair",
+        detected: sig
+      };
+    }
+  }
+  
+  return {
+    jobType: "Diagnosis",
+    detected: null
+  };
+}
+
+// ========================================
+// PROMPT BUILDER (Ultra-Detailed JSON)
+// ========================================
+function buildPrompt(payload) {
+  const vehicle = normalizeVehicle(payload.vehicle);
+  const evidence = analyzeEvidence(payload);
+  const forcedParts = evidence.detected?.parts || [];
+  const forcedHours = evidence.detected?.hours || null;
+  
+  return `
+You are an ASE-certified mobile mechanic estimator with 20+ years of field experience.
+MANDATORY LABOR RATE: $${payload.laborRate || DEFAULT_LABOR_RATE}/hour.
+
+VEHICLE:
+- Raw: ${vehicle.raw}
+- Year: ${vehicle.year}
+- Make: ${vehicle.make}
+- Model: ${vehicle.model}
+
+DIAGNOSTIC INPUTS:
+- OBD Codes: ${payload.obdCodes.join(", ") || "None"}
+- Customer States: ${payload.customerStates.join("; ") || "None"}
+- Mechanic Findings: ${payload.mechanicNotices.join("; ") || "None"}
+
+FORCED ENGINE DECISION:
+- Job Type: ${evidence.jobType}
+- Forced Parts: ${forcedParts.length ? forcedParts.map(p => p.name).join(", ") : "AI must determine"}
+- Forced Hours: ${forcedHours || "AI must determine"}
+
+RETURN JSON ONLY IN THIS EXACT STRUCTURE:
+{
+  "jobType": "Diagnosis" | "Repair",
+  "shortDescription": "One sentence summary",
+  "laborRate": ${payload.laborRate || DEFAULT_LABOR_RATE},
+  "laborHours": number,
+  "parts": [
+    { "name": "string", "cost": number }
+  ],
+  "shopSuppliesPercent": 7,
+  "workSteps": ["step 1", "step 2", "step 3"],
+  "warnings": ["warning 1", "warning 2"],
+  "notes": ["note 1", "note 2"],
+  "tips": ["tip 1", "tip 2"],
+  "customerSummary": "Customer-friendly explanation",
+  "primaryConcern": "Restated customer concern",
+  "diagnosticNotes": "Tech-facing notes",
+  "engineMeta": "Internal reasoning summary"
+}
+`;
+}
+
+// ========================================
+// ZOD VALIDATION SCHEMA
 // ========================================
 const DiagnosticSchema = z.object({
   customer: z.object({
