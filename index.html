@@ -20,6 +20,7 @@
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       min-height: 100vh;
@@ -110,13 +111,6 @@
       border-color: rgba(255,59,48,0.8);
     }
 
-    .footer {
-      margin-top: 18px;
-      font-size: 0.85rem;
-      color: #8f8f99;
-      text-align: center;
-    }
-
     .status {
       margin-top: 14px;
       padding: 12px 14px;
@@ -126,6 +120,13 @@
       color: var(--muted);
       font-size: 0.92rem;
       min-height: 44px;
+    }
+
+    .footer {
+      margin-top: 18px;
+      font-size: 0.85rem;
+      color: #8f8f99;
+      text-align: center;
     }
   </style>
 </head>
@@ -147,31 +148,43 @@
 
   <script>
     const statusEl = document.getElementById('status');
+    const setStatus = msg => { statusEl.textContent = msg; };
 
-    function setStatus(msg) {
-      statusEl.textContent = msg;
+    async function readJson(res) {
+      const text = await res.text();
+      try { return JSON.parse(text); } catch { return { error: text || `HTTP ${res.status}` }; }
     }
 
-    document.getElementById('btnEstimate').addEventListener('click', () => {
-      setStatus('Estimate selected.');
-      fetch('/api/estimate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labor: 120, parts: 80, vin: '' })
-      }).then(r => r.json()).then(data => {
+    document.getElementById('btnEstimate').addEventListener('click', async () => {
+      setStatus('Sending estimate...');
+      try {
+        const res = await fetch('/api/estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ labor: 120, parts: 80, vin: '' })
+        });
+        const data = await readJson(res);
+        if (!res.ok) throw new Error(data.error || 'Estimate failed');
         setStatus(`Estimate ready: $${data.estimate.total}`);
-      }).catch(() => setStatus('Estimate failed.'));
+      } catch (err) {
+        setStatus(err.message || 'Estimate failed');
+      }
     });
 
-    document.getElementById('btnDiagnose').addEventListener('click', () => {
-      setStatus('Diagnosis selected.');
-      fetch('/api/diagnose', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vin: '', symptoms: ['noise'], codes: [] })
-      }).then(r => r.json()).then(() => {
+    document.getElementById('btnDiagnose').addEventListener('click', async () => {
+      setStatus('Sending diagnosis...');
+      try {
+        const res = await fetch('/api/diagnose', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vin: '', symptoms: ['noise'], codes: [] })
+        });
+        const data = await readJson(res);
+        if (!res.ok) throw new Error(data.error || 'Diagnosis failed');
         setStatus('Diagnosis submitted.');
-      }).catch(() => setStatus('Diagnosis failed.'));
+      } catch (err) {
+        setStatus(err.message || 'Diagnosis failed');
+      }
     });
 
     document.getElementById('btnInvoice').addEventListener('click', async () => {
@@ -182,12 +195,16 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ total: 200, customer: { name: 'Test' } })
         });
+        if (!res.ok) {
+          const data = await readJson(res);
+          throw new Error(data.error || 'Invoice failed');
+        }
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');
         setStatus('Invoice opened.');
-      } catch {
-        setStatus('Invoice failed.');
+      } catch (err) {
+        setStatus(err.message || 'Invoice failed');
       }
     });
 
