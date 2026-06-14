@@ -20,9 +20,7 @@
       --shadow: 0 8px 24px rgba(0,0,0,0.45);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -75,6 +73,7 @@
     .section-gold { border-left-color: var(--accent-gold); }
     .section-purple { border-left-color: var(--accent-purple); }
     .section-green { border-left-color: var(--accent-green); }
+    .section-red { border-left-color: var(--danger); }
 
     input, textarea {
       width: 100%;
@@ -84,14 +83,12 @@
       border-radius: 10px;
       border: 1px solid #333;
       font-size: 1rem;
-      box-sizing: border-box;
       background: #0f0f0f;
       color: #ff5a5a;
       outline: none;
     }
 
-    input::placeholder,
-    textarea::placeholder {
+    input::placeholder, textarea::placeholder {
       color: #8f4d4d;
     }
 
@@ -114,9 +111,7 @@
       box-shadow: 0 8px 18px rgba(255, 0, 0, 0.22);
     }
 
-    button:hover {
-      filter: brightness(1.05);
-    }
+    button:hover { filter: brightness(1.05); }
 
     button:disabled {
       background: #666;
@@ -157,10 +152,7 @@
       border-radius: 12px;
     }
 
-    .estimate-grid > div:nth-child(odd) {
-      color: var(--accent-blue);
-    }
-
+    .estimate-grid > div:nth-child(odd) { color: var(--accent-blue); }
     .estimate-grid > div:nth-child(even) {
       color: #fff0f0;
       text-align: right;
@@ -182,27 +174,14 @@
       color: #9b6f6f;
       margin-top: 0.35rem;
       line-height: 1.4;
+      white-space: pre-wrap;
     }
 
-    .label-accent {
-      color: var(--accent-purple);
-    }
-
-    .label-blue {
-      color: var(--accent-blue);
-    }
-
-    .label-gold {
-      color: var(--accent-gold);
-    }
-
-    .label-green {
-      color: var(--accent-green);
-    }
-
-    .label-red {
-      color: var(--danger);
-    }
+    .label-blue { color: var(--accent-blue); }
+    .label-gold { color: var(--accent-gold); }
+    .label-green { color: var(--accent-green); }
+    .label-red { color: var(--danger); }
+    .label-purple { color: var(--accent-purple); }
 
     .divider {
       margin: 1rem 0;
@@ -252,15 +231,12 @@
     }
 
     function splitLines(value) {
-    function splitLines(value) {
-  return String(value || '')
-    .trim()
-    .split(/
+      return String(value || '')
+        .split(/
 ?
 /)
-    .map(s => s.trim())
-    .filter(Boolean);
-    }
+        .map(s => s.trim())
+        .filter(Boolean);
     }
 
     function clearNode(node) {
@@ -295,12 +271,10 @@
       const e = data.estimate;
       const c = e.customer || {};
       const v = e.vehicle || {};
-      const copy = e.copy || {};
-      const tech = e.tech || {};
 
       estimateContainer.appendChild(el('h3', 'Customer Summary', 'label-red'));
-      estimateContainer.appendChild(el('p', copy.customerSummary || ''));
-      estimateContainer.appendChild(el('small', copy.disclaimer || ''));
+      estimateContainer.appendChild(el('p', e.customerSummary || ''));
+      estimateContainer.appendChild(el('small', e.disclaimer || ''));
 
       const hr = document.createElement('hr');
       hr.className = 'divider';
@@ -308,8 +282,8 @@
 
       estimateContainer.appendChild(el('h3', 'Vehicle & Concern', 'label-gold'));
       addLine(estimateContainer, 'Customer:', `${c.name || ''} · ${c.phone || ''}`, 'label-blue');
-      addLine(estimateContainer, 'Vehicle:', `${v.year || ''} ${v.make || ''} ${v.model || ''}`, 'label-blue');
-      addLine(estimateContainer, 'Primary Concern:', copy.primaryConcern || '', 'label-purple');
+      addLine(estimateContainer, 'Vehicle:', `${v.year || ''} ${v.make || ''} ${v.model || ''}`.trim(), 'label-blue');
+      addLine(estimateContainer, 'Primary Concern:', e.primaryConcern || '', 'label-purple');
 
       estimateContainer.appendChild(el('h3', 'Estimate Breakdown', 'label-green'));
 
@@ -328,15 +302,14 @@
       });
 
       estimateContainer.appendChild(grid);
-
       estimateContainer.appendChild(el('div', `Estimate total: $${Number(e.grandTotal || 0).toFixed(2)}`, 'estimate-total'));
 
       estimateContainer.appendChild(el('h3', 'Tech Notes', 'label-red'));
       const notes = document.createElement('p');
       notes.style.whiteSpace = 'pre-wrap';
-      notes.textContent = tech.diagnosticNotes || '';
+      notes.textContent = e.diagnosticNotes || '';
       estimateContainer.appendChild(notes);
-      estimateContainer.appendChild(el('small', tech.engineMeta || ''));
+      estimateContainer.appendChild(el('small', e.engineMeta || ''));
     }
 
     generateBtn.addEventListener('click', async () => {
@@ -365,15 +338,11 @@
       try {
         const res = await fetch('/api/estimate', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ incomingPayload: payload })
         });
 
-        if (!res.ok) {
-          throw new Error('Server error: ' + res.status);
-        }
+        if (!res.ok) throw new Error('Server error: ' + res.status);
 
         const data = await res.json();
         renderEstimate(data);
