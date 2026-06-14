@@ -2,353 +2,213 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>SKSK ProTech – AI Auto Estimator [BETA]</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SKSK ProTech — Mobile Mechanic Estimate</title>
+
   <style>
     body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #050608;
-      color: #f5f5f5;
+      padding: 0;
+      color: #222;
     }
-    header {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid #222;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #050608;
-      position: sticky;
-      top: 0;
-      z-index: 10;
+
+    .container {
+      max-width: 480px;
+      margin: auto;
+      padding: 1rem;
     }
-    header h1 {
-      font-size: 1.1rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #9ae6b4;
+
+    h2 {
+      margin-top: 1.5rem;
+      font-size: 1.3rem;
+      border-left: 4px solid #007bff;
+      padding-left: 8px;
     }
-    header span {
-      font-size: 0.8rem;
-      color: #a0aec0;
-    }
-    main {
-      max-width: 960px;
-      margin: 0 auto;
-      padding: 1.5rem;
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
-      gap: 1.5rem;
-    }
-    @media (max-width: 800px) {
-      main {
-        grid-template-columns: minmax(0, 1fr);
-      }
-    }
-    .card {
-      background: #0b0d10;
-      border-radius: 0.75rem;
-      border: 1px solid #1f2933;
-      padding: 1rem 1.25rem;
-      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
-    }
-    .card h2 {
-      font-size: 0.95rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #a0aec0;
-      margin-bottom: 0.75rem;
-    }
-    label {
-      display: block;
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #a0aec0;
-      margin-top: 0.75rem;
-      margin-bottom: 0.25rem;
-    }
+
     input, textarea, select {
       width: 100%;
-      background: #050608;
-      border-radius: 0.5rem;
-      border: 1px solid #2d3748;
-      padding: 0.5rem 0.6rem;
-      color: #e2e8f0;
-      font-size: 0.9rem;
-      outline: none;
+      padding: 10px;
+      margin-top: 6px;
+      margin-bottom: 12px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
     }
-    input:focus, textarea:focus, select:focus {
-      border-color: #63b3ed;
-      box-shadow: 0 0 0 1px #63b3ed33;
-    }
-    textarea {
-      min-height: 70px;
-      resize: vertical;
-    }
-    .row {
-      display: flex;
-      gap: 0.75rem;
-    }
-    .row > div {
-      flex: 1;
-    }
+
     button {
-      margin-top: 1rem;
-      padding: 0.6rem 1.2rem;
-      border-radius: 999px;
+      width: 100%;
+      padding: 14px;
+      background: #007bff;
+      color: white;
       border: none;
-      background: linear-gradient(135deg, #38b2ac, #4299e1);
-      color: #f7fafc;
-      font-weight: 600;
-      font-size: 0.9rem;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      border-radius: 6px;
+      font-size: 1.1rem;
       cursor: pointer;
     }
+
     button:disabled {
-      opacity: 0.5;
-      cursor: default;
+      background: #999;
     }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      padding: 0.25rem 0.6rem;
-      border-radius: 999px;
-      background: #111827;
-      color: #a0aec0;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+
+    #status {
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      color: #444;
     }
-    .pill span.dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: #48bb78;
+
+    .estimate-box {
+      background: white;
+      padding: 1rem;
+      margin-top: 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
-    .estimate-section h3 {
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #a0aec0;
-      margin-top: 0.75rem;
-      margin-bottom: 0.25rem;
-    }
-    .estimate-section p {
-      font-size: 0.9rem;
-      margin: 0.15rem 0;
-      color: #e2e8f0;
-    }
-    .estimate-section small {
-      font-size: 0.75rem;
-      color: #a0aec0;
-    }
+
     .estimate-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.5rem 1rem;
-      margin-top: 0.5rem;
+      grid-template-columns: 1fr auto;
+      gap: 6px 12px;
+      margin-top: 1rem;
     }
-    .estimate-grid div {
-      font-size: 0.85rem;
-      color: #e2e8f0;
-    }
+
     .estimate-total {
-      margin-top: 0.75rem;
-      padding-top: 0.5rem;
-      border-top: 1px dashed #2d3748;
-      font-weight: 600;
-      font-size: 1rem;
-      color: #f6e05e;
+      margin-top: 1rem;
+      font-size: 1.3rem;
+      font-weight: bold;
+      text-align: right;
     }
-    .status {
-      font-size: 0.8rem;
-      color: #a0aec0;
-      margin-top: 0.5rem;
-    }
-    .status strong {
-      color: #edf2f7;
-    }
-    .tagline {
-      font-size: 0.8rem;
-      color: #a0aec0;
-      margin-top: 0.25rem;
+
+    small {
+      color: #666;
     }
   </style>
-</head>
-<body>
-  <header>
-    <div>
-      <h1>SKSK ProTech · AI Auto Estimator</h1>
-      <div class="tagline">From symptom to invoice in one pass — built for mobile mechanics.</div>
-    </div>
-    <div class="pill">
-      <span class="dot"></span>
-      <span>BETA · Node · Express</span>
-    </div>
-  </header>
+</head><body>
+  <div class="container">
 
-  <main>
-    <!-- LEFT: INPUT / DIAGNOSTIC -->
-    <section class="card">
-      <h2>Diagnostic intake</h2>
+    <h1>SKSK ProTech</h1>
+    <p>Mobile Mechanic AI Estimate Generator</p>
 
-      <label for="customerName">Customer name</label>
-      <input id="customerName" placeholder="Jane Doe" />
+    <!-- CUSTOMER -->
+    <h2>Customer Info</h2>
+    <input id="customerName" placeholder="Customer name" />
+    <input id="customerPhone" placeholder="Phone number" />
 
-      <label for="customerPhone">Customer phone</label>
-      <input id="customerPhone" placeholder="(555) 555‑1212" />
+    <!-- VEHICLE -->
+    <h2>Vehicle Info</h2>
+    <input id="vehicleYear" placeholder="Year (e.g. 2008)" />
+    <input id="vehicleMake" placeholder="Make (e.g. Kia)" />
+    <input id="vehicleModel" placeholder="Model (e.g. Sorento)" />
 
-      <div class="row">
-        <div>
-          <label for="vehicleYear">Year</label>
-          <input id="vehicleYear" placeholder="2015" />
-        </div>
-        <div>
-          <label for="vehicleMake">Make</label>
-          <input id="vehicleMake" placeholder="Ford" />
-        </div>
-        <div>
-          <label for="vehicleModel">Model</label>
-          <input id="vehicleModel" placeholder="F‑150" />
-        </div>
-      </div>
+    <!-- SYMPTOMS -->
+    <h2>Symptoms</h2>
+    <textarea id="symptoms" rows="3" placeholder="Describe the issue..."></textarea>
 
-      <label for="state">Customer state (for tax)</label>
-      <select id="state">
-        <option value="">Select state…</option>
-        <option value="OH">Ohio</option>
-        <option value="PA">Pennsylvania</option>
-        <option value="MI">Michigan</option>
-        <option value="NY">New York</option>
-      </select>
+    <!-- OBD CODES -->
+    <h2>OBD Codes</h2>
+    <input id="codes" placeholder="Comma-separated codes (P0300, P0171)" />
 
-      <label for="symptoms">Customer‑reported symptoms</label>
-      <textarea id="symptoms" placeholder="Grinding when turning left, worse over bumps…"></textarea>
+    <!-- MECHANIC FINDINGS -->
+    <h2>Mechanic Findings</h2>
+    <textarea id="mechanicFindings" rows="3" placeholder="Technician notes (optional)"></textarea>
 
-      <label for="codes">OBD‑II codes (comma‑separated)</label>
-      <input id="codes" placeholder="P0301, P0420" />
+    <button id="generateBtn">Generate Estimate</button>
 
-      <label for="mechanicFindings">Mechanic findings</label>
-      <textarea id="mechanicFindings" placeholder="Front left CV axle boot torn, grease sling, play in joint…"></textarea>
+    <div id="status"></div>
 
-      <button id="generateBtn">Build AI estimate</button>
-      <div id="status" class="status"></div>
-    </section>
+    <div id="estimateContainer" class="estimate-box"></div>
 
-    <!-- RIGHT: ESTIMATE / CUSTOMER COPY -->
-    <section class="card">
-      <h2>Estimate & invoice preview</h2>
-      <div id="estimateContainer" class="estimate-section">
-        <p>Fill out the intake on the left and click <strong>Build AI estimate</strong>.</p>
-        <p>We’ll generate:</p>
-        <ul style="margin-top:0.4rem; padding-left:1.1rem; font-size:0.85rem; color:#a0aec0;">
-          <li>Customer‑facing explanation</li>
-          <li>Tech‑facing diagnostic notes</li>
-          <li>Labor, parts, shop supplies, tax set‑aside</li>
-          <li>Invoice‑ready totals</li>
-        </ul>
-      </div>
-    </section>
-  </main>
+  </div><script>
+  const generateBtn = document.getElementById('generateBtn');
+  const statusEl = document.getElementById('status');
+  const estimateContainer = document.getElementById('estimateContainer');
 
-  <script>
-    const generateBtn = document.getElementById('generateBtn');
-    const statusEl = document.getElementById('status');
-    const estimateContainer = document.getElementById('estimateContainer');
+  function setStatus(msg) {
+    statusEl.textContent = msg || '';
+  }
 
-    function setStatus(msg) {
-      statusEl.textContent = msg || '';
+  function renderEstimate(data) {
+    if (!data || !data.estimate) {
+      estimateContainer.innerHTML = '<p>Unable to build estimate.</p>';
+      return;
     }
 
-    function renderEstimate(data) {
-      if (!data || !data.estimate) {
-        estimateContainer.innerHTML = '<p>Unable to build estimate. Check inputs and try again.</p>';
-        return;
-      }
+    const e = data.estimate;
+    const c = e.customer || {};
+    const v = e.vehicle || {};
+    const copy = e.copy || {};
+    const tech = e.tech || {};
 
-      const e = data.estimate;
-      const c = data.customer || {};
-      const v = data.vehicle || {};
-      const copy = data.copy || {};
-      const tech = data.tech || {};
+    estimateContainer.innerHTML = `
+      <h3>Customer Summary</h3>
+      <p>${copy.customerSummary}</p>
+      <small>${copy.disclaimer}</small>
 
-      estimateContainer.innerHTML = `
-        <h3>Customer summary</h3>
-        <p>${copy.customerSummary || 'Here is your repair estimate based on the information provided.'}</p>
-        <small>${copy.disclaimer || 'This is an estimate, not a final invoice. Actual costs may vary after teardown and inspection.'}</small>
+      <h3 style="margin-top:1rem;">Vehicle & Concern</h3>
+      <p><strong>Customer:</strong> ${c.name || ''} · ${c.phone || ''}</p>
+      <p><strong>Vehicle:</strong> ${v.year} ${v.make} ${v.model}</p>
+      <p><strong>Primary Concern:</strong> ${copy.primaryConcern}</p>
 
-        <h3 style="margin-top:1rem;">Vehicle & concern</h3>
-        <p><strong>Customer:</strong> ${c.name || 'N/A'} · ${c.phone || ''}</p>
-        <p><strong>Vehicle:</strong> ${v.year || ''} ${v.make || ''} ${v.model || ''}</p>
-        <p><strong>Primary concern:</strong> ${copy.primaryConcern || 'As reported by customer and verified by technician.'}</p>
+      <h3 style="margin-top:1rem;">Estimate Breakdown</h3>
+      <div class="estimate-grid">
+        <div>Labor hours:</div><div>${e.laborHours.toFixed(2)}</div>
+        <div>Labor total:</div><div>$${e.laborTotal.toFixed(2)}</div>
+        <div>Parts total:</div><div>$${e.partsTotal.toFixed(2)}</div>
+        <div>Shop supplies:</div><div>$${e.shopSupplies.toFixed(2)}</div>
+        <div>Tax set‑aside:</div><div>$${e.tax.toFixed(2)}</div>
+      </div>
 
-        <h3 style="margin-top:1rem;">Estimate breakdown</h3>
-        <div class="estimate-grid">
-          <div>Labor hours:</div><div>${e.laborHours.toFixed(2)}</div>
-          <div>Labor total:</div><div>$${e.laborTotal.toFixed(2)}</div>
-          <div>Parts total:</div><div>$${e.partsTotal.toFixed(2)}</div>
-          <div>Shop supplies:</div><div>$${e.shopSupplies.toFixed(2)}</div>
-          <div>Tax set‑aside:</div><div>$${e.tax.toFixed(2)}</div>
-        </div>
-        <div class="estimate-total">
-          Estimate total: $${e.grandTotal.toFixed(2)}
-        </div>
+      <div class="estimate-total">
+        Estimate total: $${e.grandTotal.toFixed(2)}
+      </div>
 
-        <h3 style="margin-top:1rem;">Tech notes</h3>
-        <p style="white-space:pre-wrap;">${tech.diagnosticNotes || 'Diagnostic notes will appear here for technician reference.'}</p>
-        <small>${tech.engineMeta || ''}</small>
-      `;
+      <h3 style="margin-top:1rem;">Tech Notes</h3>
+      <p style="white-space:pre-wrap;">${tech.diagnosticNotes}</p>
+      <small>${tech.engineMeta}</small>
+    `;
+  }
+
+  generateBtn.addEventListener('click', async () => {
+    const payload = {
+      customer: {
+        name: document.getElementById('customerName').value.trim(),
+        phone: document.getElementById('customerPhone').value.trim(),
+      },
+      vehicle: {
+        year: document.getElementById('vehicleYear').value.trim(),
+        make: document.getElementById('vehicleMake').value.trim(),
+        model: document.getElementById('vehicleModel').value.trim(),
+      },
+      obdCodes: document.getElementById('codes').value.split(',').map(c => c.trim()).filter(Boolean),
+      customerStates: document.getElementById('symptoms').value.trim().split('\n').filter(Boolean),
+      mechanicNotices: document.getElementById('mechanicFindings').value.trim().split('\n').filter(Boolean),
+      laborRate: 65
+    };
+
+    setStatus('AI building estimate…');
+    generateBtn.disabled = true;
+
+    try {
+      const res = await fetch('/api/estimate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ incomingPayload: payload }),
+      });
+
+      if (!res.ok) throw new Error('Server error: ' + res.status);
+
+      const data = await res.json();
+      renderEstimate(data);
+      setStatus('Estimate ready.');
+    } catch (err) {
+      console.error(err);
+      setStatus('Error generating estimate.');
+      estimateContainer.innerHTML = '<p>Something went wrong.</p>';
+    } finally {
+      generateBtn.disabled = false;
     }
-
-    generateBtn.addEventListener('click', async () => {
-      const payload = {
-        customer: {
-          name: document.getElementById('customerName').value.trim(),
-          phone: document.getElementById('customerPhone').value.trim(),
-        },
-        vehicle: {
-          year: document.getElementById('vehicleYear').value.trim(),
-          make: document.getElementById('vehicleMake').value.trim(),
-          model: document.getElementById('vehicleModel').value.trim(),
-        },
-        state: document.getElementById('state').value,
-        diagnostic: {
-          symptoms: document.getElementById('symptoms').value.trim(),
-          codes: document.getElementById('codes').value.split(',').map(c => c.trim()).filter(Boolean),
-        },
-        mechanic: {
-          findings: document.getElementById('mechanicFindings').value.trim(),
-        }
-      };
-
-      setStatus('AI building estimate…');
-      generateBtn.disabled = true;
-
-      try {
-        const res = await fetch('/api/generate-estimate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          throw new Error('Server error: ' + res.status);
-        }
-
-        const data = await res.json();
-        renderEstimate(data);
-        setStatus('Estimate generated · Ready for customer review.');
-      } catch (err) {
-        console.error(err);
-        setStatus('Error generating estimate. Check console/logs.');
-        estimateContainer.innerHTML = '<p>Something went wrong generating the estimate.</p>';
-      } finally {
-        generateBtn.disabled = false;
-      }
-    });
-  </script>
+  });
+</script>
 </body>
 </html>
