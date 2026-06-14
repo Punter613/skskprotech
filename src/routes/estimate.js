@@ -4,6 +4,10 @@ const { decodeVin } = require('../services/vin');
 
 router.post('/', async (req, res, next) => {
   try {
+    if (!db) {
+      return res.status(503).json({ success: false, error: 'Database not configured' });
+    }
+
     const incoming = req.body || {};
     const vinDecoded = await decodeVin(incoming.vin);
 
