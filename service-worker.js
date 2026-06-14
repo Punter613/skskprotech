@@ -1,218 +1,193 @@
-const CACHE_VERSION = 'v1.2.0';
-const CACHE_NAME = `sksk-protech-${CACHE_VERSION}`;
-const API_CACHE = `sksk-api-${CACHE_VERSION}`;
+const VERSION = 'v1.2.0-sksk';
+const STATIC_CACHE = `sksk-static-${VERSION}`;
+const DATA_CACHE = `sksk-data-${VERSION}`;
+const QUEUE_DB = 'sksk-queues-db';
+const QUEUE_STORE = 'requests';
 
-// Files to cache on install
-const STATIC_ASSETS = [
+const API_BASE = 'https://api.skskprotech.com';
+
+const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/service-worker.js'
+  '/favicon.ico'
 ];
 
-// API routes to cache (read-only, no data mutations)
-const CACHEABLE_APIS = [
-  'GET:/api/health',
-  'GET:/api/config'
-];
-
-self.addEventListener('install', event => {
-  console.log('[SW] Installing', CACHE_NAME);
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(STATIC_ASSETS))
-      .then(() => self.skipWaiting())
-      .catch(err => console.error('[SW] Install error:', err))
-  );
-});
-
-self.addEventListener('activate', event => {
-  console.log('[SW] Activating', CACHE_NAME);
-  event.waitUntil(
-    caches.keys()
-      .then(cacheNames => {
-        return Promise.all(
-          cacheNames.map(cacheName => {
-            if (cacheName !== CACHE_NAME && cacheName !== API_CACHE) {
-              console.log('[SW] Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      })
-      .then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch', event => {
-  const { request } = event;
-  const { method, url } = request;
-
-  // Skip non-GET requests and API mutations
-  if (method !== 'GET') {
-    event.respondWith(fetch(request));
-    return;
-  }
-
-  // HTML: Network-first, fallback to cache
-  if (request.headers.get('accept')?.includes('text/html')) {
-    event.respondWith(
-      fetch(request)
-        .then(response => {
-          if (response.ok) {
-            caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request).then(r => r || createOfflineHTML()))
-    );
-    return;
-  }
-
-  // API GET requests: Cache-first with network fallback
-  if (url.includes('/api/')) {
-    event.respondWith(
-      caches.match(request)
-        .then(cached => {
-          if (cached) return cached;
-          return fetch(request).then(response => {
-            if (response.ok && response.status === 200) {
-              caches.open(API_CACHE).then(cache => cache.put(request, response.clone()));
-            }
-            return response;
-          });
-        })
-        .catch(() => {
-          console.warn('[SW] API request failed:', url);
-          return createErrorResponse('API unavailable. Check your connection.');
-        })
-    );
-    return;
-  }
-
-  // Static assets: Cache-first
-  event.respondWith(
-    caches.match(request)
-      .then(cached => cached || fetch(request))
-      .catch(err => {
-        console.error('[SW] Fetch error:', err);
-        return createErrorResponse('Resource not available');
-      })
-  );
-});
-
-self.addEventListener('message', event => {
-  if (event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-});
-
-function createOfflineHTML() {
-  return new Response(
-    `<!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>SKSK ProTech — Offline</title>
-      <style>
-        body { margin: 0; padding: 2rem; background: #050505; color: #ff2a2a; font-family: Arial, sans-serif; }
-        .container { max-width: 560px; margin: 0 auto; }
-        h1 { font-size: 1.8rem; margin-bottom: 1rem; }
-        p { color: #b85a5a; line-height: 1.6; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>⚠️ Offline</h1>
-        <p>You're currently offline. Some features may not be available.</p>
-        <p>Previously cached data is still available. Try refreshing or check your connection.</p>
-      </div>
-    </body>
-    </html>`,
-    {
-      status: 503,
-      statusText: 'Service Unavailable',
-      headers: { 'Content-Type': 'text/html; charset=utf-8' }
-    }
-  );
-}
-
-function createErrorResponse(message) {
-  return new Response(
-    JSON.stringify({ error: message }),
-    {
-      status: 500,
-      statusText: 'Internal Server Error',
-      headers: { 'Content-Type': 'application/json' }
-    }
-  );
-}
-
-// Background sync for queued requests
-self.addEventListener('sync', event => {
-  if (event.tag === 'sync-estimates') {
-    event.waitUntil(syncEstimates());
-  }
-});
-
-async function syncEstimates() {
-  try {
-    const db = await openIndexedDB();
-    const pending = await getPendingEstimates(db);
-    
-    for (const estimate of pending) {
-      try {
-        await fetch('/api/estimate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(estimate.data)
-        });
-        
-        await deleteEstimate(db, estimate.id);
-      } catch (err) {
-        console.error('[SW] Sync error for estimate:', err);
-      }
-    }
-  } catch (err) {
-    console.error('[SW] Background sync failed:', err);
-  }
-}
-
-function openIndexedDB() {
+function openQueueDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open('sksk-protech', 1);
-    
-    req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
-    
-    req.onupgradeneeded = event => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('estimates')) {
-        const store = db.createObjectStore('estimates', { keyPath: 'id', autoIncrement: true });
-        store.createIndex('synced', 'synced', { unique: false });
+    const req = indexedDB.open(QUEUE_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(QUEUE_STORE)) {
+        db.createObjectStore(QUEUE_STORE, { keyPath: 'id', autoIncrement: true });
       }
     };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
   });
 }
 
-function getPendingEstimates(db) {
+async function queueRequest(data) {
+  const db = await openQueueDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('estimates', 'readonly');
-    const store = tx.objectStore('estimates');
-    const index = store.index('synced');
-    const req = index.getAll(false);
+    const tx = db.transaction(QUEUE_STORE, 'readwrite');
+    tx.objectStore(QUEUE_STORE).add(data);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
 
+async function getQueued() {
+  const db = await openQueueDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(QUEUE_STORE, 'readonly');
+    const req = tx.objectStore(QUEUE_STORE).getAll();
     req.onsuccess = () => resolve(req.result || []);
     req.onerror = () => reject(req.error);
   });
 }
 
-function deleteEstimate(db, id) {
+async function clearQueued(ids) {
+  if (!ids.length) return;
+  const db = await openQueueDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('estimates', 'readwrite');
-    const req = tx.objectStore('estimates').delete(id);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
+    const tx = db.transaction(QUEUE_STORE, 'readwrite');
+    const store = tx.objectStore(QUEUE_STORE);
+    ids.forEach(id => store.delete(id));
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
   });
+}
+
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(STATIC_CACHE);
+    await cache.addAll(PRECACHE_ASSETS);
+    await self.skipWaiting();
+  })());
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter(k => k.startsWith('sksk-') && k !== STATIC_CACHE && k !== DATA_CACHE)
+        .map(k => caches.delete(k))
+    );
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  const url = new URL(req.url);
+
+  if (req.method === 'GET') {
+    if (url.origin === self.location.origin) {
+      event.respondWith(cacheFirst(req));
+      return;
+    }
+    if (url.origin === API_BASE) {
+      event.respondWith(networkFirst(req));
+      return;
+    }
+  }
+
+  if (req.method === 'POST' && url.origin === API_BASE) {
+    event.respondWith(handlePost(req));
+  }
+});
+
+async function cacheFirst(req) {
+  const cache = await caches.open(STATIC_CACHE);
+  const cached = await cache.match(req, { ignoreSearch: true });
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(req);
+    if (res.ok && res.type !== 'opaque') cache.put(req, res.clone());
+    return res;
+  } catch {
+    return cached || new Response('Offline', { status: 503 });
+  }
+}
+
+async function networkFirst(req) {
+  const cache = await caches.open(DATA_CACHE);
+  try {
+    const res = await fetch(req);
+    if (res.ok && res.type !== 'opaque') cache.put(req, res.clone());
+    return res;
+  } catch {
+    const cached = await cache.match(req, { ignoreSearch: true });
+    return cached || new Response(JSON.stringify({ error: 'Offline' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+async function handlePost(req) {
+  const contentType = req.headers.get('content-type') || '';
+  let body = null;
+
+  try {
+    if (contentType.includes('application/json')) body = await req.clone().json();
+    else body = await req.clone().text();
+  } catch {
+    body = null;
+  }
+
+  try {
+    const res = await fetch(req.clone());
+    if (res.ok) return res;
+  } catch {}
+
+  await queueRequest({
+    url: req.url,
+    method: req.method,
+    headers: [...req.headers.entries()],
+    body,
+    timestamp: Date.now()
+  });
+
+  if (self.registration.sync) {
+    try { await self.registration.sync.register('sksk-sync'); } catch {}
+  }
+
+  return new Response(JSON.stringify({ queued: true, offline: true }), {
+    status: 202,
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+self.addEventListener('sync', event => {
+  if (event.tag === 'sksk-sync') event.waitUntil(flushQueue());
+});
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'FLUSH_QUEUE') event.waitUntil(flushQueue());
+});
+
+async function flushQueue() {
+  const queued = await getQueued();
+  const done = [];
+
+  for (const item of queued) {
+    try {
+      const headers = new Headers(item.headers || []);
+      const init = { method: item.method, headers };
+
+      if (item.body !== null && item.body !== undefined) {
+        init.body = typeof item.body === 'string' ? item.body : JSON.stringify(item.body);
+      }
+
+      const res = await fetch(item.url, init);
+      if (res.ok) done.push(item.id);
+    } catch {}
+  }
+
+  if (done.length) await clearQueued(done);
 }
