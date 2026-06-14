@@ -1,31 +1,34 @@
 {
-  "name": "SKSK ProTech — Mobile Mechanic Estimates",
+  "name": "SKSK ProTech - Mobile Mechanic Estimates",
   "short_name": "SKSK ProTech",
   "description": "AI-powered mobile mechanic diagnostic estimates with real-time pricing",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#050505",
   "theme_color": "#ff2a2a",
-  "orientation": "portrait-primary",
-  "scope": "/",
+  "lang": "en-US",
+  "dir": "ltr",
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23050505' width='192' height='192'/><text x='50%' y='50%' font-size='80' font-weight='bold' fill='%23ff2a2a' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>⚙️</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%23050505' width='192' height='192'/><rect fill='%23ff2a2a' x='30' y='30' width='132' height='132' rx='20'/><text x='96' y='115' font-size='70' font-weight='bold' text-anchor='middle' fill='%23fff' font-family='Arial'>SK</text></svg>",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%23050505' width='512' height='512'/><text x='50%' y='50%' font-size='300' font-weight='bold' fill='%23ff2a2a' text-anchor='middle' dominant-baseline='middle' font-family='Arial'>⚙️</text></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect fill='%23050505' width='512' height='512'/><rect fill='%23ff2a2a' x='80' y='80' width='352' height='352' rx='60'/><text x='256' y='310' font-size='190' font-weight='bold' text-anchor='middle' fill='%23fff' font-family='Arial'>SK</text></svg>",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "utilities"],
+  "categories": ["business", "utilities"],
   "screenshots": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%23050505' width='540' height='720'/><text x='20' y='60' font-size='32' font-weight='bold' fill='%23ff2a2a' font-family='Arial'>SKSK ProTech</text><rect x='20' y='100' width='500' height='600' fill='%23101010' stroke='%232d2d2d' stroke-width='2' rx='10'/></svg>",
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%23050505' width='540' height='720'/><rect fill='%23101010' x='20' y='40' width='500' height='640' rx='20'/><text x='270' y='120' font-size='32' font-weight='bold' text-anchor='middle' fill='%23ff2a2a'>SKSK ProTech</text><text x='270' y='160' font-size='16' text-anchor='middle' fill='%23b85a5a'>Mobile Mechanic Estimator</text></svg>",
       "sizes": "540x720",
       "type": "image/svg+xml",
       "form_factor": "narrow"
@@ -35,11 +38,11 @@
     {
       "name": "New Estimate",
       "short_name": "Estimate",
-      "description": "Create a new vehicle diagnostic estimate",
-      "url": "/?mode=estimate",
+      "description": "Start a new mechanic estimate",
+      "url": "/?shortcut=estimate",
       "icons": [
         {
-          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%23050505' width='96' height='96'/><text x='50%' y='50%' font-size='60' fill='%23ff2a2a' text-anchor='middle' dominant-baseline='middle'>+</text></svg>",
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%23ff2a2a' width='96' height='96' rx='12'/><text x='48' y='60' font-size='36' font-weight='bold' text-anchor='middle' fill='%23fff'>+</text></svg>",
           "sizes": "96x96",
           "type": "image/svg+xml"
         }
