@@ -170,6 +170,12 @@
       transform: translateY(-1px);
     }
 
+    .btn:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none;
+    }
+
     .btn.primary {
       background:
         linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0)),
@@ -192,6 +198,9 @@
       min-height: 52px;
       white-space: pre-wrap;
     }
+
+    .status.success { border-color: var(--success); }
+    .status.error { border-color: var(--danger); }
 
     .footer {
       margin-top: 16px;
@@ -301,8 +310,7 @@
       </div>
 
       <div class="small">
-        Fill out the estimate fields above, then tap Generate Estimate. The app will send the data to
-        <code>/api/estimate</code>.
+        Fill out the estimate fields above, then tap Generate Estimate.
       </div>
     </section>
 
@@ -336,10 +344,6 @@
       <div class="actions">
         <button class="btn primary" id="btnDiagnose">Submit Diagnosis</button>
       </div>
-
-      <div class="small">
-        Use this to send a real symptom report to <code>/api/diagnose</code>.
-      </div>
     </section>
 
     <section class="panel" id="invoiceTab">
@@ -367,10 +371,7 @@
 
       <div class="actions">
         <button class="btn primary" id="btnInvoice">Generate Invoice PDF</button>
-      </div>
-
-      <div class="small">
-        This sends invoice data to <code>/api/invoice</code>.
+        <button class="btn" id="btnDecodeVin">Decode VIN</button>
       </div>
     </section>
 
@@ -385,10 +386,6 @@
       <div class="actions">
         <button class="btn success" id="btnShare">Share</button>
       </div>
-
-      <div class="small">
-        Uses the browser share sheet when available.
-      </div>
     </section>
 
     <div class="status" id="status">Ready.</div>
@@ -397,21 +394,55 @@
 
   <script>
     const statusEl = document.getElementById('status');
-    const setStatus = msg => { statusEl.textContent = msg; };
+    const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+    const customerName = document.getElementById('customerName');
+    const customerPhone = document.getElementById('customerPhone');
+    const customerEmail = document.getElementById('customerEmail');
+    const vehicleYear = document.getElementById('vehicleYear');
+    const vehicleMake = document.getElementById('vehicleMake');
+    const vehicleModel = document.getElementById('vehicleModel');
+
+    function setStatus(msg, type = '') {
+      statusEl.className = 'status ' + type;
+      statusEl.textContent = msg;
+    }
 
     function splitList(value) {
-      return value
+      return (value || '')
         .split(',')
         .map(s => s.trim())
         .filter(Boolean);
     }
 
     function splitLines(value) {
-      return value
-        .split('
-')
+      return (value || '')
+        .split(/
+?
+/)
         .map(s => s.trim())
         .filter(Boolean);
+    }
+
+    async function fetchWithTimeout(url, options = {}, timeout = 15000) {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        clearTimeout(id);
+      }
+    }
+
+    async function withLoading(button, action) {
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Working...';
+      try {
+        await action();
+      } finally {
+        button.disabled = false;
+        button.textContent = original;
+      }
     }
 
     async function readBody(res) {
@@ -423,6 +454,35 @@
       }
     }
 
+    function saveForm() {
+      localStorage.setItem('sksk_form', JSON.stringify({
+        customerName: customerName.value,
+        customerPhone: customerPhone.value,
+        customerEmail: customerEmail.value,
+        vehicleYear: vehicleYear.value,
+        vehicleMake: vehicleMake.value,
+        vehicleModel: vehicleModel.value,
+        laborRate: document.getElementById('laborRate').value,
+        partsCost: document.getElementById('partsCost').value,
+        vin: document.getElementById('vin').value,
+        customerStates: document.getElementById('customerStates').value,
+        mechanicNotices: document.getElementById('mechanicNotices').value,
+        obdCodes: document.getElementById('obdCodes').value
+      }));
+    }
+
+    function restoreForm() {
+      const saved = localStorage.getItem('sksk_form');
+      if (!saved) return;
+      try {
+        const data = JSON.parse(saved);
+        Object.keys(data).forEach(key => {
+          const el = document.getElementById(key);
+          if (el) el.value = data[key];
+        });
+      } catch {}
+    }
+
     document.querySelectorAll('.tab').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
@@ -432,101 +492,123 @@
       });
     });
 
-    document.getElementById('btnEstimate').addEventListener('click', async () => {
-      setStatus('Sending estimate...');
-      try {
-        const payload = {
-          customer: {
-            name: document.getElementById('customerName').value.trim(),
-            phone: document.getElementById('customerPhone').value.trim(),
-            email: document.getElementById('customerEmail').value.trim()
-          },
-          vehicle: {
-            year: document.getElementById('vehicleYear').value.trim(),
-            make: document.getElementById('vehicleMake').value.trim(),
-            model: document.getElementById('vehicleModel').value.trim(),
-            trim: document.getElementById('vehicleTrim').value.trim()
-          },
-          obdCodes: splitList(document.getElementById('obdCodes').value),
-          customerStates: splitLines(document.getElementById('customerStates').value),
-          mechanicNotices: splitLines(document.getElementById('mechanicNotices').value),
-          laborRate: Number(document.getElementById('laborRate').value || 0),
-          partsCost: Number(document.getElementById('partsCost').value || 0),
-          vin: document.getElementById('vin').value.trim()
-        };
-
-        const res = await fetch('/api/estimate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await readBody(res);
-        if (!res.ok) throw new Error(data.error || `Estimate failed (${res.status})`);
-
-        const total = data.estimate?.total ?? data.total ?? 'done';
-        setStatus(`Estimate ready: $${total}`);
-      } catch (err) {
-        setStatus(err.message || 'Estimate failed.');
-      }
+    document.querySelectorAll('input, textarea').forEach(el => {
+      el.addEventListener('input', saveForm);
     });
 
-    document.getElementById('btnDiagnose').addEventListener('click', async () => {
-      setStatus('Sending diagnosis...');
-      try {
-        const payload = {
-          vin: document.getElementById('diagVin').value.trim(),
-          mileage: Number(document.getElementById('diagMileage').value || 0),
-          symptoms: splitLines(document.getElementById('diagSymptoms').value),
-          codes: splitList(document.getElementById('diagCodes').value),
-          notes: splitLines(document.getElementById('diagNotes').value)
-        };
+    document.getElementById('btnEstimate').addEventListener('click', () =>
+      withLoading(document.getElementById('btnEstimate'), async () => {
+        setStatus('Sending estimate...');
+        try {
+          const payload = {
+            customer: {
+              name: customerName.value.trim(),
+              phone: customerPhone.value.trim(),
+              email: customerEmail.value.trim()
+            },
+            vehicle: {
+              year: vehicleYear.value.trim(),
+              make: vehicleMake.value.trim(),
+              model: vehicleModel.value.trim(),
+              trim: document.getElementById('vehicleTrim').value.trim()
+            },
+            obdCodes: splitList(document.getElementById('obdCodes').value),
+            customerStates: splitLines(document.getElementById('customerStates').value),
+            mechanicNotices: splitLines(document.getElementById('mechanicNotices').value),
+            laborRate: Number(document.getElementById('laborRate').value || 0),
+            partsCost: Number(document.getElementById('partsCost').value || 0),
+            vin: document.getElementById('vin').value.trim()
+          };
 
-        const res = await fetch('/api/diagnose', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
+          const res = await fetchWithTimeout(`${API_BASE}/api/estimate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
 
-        const data = await readBody(res);
-        if (!res.ok) throw new Error(data.error || `Diagnosis failed (${res.status})`);
-
-        setStatus('Diagnosis submitted.');
-      } catch (err) {
-        setStatus(err.message || 'Diagnosis failed.');
-      }
-    });
-
-    document.getElementById('btnInvoice').addEventListener('click', async () => {
-      setStatus('Generating invoice...');
-      try {
-        const payload = {
-          total: Number(document.getElementById('invoiceTotal').value || 0),
-          invoiceNumber: document.getElementById('invoiceNumber').value.trim(),
-          customer: {
-            name: document.getElementById('invoiceCustomer').value.trim()
-          },
-          notes: document.getElementById('invoiceNotes').value.trim()
-        };
-
-        const res = await fetch('/api/invoice', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (!res.ok) {
           const data = await readBody(res);
-          throw new Error(data.error || `Invoice failed (${res.status})`);
-        }
+          if (!res.ok) throw new Error(data.error || `Estimate failed (${res.status})`);
 
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setStatus('Invoice opened.');
-      } catch (err) {
-        setStatus(err.message || 'Invoice failed.');
+          const total = data.estimate?.total ?? data.total ?? 'done';
+          setStatus(`Estimate ready: $${total}`, 'success');
+        } catch (err) {
+          setStatus(err.name === 'AbortError' ? 'Estimate timed out' : (err.message || 'Estimate failed.'), 'error');
+        }
+      })
+    );
+
+    document.getElementById('btnDiagnose').addEventListener('click', () =>
+      withLoading(document.getElementById('btnDiagnose'), async () => {
+        setStatus('Sending diagnosis...');
+        try {
+          const payload = {
+            vin: document.getElementById('diagVin').value.trim(),
+            mileage: Number(document.getElementById('diagMileage').value || 0),
+            symptoms: splitLines(document.getElementById('diagSymptoms').value),
+            codes: splitList(document.getElementById('diagCodes').value),
+            notes: splitLines(document.getElementById('diagNotes').value)
+          };
+
+          const res = await fetchWithTimeout(`${API_BASE}/api/diagnose`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await readBody(res);
+          if (!res.ok) throw new Error(data.error || `Diagnosis failed (${res.status})`);
+
+          setStatus('Diagnosis submitted.', 'success');
+        } catch (err) {
+          setStatus(err.name === 'AbortError' ? 'Diagnosis timed out' : (err.message || 'Diagnosis failed.'), 'error');
+        }
+      })
+    );
+
+    document.getElementById('btnInvoice').addEventListener('click', () =>
+      withLoading(document.getElementById('btnInvoice'), async () => {
+        setStatus('Generating invoice...');
+        try {
+          const payload = {
+            total: Number(document.getElementById('invoiceTotal').value || 0),
+            invoiceNumber: document.getElementById('invoiceNumber').value.trim(),
+            customer: { name: document.getElementById('invoiceCustomer').value.trim() },
+            notes: document.getElementById('invoiceNotes').value.trim()
+          };
+
+          const res = await fetchWithTimeout(`${API_BASE}/api/invoice`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          if (!res.ok) {
+            const data = await readBody(res);
+            throw new Error(data.error || `Invoice failed (${res.status})`);
+          }
+
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `invoice-${Date.now()}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setStatus('Invoice downloaded.', 'success');
+        } catch (err) {
+          setStatus(err.name === 'AbortError' ? 'Invoice timed out' : (err.message || 'Invoice failed.'), 'error');
+        }
+      })
+    );
+
+    document.getElementById('btnDecodeVin').addEventListener('click', () => {
+      const vin = document.getElementById('vin').value.trim() || document.getElementById('diagVin').value.trim();
+      if (!vin) {
+        setStatus('Enter VIN first', 'error');
+        return;
       }
+      setStatus('VIN decoder not connected yet', '');
     });
 
     document.getElementById('btnShare').addEventListener('click', async () => {
@@ -539,25 +621,43 @@
             text,
             url: location.href
           });
-          setStatus('Shared.');
+          setStatus('Shared.', 'success');
         } catch {
-          setStatus('Share canceled.');
+          setStatus('Share canceled.', 'error');
         }
       } else {
         try {
           await navigator.clipboard.writeText(`${text} ${location.href}`);
-          setStatus('Share text copied to clipboard.');
+          setStatus('Share text copied to clipboard.', 'success');
         } catch {
-          setStatus('Sharing is not supported on this device.');
+          setStatus('Sharing is not supported on this device.', 'error');
         }
       }
     });
 
+    window.addEventListener('offline', () => {
+      setStatus('Offline - waiting for connection', 'error');
+    });
+
+    window.addEventListener('online', () => {
+      setStatus('Back online', 'success');
+    });
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => setStatus('Service worker failed.'));
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => {
+            reg.addEventListener('updatefound', () => {
+              setStatus('App update available', 'success');
+            });
+          })
+          .catch(() => {
+            setStatus('Service worker failed', 'error');
+          });
       });
     }
+
+    restoreForm();
   </script>
 </body>
   </html>
