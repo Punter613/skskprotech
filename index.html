@@ -529,8 +529,18 @@
           const data = await readBody(res);
           if (!res.ok) throw new Error(data.error || `Estimate failed (${res.status})`);
 
-          const total = data.estimate?.total ?? data.total ?? 'done';
-          setStatus(`Estimate ready: $${total}`, 'success');
+          const est = data.estimate || {};
+          const out = [
+            '\u2705 ESTIMATE READY',
+            'Diagnosis: ' + (est.diagnosis || 'N/A'),
+            'Repairs: ' + ((est.repairs||[]).join(', ') || 'N/A'),
+            'Est. Hours: ' + (est.estimatedHours || 'N/A'),
+            'Labor: $' + (est.laborCost || 0) + '  |  Parts: $' + (est.partsCost || 0),
+            'TOTAL: $' + (est.total || 0),
+            'Priority: ' + (est.priority || 'N/A'),
+            est.notes ? 'Notes: ' + est.notes : ''
+          ].filter(Boolean).join('\n');
+          setStatus(out, 'success');
         } catch (err) {
           setStatus(err.name === 'AbortError' ? 'Estimate timed out' : (err.message || 'Estimate failed.'), 'error');
         }
@@ -558,7 +568,18 @@
           const data = await readBody(res);
           if (!res.ok) throw new Error(data.error || `Diagnosis failed (${res.status})`);
 
-          setStatus('Diagnosis submitted.', 'success');
+          const r = data.result || {};
+          const diag = [
+            '🔍 DIAGNOSIS COMPLETE',
+            `Primary: ${r.primaryCause || 'N/A'}`,
+            r.secondaryCauses?.length ? `Other causes: ${r.secondaryCauses.join(', ')}` : '',
+            r.recommendedRepairs?.length ? `Repairs needed: ${r.recommendedRepairs.join(', ')}` : '',
+            r.recommendedTests?.length ? `Run these tests: ${r.recommendedTests.join(', ')}` : '',
+            `Urgency: ${r.urgency || 'N/A'}  |  Safety risk: ${r.safetyRisk ? 'YES ⚠️' : 'No'}`,
+            `Est. repair time: ${r.estimatedRepairTime || 'N/A'}`,
+            r.notes ? `Notes: ${r.notes}` : ''
+          ].filter(Boolean).join('\n');
+          setStatus(diag, 'success');
         } catch (err) {
           setStatus(err.name === 'AbortError' ? 'Diagnosis timed out' : (err.message || 'Diagnosis failed.'), 'error');
         }
