@@ -384,9 +384,9 @@ RETURN JSON ONLY IN THIS EXACT STRUCTURE:
   "primaryConcern": "Restated customer concern",
   "diagnosticNotes": "Tech‑facing notes",
   "engineMeta": "Internal reasoning summary"
-}
-`;
-    }// ========================================
+});
+
+// ========================================
 // STRIPE (Disabled but wired)
 // ========================================
 if (STRIPE_ENABLED) {
