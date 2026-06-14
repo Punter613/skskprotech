@@ -20,14 +20,19 @@
       padding: 1rem;
     }
 
+    h1 {
+      margin-top: 0.5rem;
+      font-size: 1.6rem;
+    }
+
     h2 {
       margin-top: 1.5rem;
-      font-size: 1.3rem;
+      font-size: 1.2rem;
       border-left: 4px solid #007bff;
       padding-left: 8px;
     }
 
-    input, textarea, select {
+    input, textarea {
       width: 100%;
       padding: 10px;
       margin-top: 6px;
@@ -35,6 +40,7 @@
       border-radius: 6px;
       border: 1px solid #ccc;
       font-size: 1rem;
+      box-sizing: border-box;
     }
 
     button {
@@ -84,7 +90,9 @@
       color: #666;
     }
   </style>
-</head><body>
+</head>
+
+<body>
   <div class="container">
 
     <h1>SKSK ProTech</h1>
@@ -119,96 +127,98 @@
 
     <div id="estimateContainer" class="estimate-box"></div>
 
-  </div><script>
-  const generateBtn = document.getElementById('generateBtn');
-  const statusEl = document.getElementById('status');
-  const estimateContainer = document.getElementById('estimateContainer');
+  </div>
 
-  function setStatus(msg) {
-    statusEl.textContent = msg || '';
-  }
+  <script>
+    const generateBtn = document.getElementById('generateBtn');
+    const statusEl = document.getElementById('status');
+    const estimateContainer = document.getElementById('estimateContainer');
 
-  function renderEstimate(data) {
-    if (!data || !data.estimate) {
-      estimateContainer.innerHTML = '<p>Unable to build estimate.</p>';
-      return;
+    function setStatus(msg) {
+      statusEl.textContent = msg || '';
     }
 
-    const e = data.estimate;
-    const c = e.customer || {};
-    const v = e.vehicle || {};
-    const copy = e.copy || {};
-    const tech = e.tech || {};
+    function renderEstimate(data) {
+      if (!data || !data.estimate) {
+        estimateContainer.innerHTML = '<p>Unable to build estimate.</p>';
+        return;
+      }
 
-    estimateContainer.innerHTML = `
-      <h3>Customer Summary</h3>
-      <p>${copy.customerSummary}</p>
-      <small>${copy.disclaimer}</small>
+      const e = data.estimate;
+      const c = e.customer || {};
+      const v = e.vehicle || {};
+      const copy = e.copy || {};
+      const tech = e.tech || {};
 
-      <h3 style="margin-top:1rem;">Vehicle & Concern</h3>
-      <p><strong>Customer:</strong> ${c.name || ''} · ${c.phone || ''}</p>
-      <p><strong>Vehicle:</strong> ${v.year} ${v.make} ${v.model}</p>
-      <p><strong>Primary Concern:</strong> ${copy.primaryConcern}</p>
+      estimateContainer.innerHTML = `
+        <h3>Customer Summary</h3>
+        <p>${copy.customerSummary}</p>
+        <small>${copy.disclaimer}</small>
 
-      <h3 style="margin-top:1rem;">Estimate Breakdown</h3>
-      <div class="estimate-grid">
-        <div>Labor hours:</div><div>${e.laborHours.toFixed(2)}</div>
-        <div>Labor total:</div><div>$${e.laborTotal.toFixed(2)}</div>
-        <div>Parts total:</div><div>$${e.partsTotal.toFixed(2)}</div>
-        <div>Shop supplies:</div><div>$${e.shopSupplies.toFixed(2)}</div>
-        <div>Tax set‑aside:</div><div>$${e.tax.toFixed(2)}</div>
-      </div>
+        <h3 style="margin-top:1rem;">Vehicle & Concern</h3>
+        <p><strong>Customer:</strong> ${c.name || ''} · ${c.phone || ''}</p>
+        <p><strong>Vehicle:</strong> ${v.year} ${v.make} ${v.model}</p>
+        <p><strong>Primary Concern:</strong> ${copy.primaryConcern}</p>
 
-      <div class="estimate-total">
-        Estimate total: $${e.grandTotal.toFixed(2)}
-      </div>
+        <h3 style="margin-top:1rem;">Estimate Breakdown</h3>
+        <div class="estimate-grid">
+          <div>Labor hours:</div><div>${e.laborHours.toFixed(2)}</div>
+          <div>Labor total:</div><div>$${e.laborTotal.toFixed(2)}</div>
+          <div>Parts total:</div><div>$${e.partsTotal.toFixed(2)}</div>
+          <div>Shop supplies:</div><div>$${e.shopSupplies.toFixed(2)}</div>
+          <div>Tax set‑aside:</div><div>$${e.tax.toFixed(2)}</div>
+        </div>
 
-      <h3 style="margin-top:1rem;">Tech Notes</h3>
-      <p style="white-space:pre-wrap;">${tech.diagnosticNotes}</p>
-      <small>${tech.engineMeta}</small>
-    `;
-  }
+        <div class="estimate-total">
+          Estimate total: $${e.grandTotal.toFixed(2)}
+        </div>
 
-  generateBtn.addEventListener('click', async () => {
-    const payload = {
-      customer: {
-        name: document.getElementById('customerName').value.trim(),
-        phone: document.getElementById('customerPhone').value.trim(),
-      },
-      vehicle: {
-        year: document.getElementById('vehicleYear').value.trim(),
-        make: document.getElementById('vehicleMake').value.trim(),
-        model: document.getElementById('vehicleModel').value.trim(),
-      },
-      obdCodes: document.getElementById('codes').value.split(',').map(c => c.trim()).filter(Boolean),
-      customerStates: document.getElementById('symptoms').value.trim().split('\n').filter(Boolean),
-      mechanicNotices: document.getElementById('mechanicFindings').value.trim().split('\n').filter(Boolean),
-      laborRate: 65
-    };
-
-    setStatus('AI building estimate…');
-    generateBtn.disabled = true;
-
-    try {
-      const res = await fetch('/api/estimate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ incomingPayload: payload }),
-      });
-
-      if (!res.ok) throw new Error('Server error: ' + res.status);
-
-      const data = await res.json();
-      renderEstimate(data);
-      setStatus('Estimate ready.');
-    } catch (err) {
-      console.error(err);
-      setStatus('Error generating estimate.');
-      estimateContainer.innerHTML = '<p>Something went wrong.</p>';
-    } finally {
-      generateBtn.disabled = false;
+        <h3 style="margin-top:1rem;">Tech Notes</h3>
+        <p style="white-space:pre-wrap;">${tech.diagnosticNotes}</p>
+        <small>${tech.engineMeta}</small>
+      `;
     }
-  });
-</script>
+
+    generateBtn.addEventListener('click', async () => {
+      const payload = {
+        customer: {
+          name: document.getElementById('customerName').value.trim(),
+          phone: document.getElementById('customerPhone').value.trim(),
+        },
+        vehicle: {
+          year: document.getElementById('vehicleYear').value.trim(),
+          make: document.getElementById('vehicleMake').value.trim(),
+          model: document.getElementById('vehicleModel').value.trim(),
+        },
+        obdCodes: document.getElementById('codes').value.split(',').map(c => c.trim()).filter(Boolean),
+        customerStates: document.getElementById('symptoms').value.trim().split('\n').filter(Boolean),
+        mechanicNotices: document.getElementById('mechanicFindings').value.trim().split('\n').filter(Boolean),
+        laborRate: 65
+      };
+
+      setStatus('AI building estimate…');
+      generateBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ incomingPayload: payload }),
+        });
+
+        if (!res.ok) throw new Error('Server error: ' + res.status);
+
+        const data = await res.json();
+        renderEstimate(data);
+        setStatus('Estimate ready.');
+      } catch (err) {
+        console.error(err);
+        setStatus('Error generating estimate.');
+        estimateContainer.innerHTML = '<p>Something went wrong.</p>';
+      } finally {
+        generateBtn.disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>
