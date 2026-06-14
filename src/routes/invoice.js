@@ -1,35 +1,30 @@
 const router = require('express').Router();
-const db = require('../services/db');
-const { decodeVin } = require('../services/vin');
 const { generateInvoicePdf } = require('../services/pdf');
 
 router.post('/', async (req, res, next) => {
   try {
-    if (!db) {
-      return res.status(503).json({ success: false, error: 'Database not configured' });
-    }
-
-    const invoiceId = `INV-${Date.now()}`;
-    const body = req.body || {};
-    const vinDecoded = await decodeVin(body.vin);
+    const b = req.body || {};
+    const invoiceId = b.invoiceNumber ? `INV-${b.invoiceNumber}` : `INV-${Date.now()}`;
 
     const data = {
       invoiceId,
-      customer: body.customer || {},
-      vin: body.vin || '',
-      vinDecoded,
-      vehicle: body.vehicle || {},
-      total: Number(body.total || 0),
-      details: body.details || body
+      customer: b.customer || {},
+      vin: b.vin || '',
+      vehicle: b.vehicle || {},
+      total: Number(b.total || 0),
+      notes: b.notes || '',
+      details: b.details || {}
     };
 
-    await db.from('invoices').insert({
-      invoice_id: invoiceId,
-      data
-    });
+    // Optional Supabase save
+    try {
+      const db = require('../services/db');
+      if (db) {
+        await db.from('invoices').insert({ invoice_id: invoiceId, data });
+      }
+    } catch(e) { /* db optional */ }
 
     const file = await generateInvoicePdf(data);
-
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${invoiceId}.pdf"`);
     res.send(file);
