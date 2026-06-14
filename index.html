@@ -252,13 +252,15 @@
     }
 
     function splitLines(value) {
-      return String(value || '')
-        .trim()
-        .split(/
+    function splitLines(value) {
+  return String(value || '')
+    .trim()
+    .split(/
 ?
 /)
-        .map(s => s.trim())
-        .filter(Boolean);
+    .map(s => s.trim())
+    .filter(Boolean);
+    }
     }
 
     function clearNode(node) {
