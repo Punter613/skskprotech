@@ -14,8 +14,7 @@ function decodeVinBasic(vin) {
 }
 
 async function decodeVin(vin) {
-  const basic = decodeVinBasic(vin);
-  return basic;
+  return decodeVinBasic(vin);
 }
 
 module.exports = { decodeVinBasic, decodeVin };
