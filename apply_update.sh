@@ -51,7 +51,6 @@ function generateInvoicePdf(data) {
 
     doc.fontSize(20).text('SKSK PROTECH INVOICE', { align: 'center' });
     doc.moveDown();
-
     doc.fontSize(12);
     doc.text(`Invoice ID: ${data.invoiceId || 'N/A'}`);
     doc.text(`Customer: ${data.customer?.name || data.customer || 'N/A'}`);
@@ -63,10 +62,8 @@ function generateInvoicePdf(data) {
     doc.text(`Decoded Model: ${data.vinDecoded?.model || data.vehicle?.model || 'N/A'}`);
     doc.text(`Total: $${Number(data.total || 0).toFixed(2)}`);
     doc.moveDown();
-
     doc.text('Details:');
     doc.fontSize(10).text(JSON.stringify(data.details || {}, null, 2));
-
     doc.end();
   });
 }
@@ -98,10 +95,7 @@ router.post('/', async (req, res, next) => {
       result
     });
 
-    res.json({
-      success: true,
-      result
-    });
+    res.json({ success: true, result });
   } catch (err) {
     next(err);
   }
@@ -133,10 +127,7 @@ router.post('/', async (req, res, next) => {
       details: estimate
     });
 
-    res.json({
-      success: true,
-      estimate
-    });
+    res.json({ success: true, estimate });
   } catch (err) {
     next(err);
   }
@@ -197,10 +188,7 @@ router.post('/charge', async (req, res, next) => {
       currency: 'usd'
     });
 
-    res.json({
-      success: true,
-      clientSecret: paymentIntent.client_secret
-    });
+    res.json({ success: true, clientSecret: paymentIntent.client_secret });
   } catch (err) {
     next(err);
   }
@@ -209,6 +197,96 @@ router.post('/charge', async (req, res, next) => {
 module.exports = router;
 JS
 
+cat > server.js <<'JS'
+const express = require('express');
+const path = require('path');
+
+const diagnose = require('./src/routes/diagnose');
+const estimate = require('./src/routes/estimate');
+const invoice = require('./src/routes/invoice');
+const payments = require('./src/routes/payments');
+
+const app = express();
+
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+app.use('/api/diagnose', diagnose);
+app.use('/api/estimate', estimate);
+app.use('/api/invoice', invoice);
+app.use('/api/payments', payments);
+
+app.use(express.static(path.join(__dirname)));
+
+app.get('/health', (req, res) => res.json({ ok: true }));
+
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ success: false, error: err.message || 'Server error' });
+});
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`Server running on ${port}`));
+JS
+
+cat > index.html <<'HTML'
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="/manifest.json">
+  <title>SKSK ProTech</title>
+</head>
+<body>
+  <div id="app">
+    <h1>SKSK ProTech</h1>
+    <p>Mobile Mechanic AI</p>
+    <button id="btnEstimate">Estimate</button>
+    <button id="btnDiagnose">Diagnose</button>
+    <button id="btnInvoice">Invoice PDF</button>
+    <button id="btnShare">Share</button>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+    }
+  </script>
+</body>
+</html>
+HTML
+
+cat > sw.js <<'JS'
+const VERSION = 'v1.0.0';
+const CACHE = `sksk-${VERSION}`;
+const ASSETS = ['/', '/index.html', '/manifest.json', '/server.js'];
+
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  event.respondWith(
+    caches.match(event.request).then(cached => cached || fetch(event.request).then(resp => {
+      const copy = resp.clone();
+      caches.open(CACHE).then(cache => cache.put(event.request, copy));
+      return resp;
+    }).catch(() => caches.match('/index.html')))
+  );
+});
+JS
+
 git add -A
-git commit -m "Update services and routes"
+git commit -m "Update app files and routes"
 git push

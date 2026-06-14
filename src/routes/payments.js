@@ -9,10 +9,7 @@ router.post('/charge', async (req, res, next) => {
       currency: 'usd'
     });
 
-    res.json({
-      success: true,
-      clientSecret: paymentIntent.client_secret
-    });
+    res.json({ success: true, clientSecret: paymentIntent.client_secret });
   } catch (err) {
     next(err);
   }
