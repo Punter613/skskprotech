@@ -330,10 +330,183 @@ app.post('/api/invoice', async (req, res) => {
       const { data, error } = await supabase.from('jobs')
         .update({
           invoice: invoicePayload,
+          state: 'completed',// 2. ESTIMATE PHASE (Execute AI Evaluation & Calculate Financials)
+app.post('/api/estimate', async (req, res) => {
+  try {
+    const { jobId, incomingPayload } = req.body;
+    let targetPayload = incomingPayload;
+
+    // Pull from database historical entry if tracking via explicit Id
+    if (jobId && supabase) {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single();
+
+      if (error || !data) {
+        return res
+          .status(404)
+          .json({ success: false, error: 'Target workflow record missing' });
+      }
+
+      targetPayload = {
+        customer: data.customer,
+        vehicle: data.vehicle,
+        obdCodes: data.obd_codes,
+        customerStates: data.customer_states,
+        mechanicNotices: data.mechanic_notices,
+        laborRate: data.labor_rate
+      };
+    }
+
+    const validated = DiagnosticSchema.parse(targetPayload);
+    const prompt = buildPrompt(validated);
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'Automotive data output processor. Return valid JSON objects only.'
+          },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 1500,
+        temperature: 0.1
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Groq Gateway Failure Status: ${response.status}`);
+    }
+
+    const rawData = await response.json();
+    const rawContent = rawData.choices?.[0]?.message?.content || '';
+
+    let cleanText = rawContent
+      .trim()
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .trim();
+
+    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+    const cleanJson = jsonMatch ? jsonMatch[0] : cleanText;
+
+    const aiEstimate = JSON.parse(cleanJson);
+
+    // Business Logic Engine Calculations
+    const finalRate = Number(aiEstimate.laborRate || validated.laborRate);
+    const laborHours = parseFloat(aiEstimate.laborHours || 0);
+    const laborCost = Number((laborHours * finalRate).toFixed(2));
+
+    const partsList = (aiEstimate.parts || []).map(p => ({
+      name: p.name || 'Component part',
+      cost: Math.round(Number(p.cost || 0))
+    }));
+    const partsCost = partsList.reduce((sum, p) => sum + p.cost, 0);
+
+    const supplyPercent = aiEstimate.shopSuppliesPercent ?? 7;
+    const shopSupplies = Number((partsCost * (supplyPercent / 100)).toFixed(2));
+    const subtotal = Number((laborCost + partsCost + shopSupplies).toFixed(2));
+
+    const structuralEstimate = {
+      ...aiEstimate,
+      laborRate: finalRate,
+      laborHours,
+      laborCost,
+      parts: partsList,
+      partsCost,
+      shopSuppliesPercent: supplyPercent,
+      shopSupplies,
+      subtotal,
+      grandTotal: subtotal
+    };
+
+    let updatedDbRecord = null;
+    if (jobId && supabase) {
+      const { data, error } = await supabase
+        .from('jobs')
+        .update({
+          estimate: structuralEstimate,
+          state: 'estimated',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId)
+        .select()
+        .single();
+
+      if (!error) updatedDbRecord = data;
+    }
+
+    res.json({ success: true, estimate: structuralEstimate, job: updatedDbRecord });
+  } catch (err) {
+    console.error('[ESTIMATE PIPELINE FAIL]', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. INVOICE PHASE (Lock financial parameters & compile final customer summary)
+app.post('/api/invoice', async (req, res) => {
+  try {
+    const { jobId, estimate } = req.body;
+    let invoiceTargetEstimate = estimate;
+
+    if (!invoiceTargetEstimate && jobId && supabase) {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('estimate')
+        .eq('id', jobId)
+        .single();
+
+      if (!error && data) invoiceTargetEstimate = data.estimate;
+    }
+
+    if (!invoiceTargetEstimate) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'No baseline estimate structure located.' });
+    }
+
+    const invoicePayload = {
+      type: 'invoice',
+      timestamp: new Date().toISOString(),
+      shortDescription: invoiceTargetEstimate.shortDescription,
+      jobType: invoiceTargetEstimate.jobType,
+      laborHours: invoiceTargetEstimate.laborHours,
+      laborRate: invoiceTargetEstimate.laborRate,
+      laborCost: invoiceTargetEstimate.laborCost,
+      parts: invoiceTargetEstimate.parts,
+      partsCost: invoiceTargetEstimate.partsCost,
+      shopSupplies: invoiceTargetEstimate.shopSupplies,
+      subtotal: invoiceTargetEstimate.subtotal,
+      grandTotal: invoiceTargetEstimate.grandTotal,
+      taxSetaside: Number((invoiceTargetEstimate.subtotal * 0.28).toFixed(2)),
+      takeHomePay: Number((invoiceTargetEstimate.subtotal * 0.72).toFixed(2)),
+      workSteps: invoiceTargetEstimate.workSteps,
+      balance: 0,
+      footer: 'Thank you for choosing SKSK ProTech!'
+    };
+
+    let updatedDbRecord = null;
+    if (jobId && supabase) {
+      const { data, error } = await supabase
+        .from('jobs')
+        .update({
+          invoice: invoicePayload,
           state: 'completed',
           updated_at: new Date().toISOString()
         })
-        .eq('id', jobId).select().single();
+        .eq('id', jobId)
+        .select()
+        .single();
+
       if (!error) updatedDbRecord = data;
     }
 
@@ -347,9 +520,14 @@ app.post('/api/invoice', async (req, res) => {
 // 4. STRIPE CHARGE ENGINE
 app.post('/api/pay', async (req, res) => {
   try {
-    if (!stripe) return res.status(400).json({ success: false, error: 'Stripe transaction services offline.' });
+    if (!stripe) {
+      return res
+        .status(400)
+        .json({ success: false, error: 'Stripe transaction services offline.' });
+    }
+
     const { amount, payment_method_id } = req.body;
-    
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // convert dollars to cents
       currency: 'usd',
@@ -360,7 +538,12 @@ app.post('/api/pay', async (req, res) => {
 
     res.json({ success: true, paymentIntent });
   } catch (err) {
-    res.status(500).json({ success: false, error: 'Payment gateway rejected capture', details: err.message });
+    console.error('[PAYMENT ENGINE FAIL]', err);
+    res.status(500).json({
+      success: false,
+      error: 'Payment gateway rejected capture',
+      details: err.message
+    });
   }
 });
 
