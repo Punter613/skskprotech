@@ -5,77 +5,166 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SKSK ProTech — Mobile Mechanic Estimate</title>
   <style>
+    :root {
+      --bg: #050505;
+      --panel: #101010;
+      --panel-2: #151515;
+      --text: #ff2a2a;
+      --muted: #b85a5a;
+      --border: #2d2d2d;
+      --accent-blue: #4aa3ff;
+      --accent-green: #46d17d;
+      --accent-gold: #f0b84b;
+      --accent-purple: #b48cff;
+      --danger: #ff5c5c;
+      --shadow: 0 8px 24px rgba(0,0,0,0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
       margin: 0;
       padding: 0;
-      color: #222;
+      font-family: Arial, sans-serif;
+      background: radial-gradient(circle at top, #111 0%, var(--bg) 55%);
+      color: var(--text);
     }
 
     .container {
-      max-width: 480px;
-      margin: auto;
+      max-width: 560px;
+      margin: 0 auto;
       padding: 1rem;
     }
 
+    .card {
+      background: linear-gradient(180deg, #111, #090909);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem;
+      box-shadow: var(--shadow);
+    }
+
     h1 {
-      margin-top: 0.5rem;
-      font-size: 1.6rem;
+      margin: 0.25rem 0 0.25rem;
+      font-size: 1.8rem;
+      color: var(--text);
+      letter-spacing: 0.5px;
+    }
+
+    .subtitle {
+      margin: 0 0 1rem;
+      color: var(--muted);
     }
 
     h2 {
-      margin-top: 1.5rem;
-      font-size: 1.2rem;
-      border-left: 4px solid #007bff;
-      padding-left: 8px;
+      margin: 1.25rem 0 0.5rem;
+      font-size: 1.05rem;
+      padding-left: 10px;
+      border-left: 4px solid var(--accent-blue);
+      color: var(--text);
     }
+
+    h3 {
+      margin: 1rem 0 0.5rem;
+      font-size: 1rem;
+      color: var(--accent-green);
+    }
+
+    .section-gold { border-left-color: var(--accent-gold); }
+    .section-purple { border-left-color: var(--accent-purple); }
+    .section-green { border-left-color: var(--accent-green); }
 
     input, textarea {
       width: 100%;
-      padding: 10px;
+      padding: 12px;
       margin-top: 6px;
       margin-bottom: 12px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
+      border-radius: 10px;
+      border: 1px solid #333;
       font-size: 1rem;
       box-sizing: border-box;
+      background: #0f0f0f;
+      color: #ff5a5a;
+      outline: none;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: #8f4d4d;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px rgba(74,163,255,0.15);
     }
 
     button {
       width: 100%;
       padding: 14px;
-      background: #007bff;
-      color: white;
+      margin-top: 0.25rem;
+      background: linear-gradient(180deg, #ff3a3a, #c80000);
+      color: #fff;
       border: none;
-      border-radius: 6px;
-      font-size: 1.1rem;
+      border-radius: 10px;
+      font-size: 1.05rem;
       cursor: pointer;
+      font-weight: 700;
+      box-shadow: 0 8px 18px rgba(255, 0, 0, 0.22);
+    }
+
+    button:hover {
+      filter: brightness(1.05);
     }
 
     button:disabled {
-      background: #999;
+      background: #666;
+      cursor: not-allowed;
+      box-shadow: none;
     }
 
     #status {
       margin-top: 1rem;
       font-size: 0.95rem;
-      color: #444;
+      color: var(--accent-gold);
+      min-height: 1.2em;
     }
 
     .estimate-box {
-      background: white;
+      background: linear-gradient(180deg, var(--panel), #0a0a0a);
+      border: 1px solid var(--border);
       padding: 1rem;
       margin-top: 1.5rem;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .estimate-box p {
+      margin: 0.35rem 0;
+      color: #ff5b5b;
+      line-height: 1.45;
     }
 
     .estimate-grid {
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 6px 12px;
+      gap: 8px 12px;
       margin-top: 1rem;
+      padding: 0.85rem;
+      background: var(--panel-2);
+      border: 1px solid #242424;
+      border-radius: 12px;
+    }
+
+    .estimate-grid > div:nth-child(odd) {
+      color: var(--accent-blue);
+    }
+
+    .estimate-grid > div:nth-child(even) {
+      color: #fff0f0;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
     }
 
     .estimate-total {
@@ -83,40 +172,74 @@
       font-size: 1.3rem;
       font-weight: bold;
       text-align: right;
+      color: var(--accent-green);
+      padding: 0.5rem 0;
+      border-top: 1px solid #2a2a2a;
     }
 
     small {
-      color: #666;
+      display: block;
+      color: #9b6f6f;
+      margin-top: 0.35rem;
+      line-height: 1.4;
+    }
+
+    .label-accent {
+      color: var(--accent-purple);
+    }
+
+    .label-blue {
+      color: var(--accent-blue);
+    }
+
+    .label-gold {
+      color: var(--accent-gold);
+    }
+
+    .label-green {
+      color: var(--accent-green);
+    }
+
+    .label-red {
+      color: var(--danger);
+    }
+
+    .divider {
+      margin: 1rem 0;
+      border: 0;
+      border-top: 1px solid #292929;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>SKSK ProTech</h1>
-    <p>Mobile Mechanic AI Estimate Generator</p>
+    <div class="card">
+      <h1>SKSK ProTech</h1>
+      <p class="subtitle">Mobile Mechanic AI Estimate Generator</p>
 
-    <h2>Customer Info</h2>
-    <input id="customerName" placeholder="Customer name" />
-    <input id="customerPhone" placeholder="Phone number" />
+      <h2 class="section-blue">Customer Info</h2>
+      <input id="customerName" placeholder="Customer name" />
+      <input id="customerPhone" placeholder="Phone number" />
 
-    <h2>Vehicle Info</h2>
-    <input id="vehicleYear" placeholder="Year (e.g. 2008)" />
-    <input id="vehicleMake" placeholder="Make (e.g. Kia)" />
-    <input id="vehicleModel" placeholder="Model (e.g. Sorento)" />
+      <h2 class="section-gold">Vehicle Info</h2>
+      <input id="vehicleYear" placeholder="Year (e.g. 2008)" />
+      <input id="vehicleMake" placeholder="Make (e.g. Kia)" />
+      <input id="vehicleModel" placeholder="Model (e.g. Sorento)" />
 
-    <h2>Symptoms</h2>
-    <textarea id="symptoms" rows="3" placeholder="Describe the issue..."></textarea>
+      <h2 class="section-green">Symptoms</h2>
+      <textarea id="symptoms" rows="4" placeholder="Describe the issue..."></textarea>
 
-    <h2>OBD Codes</h2>
-    <input id="codes" placeholder="Comma-separated codes (P0300, P0171)" />
+      <h2 class="section-purple">OBD Codes</h2>
+      <input id="codes" placeholder="Comma-separated codes (P0300, P0171)" />
 
-    <h2>Mechanic Findings</h2>
-    <textarea id="mechanicFindings" rows="3" placeholder="Technician notes (optional)"></textarea>
+      <h2 class="section-red">Mechanic Findings</h2>
+      <textarea id="mechanicFindings" rows="4" placeholder="Technician notes (optional)"></textarea>
 
-    <button id="generateBtn">Generate Estimate</button>
+      <button id="generateBtn">Generate Estimate</button>
 
-    <div id="status"></div>
-    <div id="estimateContainer" class="estimate-box"></div>
+      <div id="status"></div>
+      <div id="estimateContainer" class="estimate-box"></div>
+    </div>
   </div>
 
   <script>
@@ -128,9 +251,42 @@
       statusEl.textContent = msg || '';
     }
 
+    function splitLines(value) {
+      return String(value || '')
+        .trim()
+        .split(/
+?
+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    function clearNode(node) {
+      while (node.firstChild) node.removeChild(node.firstChild);
+    }
+
+    function el(tag, text, className) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined && text !== null) node.textContent = String(text);
+      return node;
+    }
+
+    function addLine(parent, label, value, labelClass) {
+      const p = document.createElement('p');
+      const strong = document.createElement('strong');
+      strong.className = labelClass || '';
+      strong.textContent = label + ' ';
+      p.appendChild(strong);
+      p.appendChild(document.createTextNode(value || ''));
+      parent.appendChild(p);
+    }
+
     function renderEstimate(data) {
+      clearNode(estimateContainer);
+
       if (!data || !data.estimate) {
-        estimateContainer.innerHTML = '<p>Unable to build estimate.</p>';
+        estimateContainer.appendChild(el('p', 'Unable to build estimate.'));
         return;
       }
 
@@ -140,33 +296,45 @@
       const copy = e.copy || {};
       const tech = e.tech || {};
 
-      estimateContainer.innerHTML = `
-        <h3>Customer Summary</h3>
-        <p>${copy.customerSummary || ''}</p>
-        <small>${copy.disclaimer || ''}</small>
+      estimateContainer.appendChild(el('h3', 'Customer Summary', 'label-red'));
+      estimateContainer.appendChild(el('p', copy.customerSummary || ''));
+      estimateContainer.appendChild(el('small', copy.disclaimer || ''));
 
-        <h3 style="margin-top:1rem;">Vehicle & Concern</h3>
-        <p><strong>Customer:</strong> ${c.name || ''} · ${c.phone || ''}</p>
-        <p><strong>Vehicle:</strong> ${v.year || ''} ${v.make || ''} ${v.model || ''}</p>
-        <p><strong>Primary Concern:</strong> ${copy.primaryConcern || ''}</p>
+      const hr = document.createElement('hr');
+      hr.className = 'divider';
+      estimateContainer.appendChild(hr);
 
-        <h3 style="margin-top:1rem;">Estimate Breakdown</h3>
-        <div class="estimate-grid">
-          <div>Labor hours:</div><div>${Number(e.laborHours || 0).toFixed(2)}</div>
-          <div>Labor total:</div><div>$${Number(e.laborTotal || 0).toFixed(2)}</div>
-          <div>Parts total:</div><div>$${Number(e.partsTotal || 0).toFixed(2)}</div>
-          <div>Shop supplies:</div><div>$${Number(e.shopSupplies || 0).toFixed(2)}</div>
-          <div>Tax set-aside:</div><div>$${Number(e.tax || 0).toFixed(2)}</div>
-        </div>
+      estimateContainer.appendChild(el('h3', 'Vehicle & Concern', 'label-gold'));
+      addLine(estimateContainer, 'Customer:', `${c.name || ''} · ${c.phone || ''}`, 'label-blue');
+      addLine(estimateContainer, 'Vehicle:', `${v.year || ''} ${v.make || ''} ${v.model || ''}`, 'label-blue');
+      addLine(estimateContainer, 'Primary Concern:', copy.primaryConcern || '', 'label-purple');
 
-        <div class="estimate-total">
-          Estimate total: $${Number(e.grandTotal || 0).toFixed(2)}
-        </div>
+      estimateContainer.appendChild(el('h3', 'Estimate Breakdown', 'label-green'));
 
-        <h3 style="margin-top:1rem;">Tech Notes</h3>
-        <p style="white-space:pre-wrap;">${tech.diagnosticNotes || ''}</p>
-        <small>${tech.engineMeta || ''}</small>
-      `;
+      const grid = el('div', null, 'estimate-grid');
+      const items = [
+        ['Labor hours:', Number(e.laborHours || 0).toFixed(2)],
+        ['Labor total:', `$${Number(e.laborTotal || 0).toFixed(2)}`],
+        ['Parts total:', `$${Number(e.partsTotal || 0).toFixed(2)}`],
+        ['Shop supplies:', `$${Number(e.shopSupplies || 0).toFixed(2)}`],
+        ['Tax set-aside:', `$${Number(e.tax || 0).toFixed(2)}`]
+      ];
+
+      items.forEach(([label, value]) => {
+        grid.appendChild(el('div', label));
+        grid.appendChild(el('div', value));
+      });
+
+      estimateContainer.appendChild(grid);
+
+      estimateContainer.appendChild(el('div', `Estimate total: $${Number(e.grandTotal || 0).toFixed(2)}`, 'estimate-total'));
+
+      estimateContainer.appendChild(el('h3', 'Tech Notes', 'label-red'));
+      const notes = document.createElement('p');
+      notes.style.whiteSpace = 'pre-wrap';
+      notes.textContent = tech.diagnosticNotes || '';
+      estimateContainer.appendChild(notes);
+      estimateContainer.appendChild(el('small', tech.engineMeta || ''));
     }
 
     generateBtn.addEventListener('click', async () => {
@@ -184,18 +352,8 @@
           .split(',')
           .map(c => c.trim())
           .filter(Boolean),
-        customerStates: document.getElementById('symptoms').value
-          .trim()
-          .split('
-')
-          .map(s => s.trim())
-          .filter(Boolean),
-        mechanicNotices: document.getElementById('mechanicFindings').value
-          .trim()
-          .split('
-')
-          .map(s => s.trim())
-          .filter(Boolean),
+        customerStates: splitLines(document.getElementById('symptoms').value),
+        mechanicNotices: splitLines(document.getElementById('mechanicFindings').value),
         laborRate: 65
       };
 
@@ -221,7 +379,8 @@
       } catch (err) {
         console.error(err);
         setStatus('Error generating estimate.');
-        estimateContainer.innerHTML = '<p>Something went wrong.</p>';
+        clearNode(estimateContainer);
+        estimateContainer.appendChild(el('p', 'Something went wrong.'));
       } finally {
         generateBtn.disabled = false;
       }
