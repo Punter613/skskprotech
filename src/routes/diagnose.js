@@ -21,10 +21,7 @@ router.post('/', async (req, res, next) => {
       result
     });
 
-    res.json({
-      success: true,
-      result
-    });
+    res.json({ success: true, result });
   } catch (err) {
     next(err);
   }

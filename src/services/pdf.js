@@ -11,7 +11,6 @@ function generateInvoicePdf(data) {
 
     doc.fontSize(20).text('SKSK PROTECH INVOICE', { align: 'center' });
     doc.moveDown();
-
     doc.fontSize(12);
     doc.text(`Invoice ID: ${data.invoiceId || 'N/A'}`);
     doc.text(`Customer: ${data.customer?.name || data.customer || 'N/A'}`);
@@ -23,10 +22,8 @@ function generateInvoicePdf(data) {
     doc.text(`Decoded Model: ${data.vinDecoded?.model || data.vehicle?.model || 'N/A'}`);
     doc.text(`Total: $${Number(data.total || 0).toFixed(2)}`);
     doc.moveDown();
-
     doc.text('Details:');
     doc.fontSize(10).text(JSON.stringify(data.details || {}, null, 2));
-
     doc.end();
   });
 }

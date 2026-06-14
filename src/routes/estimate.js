@@ -20,10 +20,7 @@ router.post('/', async (req, res, next) => {
       details: estimate
     });
 
-    res.json({
-      success: true,
-      estimate
-    });
+    res.json({ success: true, estimate });
   } catch (err) {
     next(err);
   }
