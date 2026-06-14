@@ -222,6 +222,8 @@
   </div>
 
   <script>
+    const API_BASE = https://p613-backend.onrender.com ;
+
     const generateBtn = document.getElementById('generateBtn');
     const statusEl = document.getElementById('status');
     const estimateContainer = document.getElementById('estimateContainer');
@@ -336,7 +338,7 @@
       generateBtn.disabled = true;
 
       try {
-        const res = await fetch('/api/estimate', {
+        const res = await fetch(`${API_BASE}/api/estimate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ incomingPayload: payload })
