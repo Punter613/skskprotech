@@ -1269,6 +1269,55 @@
       window.location.href = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
     }
 
+    
+    // --- Hooking Up Advanced UI Share Actions ---
+    function gatherCurrentEstimatePayload() {
+      // Pulls current active data from the form fields to build the estimate block
+      return {
+        customer: {
+          name: document.getElementById('customerName')?.value || 'Valued Customer',
+          phone: document.getElementById('customerPhone')?.value || '',
+          email: document.getElementById('customerEmail')?.value || ''
+        },
+        vehicle: {
+          year: document.getElementById('vehicleYear')?.value || '',
+          make: document.getElementById('vehicleMake')?.value || '',
+          model: document.getElementById('vehicleModel')?.value || '',
+          trim: document.getElementById('vehicleTrim')?.value || 'Standard'
+        },
+        estimateText: document.getElementById('outputDisplay')?.innerText || 'No active diagnostics generated yet.',
+        totalAmount: document.getElementById('estimatedTotal')?.innerText || '0.00',
+        obdCodes: document.getElementById('obdCodes')?.value ? document.getElementById('obdCodes').value.split(',').map(c => c.trim()) : [],
+        customerStates: document.getElementById('customerComplaints')?.value ? [document.getElementById('customerComplaints').value] : [],
+        mechanicNotices: document.getElementById('mechanicNotes')?.value ? [document.getElementById('mechanicNotes').value] : [],
+        mileage: parseInt(document.getElementById('vehicleMileage')?.value, 10) || 0
+      };
+    }
+
+    // Dynamic button attachment points if they exist in your UI framework
+    document.addEventListener('DOMContentLoaded', () => {
+      // Wire up a PDF Button if added to DOM
+      document.getElementById('btnPrintPdf')?.addEventListener('click', () => {
+        const payload = gatherCurrentEstimatePayload();
+        triggerPdfDownload(payload);
+      });
+
+      // Wire up a Direct Text message button
+      document.getElementById('btnSendSms')?.addEventListener('click', () => {
+        const payload = gatherCurrentEstimatePayload();
+        const summary = `Total Due: ${payload.totalAmount}\n\n${payload.estimateText}`;
+        shareViaSMS(payload.customer.phone, summary);
+      });
+
+      // Wire up a Direct Email message button
+      document.getElementById('btnSendEmail')?.addEventListener('click', () => {
+        const payload = gatherCurrentEstimatePayload();
+        const vInfo = `${payload.vehicle.year} ${payload.vehicle.make} ${payload.vehicle.model}`;
+        const summary = `Total Due: ${payload.totalAmount}\n\n${payload.estimateText}`;
+        shareViaEmail(payload.customer.email, vInfo, summary);
+      });
+    });
+
     restoreForm();
   </script>
 </body>
