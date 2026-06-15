@@ -3,6 +3,7 @@ const router = express.Router();
 const { groqChat } = require('../services/groq');
 const { evaluateSafetyRisk } = require('../knowledge/vehicle.risk.table');
 const { findKnownPatterns } = require('../knowledge/failure.patterns');
+const { calculateConfidence } = require('../knowledge/confidence.scorer');
 
 // Bulletproof extractor — finds first valid { } block regardless of surrounding garbage
 function extractJSON(text) {
@@ -39,6 +40,7 @@ function safeResult(overrides = {}) {
     additionalChecks: [],
     estimatedRepairTime: 'N/A',
     notes: '',
+    diagnosticConfidence: { percentage: 30, rating: 'LOW' }, // Added to base schema
     ...overrides
   };
 }
@@ -51,16 +53,21 @@ router.post('/', async (req, res) => {
       symptoms = [],
       codes = [],
       notes = [],
-      vehicle = {} // Dynamic vehicle data from UI
+      vehicle = {}
     } = req.body;
 
-    // 1. Execute Local Knowledge Core Intercepts
+    // 1. Run Local Logic Core Analysis Intercepts
     const localSafetyResult = evaluateSafetyRisk(symptoms, notes, vehicle);
     const matchedPatterns = findKnownPatterns(vehicle, symptoms, codes);
+    const confidenceScore = calculateConfidence({
+      patternMatches: matchedPatterns.length,
+      codeCount: codes.length,
+      symptomCount: symptoms.length,
+      safetyTriggered: localSafetyResult.safetyRisk
+    });
 
-    // 2. Build the System Prompt with Embedded Knowledge Base Context
+    // 2. Format the Structural System Prompt
     let systemPrompt = `You are the expert logic unit of SKSK ProTech — a master automotive diagnostic technician with 25 years of real shop experience.
-
 You MUST output a single valid JSON object. No backticks, no markdown, no commentary before or after.
 
 Use EXACTLY this structure:
@@ -80,12 +87,11 @@ Use EXACTLY this structure:
   "notes": "string"
 }`;
 
-    // Inject local platform knowledge if found to guide AI decision structures
+    // Inject exact platform profile into prompt reasoning tree (Issue #4)
     if (matchedPatterns.length > 0) {
-      systemPrompt += `\\n\\nCRITICAL PLATFORM LIABILITY DATA FOUND:
-The local SKSK database has confirmed high-probability failure patterns for this vehicle configuration:
+      systemPrompt += `\\n\\nVEHICLE FAILURE PROFILE AND HISTORICAL LIABILITIES:
 ${JSON.stringify(matchedPatterns, null, 2)}
-You MUST weigh this historical shop intelligence heavily when determining primary causes and probabilities.`;
+You MUST evaluate these confirmed local database records first when calculating diagnostic causes.`;
     }
 
     systemPrompt += `\\n\\nRULES:
@@ -102,7 +108,7 @@ OBD Codes: ${codes.join(', ') || 'None'}
 Symptoms: ${symptoms.join(', ') || 'N/A'}
 Tech Notes: ${notes.join(', ') || 'N/A'}`;
 
-    console.log('[Diagnose Pipeline] Running AI Analysis Loop...');
+    console.log('[Diagnose Engine v2] Processing pipeline loop...');
     const groqRes = await groqChat([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -112,42 +118,53 @@ Tech Notes: ${notes.join(', ') || 'N/A'}`;
       ? groqRes
       : (groqRes?.choices?.[0]?.message?.content || '');
 
-    if (!aiText) throw new Error('Groq returned empty response');
+    if (!aiText) throw new Error('Groq returned empty response payload');
 
     let parsed = extractJSON(aiText);
 
-    if (!parsed) {
-      console.warn('[Diagnose Pipeline] JSON extract failed. Falling back to safe layout.');
-      parsed = safeResult({ notes: 'AI text processing exception — local default fallback applied.' });
+    // Issue #3 - Prevent object payload edge-case crashes
+    if (!parsed || typeof parsed !== 'object') {
+      console.warn('[Diagnose Engine] JSON layout broken or corrupted. Falling back.');
+      parsed = safeResult();
     }
 
-    // 3. Merge Local Knowledge Results with AI Payload to guarantee absolute authority
+    // 3. Force Local Database Enforcement Overrides
     const finalResult = { ...safeResult(), ...parsed };
 
-    // Force safety overrides if local logic triggered danger states
+    // Enforce local confidence matrix (Issue #2)
+    finalResult.diagnosticConfidence = confidenceScore;
+
+    // Enforce known liabilities survival path (Issue #1)
+    if (matchedPatterns.length > 0) {
+      const dbIssues = matchedPatterns.flatMap(p => p.knownIssues || []);
+      finalResult.knownIssues = [
+        ...new Set([...(finalResult.knownIssues || []), ...dbIssues])
+      ];
+    }
+
+    // Enforce safety critical flags
     if (localSafetyResult.safetyRisk) {
       finalResult.safetyRisk = true;
       finalResult.urgency = 'immediate';
-      if (localSafetyResult.riskNotes && !finalResult.notes.includes('Safety Risk')) {
+      if (!finalResult.notes.includes('Safety Risk Flagged')) {
         finalResult.notes = `${localSafetyResult.riskNotes} ${finalResult.notes}`.trim();
       }
     }
 
-    // Double check urgency bounds
     if (!['immediate', 'soon', 'monitor'].includes(finalResult.urgency)) {
       finalResult.urgency = 'soon';
     }
 
-    // Optional DB logging
+    // Optional DB tracking save hooks
     try {
       const db = require('../services/db');
       if (db) await db.from('diagnostics').insert({ input: req.body, result: finalResult });
-    } catch (e) { /* DB target optional */ }
+    } catch (e) { }
 
     res.json({ success: true, result: finalResult });
 
   } catch (err) {
-    console.error('[Diagnose Pipeline Error]:', err.message);
+    console.error('[Diagnose Engine v2 Crash]:', err.message);
     res.status(500).json({
       success: false,
       error: 'Diagnosis failed',
