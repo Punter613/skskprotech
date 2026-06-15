@@ -1,6 +1,6 @@
 /**
- * SKSK ProTech - Core Confidence Scorer Math Engine
- * Calculates true diagnostic weight based on data point density.
+ * SKSK ProTech - Predictive Risk & Confidence Scorer Matrix
+ * Computes dynamic vehicle risk weights and engine confidence parameters.
  */
 
 function calculateConfidence(metrics = {}) {
@@ -11,31 +11,46 @@ function calculateConfidence(metrics = {}) {
     safetyTriggered = false
   } = metrics;
 
-  let baseScore = 30; // Soft baseline score for loose descriptions
-
-  // 1. Weight by hard trouble codes
+  let baseScore = 30;
   if (codeCount > 0) baseScore += (codeCount * 15);
-
-  // 2. Weight heavily by verified local platform failure matches
   if (patternMatches > 0) baseScore += (patternMatches * 30);
-
-  // 3. Weight by tech observation clues
   if (symptomCount > 0) baseScore += (symptomCount * 5);
-
-  // 4. Boost score if safety is triggered (high data correlation)
   if (safetyTriggered) baseScore += 10;
 
-  // Clip the bounds between 10% and 99% (leaving 1% room for actual hands-on test verification)
   const finalScore = Math.min(Math.max(baseScore, 10), 99);
-
   let rating = 'LOW';
   if (finalScore >= 50 && finalScore < 80) rating = 'MEDIUM';
   if (finalScore >= 80) rating = 'HIGH';
 
-  return {
-    percentage: finalScore,
-    rating: rating
-  };
+  return { percentage: finalScore, rating: rating };
 }
 
-module.exports = { calculateConfidence };
+/**
+ * Calculates a dynamic, real-world risk score based on age, mileage, and environmental context
+ * @param {number} baseRisk Static profile risk baseline
+ * @param {number} mileage Current odometer reading
+ * @param {number} rustMultiplier Regional rust acceleration coefficient
+ * @param {number} activeFaults Number of diagnostic codes active
+ * @returns {number} Normalized dynamic risk score (0-100)
+ */
+function computeDynamicRiskScore(baseRisk = 50, mileage = 0, rustMultiplier = 1.0, activeFaults = 0) {
+  let dynamicRisk = baseRisk;
+
+  // 1. Odometer lifecycle aging curve adjustment
+  if (mileage > 100000) dynamicRisk += 5;
+  if (mileage > 180000) dynamicRisk += 12;
+
+  // 2. Environmental multiplier application
+  if (rustMultiplier > 1.1) {
+    dynamicRisk += (rustMultiplier * 4);
+  }
+
+  // 3. Stress weight from multi-system code faults
+  if (activeFaults > 1) {
+    dynamicRisk += (activeFaults * 3);
+  }
+
+  return Math.min(Math.round(dynamicRisk), 100);
+}
+
+module.exports = { calculateConfidence, computeDynamicRiskScore };
