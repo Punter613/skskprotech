@@ -48,8 +48,12 @@ function safeResult(overrides = {}) {
 }
 
 router.post('/', async (req, res) => {
-  // Simple Trace Tracking Setup (Issue #3 Upgrade Path)
-  const executionTrace = { traceId: Date.now().toString(16), stage: 'ORCHESTRATION_START' };
+  // Issue #5 - Advanced Observability Trace Mapping Setup
+  const executionTrace = {
+    traceId: 'TR-' + Date.now().toString(16).toUpperCase(),
+    stage: 'ORCHESTRATION_START',
+    logs: ['[API Endpoint] Diagnostic request intercepted at network router layer.']
+  };
   
   try {
     const {
@@ -63,17 +67,15 @@ router.post('/', async (req, res) => {
       axleCode = ''
     } = req.body;
 
-    console.log(`[Trace ID: ${executionTrace.traceId}] Orchestrating clean pipeline run...`);
+    console.log(`[Trace Locked: ${executionTrace.traceId}] Processing input arrays...\n`);
 
-    // Fire Clean Intermediate Separation Engines Logic
+    // Kick off orchestrated internal system modules with deep log tracking visibility flow
     const pipelineData = runDiagnosticPipeline({
       vehicle, vin, axleCode, symptoms, codes, notes, laborRate, mileage
-    });
+    }, executionTrace);
 
-    // Extract compiled values out of the clean architecture objects
-    const { riskAnalysis, patternsAnalysis, dynamicRisk, confidence } = pipelineData;
+    const { riskAnalysis, matchedPatterns, assemblyData, dynamicRisk, confidence } = pipelineData;
 
-    // Compile System Prompt Context
     let systemPrompt = `You are the expert logic unit of SKSK ProTech. Output a valid JSON block matching this layout perfectly.
 
 Template structure:
@@ -93,18 +95,20 @@ Template structure:
   "notes": "string"
 }`;
 
-    if (riskAnalysis.profile) {
+    if (riskAnalysis.profile.vehicleId !== 'GENERIC_VEHICLE_FALLBACK') {
       systemPrompt += `\\n\\nVEHICLE PROFILE DATA: ${JSON.stringify({ ...riskAnalysis.profile, dynamicRisk }, null, 2)}`;
     }
-    if (patternsAnalysis.breakdowns.length > 0) {
+    if (assemblyData.breakdowns.length > 0) {
       systemPrompt += `\\n\\nCOST PRESSURES AND PARTS LIKELIHOOD ESTIMATES:
-LABOR: ${JSON.stringify(patternsAnalysis.breakdowns, null, 2)}
-PARTS: ${JSON.stringify(patternsAnalysis.partsRisks, null, 2)}`;
+LABOR: ${JSON.stringify(assemblyData.breakdowns, null, 2)}
+PARTS: ${JSON.stringify(assemblyData.partsRisks, null, 2)}`;
     }
 
     const userPrompt = `Vehicle Make: ${vehicle.make || 'N/A'} | Model: ${vehicle.model || 'N/A'} | Faults: ${codes.join(', ')}`;
 
     executionTrace.stage = 'GROQ_DISPATCH';
+    executionTrace.logs.push('[Groq Core] Dispatched structured instruction layout package to context API cluster.');
+    
     const groqRes = await groqChat([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -114,28 +118,24 @@ PARTS: ${JSON.stringify(patternsAnalysis.partsRisks, null, 2)}`;
     let parsed = extractJSON(aiText);
     if (!parsed || typeof parsed !== 'object') parsed = safeResult();
 
-    // Force hard overrides boundaries cleanly
     const finalResult = { ...safeResult(), ...parsed };
 
     finalResult.diagnosticConfidence = confidence;
-    finalResult.localVehicleTelemetry = riskAnalysis.profile ? { ...riskAnalysis.profile, dynamicCalculatedRisk: dynamicRisk } : null;
-    finalResult.injectedFieldProtocols = patternsAnalysis.protocols;
-    finalResult.calculatedLaborBreakdown = patternsAnalysis.breakdowns;
-    finalResult.partsRiskAnalysis = patternsAnalysis.partsRisks;
+    finalResult.localVehicleTelemetry = riskAnalysis.profile.vehicleId !== 'GENERIC_VEHICLE_FALLBACK' ? { ...riskAnalysis.profile, dynamicCalculatedRisk: dynamicRisk } : null;
+    finalResult.injectedFieldProtocols = assemblyData.protocols;
+    finalResult.calculatedLaborBreakdown = assemblyData.breakdowns;
+    finalResult.partsRiskAnalysis = assemblyData.partsRisks;
     finalResult.vinManufacturingTelemetry = riskAnalysis.vinBuildProfile;
 
-    if (patternsAnalysis.breakdowns.length > 0) {
-      const totalHours = patternsAnalysis.breakdowns.reduce((sum, item) => sum + (item.realWorldHours || 0), 0);
+    if (assemblyData.breakdowns.length > 0) {
+      const totalHours = assemblyData.breakdowns.reduce((sum, item) => sum + (item.realWorldHours || 0), 0);
       finalResult.estimatedRepairTime = `${totalHours.toFixed(1)} Real-World Flat-Rate Hours`;
     }
 
-    // Absolute DB Priority Overrides
-    if (riskAnalysis.profile && riskAnalysis.profile.baseRiskScore > 75) {
-      if (patternsAnalysis.matchedPatterns.length > 0) {
-        finalResult.primaryCause = patternsAnalysis.matchedPatterns[0].patternName.toUpperCase();
-        finalResult.urgency = 'immediate';
-        finalResult.safetyRisk = true;
-      }
+    if (riskAnalysis.profile.baseRiskScore > 75 && matchedPatterns.length > 0) {
+      finalResult.primaryCause = matchedPatterns[0].patternName.toUpperCase();
+      finalResult.urgency = 'immediate';
+      finalResult.safetyRisk = true;
     }
 
     if (riskAnalysis.localSafetyTriggered) {
@@ -144,9 +144,12 @@ PARTS: ${JSON.stringify(patternsAnalysis.partsRisks, null, 2)}`;
       finalResult.notes = `${riskAnalysis.safetyNotes} ${finalResult.notes}`.trim();
     }
 
+    executionTrace.stage = 'PIPELINE_COMPLETE';
     res.json({ success: true, result: finalResult, traceLog: executionTrace });
 
   } catch (err) {
+    executionTrace.stage = 'PIPELINE_CRASHED';
+    executionTrace.logs.push(`[FATAL Core Exception]: ${err.message}`);
     console.error(`[Fatal Core Exception on Trace ${executionTrace.traceId}]:`, err.message);
     res.status(500).json({ success: false, error: 'Pipeline processing fault occurred.', trace: executionTrace });
   }
