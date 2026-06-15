@@ -3,7 +3,7 @@ const router = express.Router();
 const { groqChat } = require('../services/groq');
 const { getVehicleRiskProfile } = require('../knowledge/vehicle.risk.table');
 const { findKnownPatterns } = require('../knowledge/failure.patterns');
-const { calculateConfidence } = require('../knowledge/confidence.scorer');
+const { calculateConfidence, computeDynamicRiskScore } = require('../knowledge/confidence.scorer');
 const { REPAIR_INTELLIGENCE_VAULT } = require('../knowledge/repair.intelligence.library');
 const { calculateJobLabor } = require('../knowledge/labor.matrix');
 const { getVinBuildTelemetry } = require('../knowledge/vin.telemetry');
@@ -45,9 +45,9 @@ function safeResult(overrides = {}) {
     notes: '',
     diagnosticConfidence: { percentage: 30, rating: 'LOW' },
     localVehicleTelemetry: null,
-    injectedFieldProtocols: null,
-    calculatedLaborBreakdown: null,
-    partsRiskAnalysis: null,
+    injectedFieldProtocols: [],
+    calculatedLaborBreakdown: [],
+    partsRiskAnalysis: [],
     vinManufacturingTelemetry: null,
     ...overrides
   };
@@ -63,32 +63,48 @@ router.post('/', async (req, res) => {
       notes = [],
       vehicle = {},
       laborRate = 65,
-      axleCode = '' // Door jamb field target
+      axleCode = ''
     } = req.body;
 
-    console.log('[Pipeline v5] Triggering Deep Component Telemetry Sweep...');
+    console.log('[Pipeline v6] Initializing Hardened Field Engine Core Run...');
 
-    // 1. Core Profile and Pattern Extraction
-    const targetRiskProfile = getVehicleRiskProfile(vehicle);
-    const matchedPatterns = findKnownPatterns(vehicle, symptoms, codes, notes);
+    // 1. Strict Engine-Bracket Registry Check
+    const targetRiskProfile = getVehicleRiskProfile(vehicle, vin);
+
+    // 2. Failure-Linked Pattern Engine Search
+    const matchedPatterns = findKnownPatterns(targetRiskProfile, symptoms, codes, notes);
     const isRustBeltVehicle = targetRiskProfile ? targetRiskProfile.rustMultiplier > 1.0 : false;
 
-    // 2. Decode Advanced VIN Plant & Axle Telemetry
+    // 3. Compute Real Predictive Dynamic Risk Scores
+    const dynamicRiskScore = targetRiskProfile 
+      ? computeDynamicRiskScore(targetRiskProfile.baseRiskScore, mileage, targetRiskProfile.rustMultiplier, codes.length)
+      : 45;
+
+    // 4. Build Multi-Fault Data Collection Infrastructure Arrays
+    const collectedLaborBreakdowns = [];
+    const collectedPartsRisks = [];
+    const collectedProtocols = [];
+
+    for (const pattern of matchedPatterns) {
+      // Map true flat-rate labor realities
+      const labor = calculateJobLabor(pattern.patternId, laborRate, isRustBeltVehicle);
+      collectedLaborBreakdowns.push(labor);
+
+      // Map brand integrity and aftermarket comeback liabilities
+      const parts = evaluatePartsIntegrity(pattern.patternId);
+      collectedPartsRisks.push(parts);
+
+      // Capture trade intelligence protocol strategies
+      if (REPAIR_INTELLIGENCE_VAULT[pattern.linkProtocol]) {
+        collectedProtocols.push(REPAIR_INTELLIGENCE_VAULT[pattern.linkProtocol]);
+      }
+    }
+
+    // Decode factory manufacturing lines tracking
     const vKey = targetRiskProfile ? targetRiskProfile.vehicleId : '';
     const vinBuildProfile = getVinBuildTelemetry(vin, vKey, axleCode);
 
-    // 3. Extract Specific Key-Indexed Component & Parts Risks
-    let activeFailureKey = '';
-    if (vKey === 'FORD_F150_5.4_TRITON') activeFailureKey = 'spark_plug_separation';
-    else if (vKey === 'GM_5.3_VORTEC_AFM') activeFailureKey = 'afm_lifter_collapse';
-    else if (vKey === 'FORD_3.5_ECOBOOST') activeFailureKey = 'vct_phaser_rattle';
-
-    const partsRiskAnalysis = evaluatePartsIntegrity(activeFailureKey);
-
-    // 4. Compute Comprehensive Flat Rate Labor Guide Values
-    const laborBreakdown = calculateJobLabor(activeFailureKey, laborRate, isRustBeltVehicle);
-
-    // 5. Evaluate Safety Matrix Controls
+    // Evaluate structural threat triggers
     let localSafetyTriggered = false;
     let localSafetyNotes = '';
     if (targetRiskProfile) {
@@ -102,10 +118,7 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // 6. Pull Custom Strategy Guides
-    let fieldProtocols = REPAIR_INTELLIGENCE_VAULT[activeFailureKey === 'spark_plug_separation' ? 'FORD_54_TRITON_SPARK_PLUG' : 'GM_53_AFM_LIFTER_REPLACE'] || null;
-
-    // 7. Calculate System Confidence
+    // Compute active system balance metrics
     const confidenceScore = calculateConfidence({
       patternMatches: matchedPatterns.length,
       codeCount: codes.length,
@@ -113,10 +126,10 @@ router.post('/', async (req, res) => {
       safetyTriggered: localSafetyTriggered
     });
 
-    // 8. Assemble AI Directives
-    let systemPrompt = `You are the expert reasoning unit of SKSK ProTech. Output raw JSON object matching this structure exactly.
+    // 5. Build System Prompt with Integrated Cost Pressure Data
+    let systemPrompt = `You are the expert reasoning engine of SKSK ProTech. You MUST output a single valid JSON block matching the template below.
 
-Structure Template:
+Template Layout:
 {
   "urgency": "immediate",
   "safetyRisk": true,
@@ -133,39 +146,61 @@ Structure Template:
   "notes": "string"
 }`;
 
-    if (targetRiskProfile) systemPrompt += `\\n\\nVEHICLE METRICS: ${JSON.stringify(targetRiskProfile, null, 2)}`;
-    if (partsRiskAnalysis) systemPrompt += `\\n\\nPARTS TARGET RULES: ${JSON.stringify(partsRiskAnalysis, null, 2)}`;
+    if (targetRiskProfile) {
+      systemPrompt += `\\n\\nCRITICAL VEHICLE SPECIFICATIONS:
+${JSON.stringify({ ...targetRiskProfile, dynamicCalculatedRisk: dynamicRiskScore }, null, 2)}`;
+    }
 
-    const userPrompt = `Vehicle: Year: ${vehicle.year || 'N/A'}, Make: ${vehicle.make || 'N/A'}, Model: ${vehicle.model || 'N/A'} | Codes: ${codes.join(', ')}`;
+    // Issue #5 - Force LLM to visually review labor costs and parts risk realities
+    if (collectedLaborBreakdowns.length > 0) {
+      systemPrompt += `\\n\\nHARD FLAT-RATE LABOR METRICS AND PARTS INTEGRITY COST PRESSURES TO COMPLY WITH:
+LABOR RUNS: ${JSON.stringify(collectedLaborBreakdowns, null, 2)}
+PARTS COMELIABILITIES: ${JSON.stringify(collectedPartsRisks, null, 2)}`;
+    }
 
+    systemPrompt += `\\n\\nRULES:
+- All values inside probability likelihood arrays must be numbers 0-100.
+- Output raw valid JSON plain text blocks only.`;
+
+    const userPrompt = `Vehicle Profile: Year: ${vehicle.year || 'N/A'}, Make: ${vehicle.make || 'N/A'}, Model: ${vehicle.model || 'N/A'}
+Odometer: ${mileage} | Fault Codes: ${codes.join(', ')} | Symptoms: ${symptoms.join(', ')}`;
+
+    console.log('[Pipeline v6] Sending context payload to Groq tracking group...');
     const groqRes = await groqChat([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
-    ], { max_tokens: 1500, temperature: 0.15 });
+    ], { max_tokens: 1600, temperature: 0.15 });
 
     const aiText = typeof groqRes === 'string' ? groqRes : (groqRes?.choices?.[0]?.message?.content || '');
     let parsed = extractJSON(aiText);
     if (!parsed || typeof parsed !== 'object') parsed = safeResult();
 
-    // 9. Force Hard Enforcement Overrides
+    // 6. Absolute Database Overrides Control Verification Line
     const finalResult = { ...safeResult(), ...parsed };
 
     finalResult.diagnosticConfidence = confidenceScore;
-    finalResult.localVehicleTelemetry = targetRiskProfile;
-    finalResult.injectedFieldProtocols = fieldProtocols;
-    finalResult.calculatedLaborBreakdown = laborBreakdown;
-    finalResult.partsRiskAnalysis = partsRiskAnalysis;
+    finalResult.localVehicleTelemetry = targetRiskProfile ? { ...targetRiskProfile, dynamicCalculatedRisk: dynamicRiskScore } : null;
+    finalResult.injectedFieldProtocols = collectedProtocols;
+    finalResult.calculatedLaborBreakdown = collectedLaborBreakdowns;
+    finalResult.partsRiskAnalysis = collectedPartsRisks;
     finalResult.vinManufacturingTelemetry = vinBuildProfile;
-    finalResult.estimatedRepairTime = `${laborBreakdown.realWorldHours} Flat-Rate Hours`;
 
-    if (targetRiskProfile && targetRiskProfile.riskScore > 90) {
-      finalResult.primaryCause = targetRiskProfile.commonFailures?.[0] ? targetRiskProfile.commonFailures[0].replace(/_/g, ' ').toUpperCase() : finalResult.primaryCause;
+    // Compute complete real-world guide hours total sum string
+    if (collectedLaborBreakdowns.length > 0) {
+      const totalHours = collectedLaborBreakdowns.reduce((sum, item) => sum + (item.realWorldHours || 0), 0);
+      finalResult.estimatedRepairTime = `${totalHours.toFixed(1)} Real-World Flat-Rate Hours`;
     }
 
-    if (matchedPatterns.some(p => p.likelihood >= 90)) {
-      finalResult.primaryCause = matchedPatterns[0].patternName;
+    // Force absolute structural pattern locks if likelihood parameters pass thresholds
+    if (matchedPatterns.length > 0) {
+      if (dynamicRiskScore > 85) {
+        finalResult.primaryCause = matchedPatterns[0].patternName.toUpperCase();
+      }
       finalResult.urgency = 'immediate';
       finalResult.safetyRisk = true;
+      finalResult.knownIssues = [
+        ...new Set([...(finalResult.knownIssues || []), ...matchedPatterns.map(p => p.patternId)])
+      ];
     }
 
     if (localSafetyTriggered) {
@@ -177,8 +212,8 @@ Structure Template:
     res.json({ success: true, result: finalResult });
 
   } catch (err) {
-    console.error('[Pipeline v5 Fatal Error]:', err.message);
-    res.status(500).json({ success: false, error: 'Internal pipeline fault.', details: err.message });
+    console.error('[Pipeline v6 Fatal Core Exception]:', err.message);
+    res.status(500).json({ success: false, error: 'Internal logic platform lock failure.', details: err.message });
   }
 });
 
