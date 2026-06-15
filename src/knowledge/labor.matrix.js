@@ -1,76 +1,66 @@
 /**
- * SKSK ProTech - Core Labor Matrix Guide
- * Hardcodes real shop flat-rate hours and regional modifier indicators.
+ * SKSK ProTech - Advanced Shop Labor Reality Guide
+ * Hardcodes flat-rate baselines alongside real-world worst-case scenario durations.
  */
 
-const LABOR_MATRIX = {
+const LABOR_REALITY_TABLE = {
   'spark_plug_separation': {
     baseHours: 3.5,
-    difficulty: 'HIGH',
-    requiresRustBeltTax: true,
+    avgShopTime: 4.2,
+    worstCaseNightmare: 8.0,
+    rustBeltFactor: 1.4,
     operationLabel: 'Extract broken/fused 3V Triton spark plug sleeves'
   },
   'afm_lifter_collapse': {
     baseHours: 8.0,
-    difficulty: 'EXPERT',
-    requiresRustBeltTax: false,
-    operationLabel: 'Remove cylinder heads, inspect cam, and replace AFM lifter banks'
+    avgShopTime: 9.5,
+    worstCaseNightmare: 14.0,
+    rustBeltFactor: 1.2,
+    operationLabel: 'Remove cylinder heads and service collapsed AFM lifter banks'
   },
   'vct_phaser_rattle': {
     baseHours: 6.5,
-    difficulty: 'HIGH',
-    requiresRustBeltTax: false,
-    operationLabel: 'Replace VCT variable camshaft timing phasers and tensioners'
-  },
-  'needle_bearing_seizure': {
-    baseHours: 4.5,
-    difficulty: 'MEDIUM',
-    requiresRustBeltTax: false,
-    operationLabel: 'Replace rocker arm assemblies and inspect camshaft lobes'
-  },
-  'salt_belt_brake_line_rot': {
-    baseHours: 4.0,
-    difficulty: 'HIGH',
-    requiresRustBeltTax: true,
-    operationLabel: 'Fabricate and run complete safety brake line network replacement'
+    avgShopTime: 7.2,
+    worstCaseNightmare: 11.0,
+    rustBeltFactor: 1.15,
+    operationLabel: 'Replace VCT variable camshaft phasers and tensioner tracks'
   }
 };
 
 /**
- * Calculates true mechanical labor parameters
+ * Computes exact shop labor reality metrics
  * @param {string} failureKey 
  * @param {number} shopRate 
  * @param {boolean} isRustBelt 
- * @returns {Object} Calculated labor block
+ * @returns {Object} Real-world labor profile
  */
 function calculateJobLabor(failureKey, shopRate = 65, isRustBelt = false) {
-  const job = LABOR_MATRIX[failureKey];
+  const job = LABOR_REALITY_TABLE[failureKey];
   if (!job) {
     return {
       hours: 1.5,
       rate: shopRate,
       cost: 1.5 * shopRate,
-      label: 'Standard manual inspection and component service'
+      worstCaseCost: 3.0 * shopRate,
+      label: 'Standard component diagnostic verification hours'
     };
   }
 
-  let finalHours = job.baseHours;
-  let multiplierApplied = false;
-
-  // Apply the 25% complexity penalty if the tool slips are highly likely due to rust
-  if (job.requiresRustBeltTax && isRustBelt) {
-    finalHours = parseFloat((job.baseHours * 1.25).toFixed(1));
-    multiplierApplied = true;
+  let calculatedHours = job.baseHours;
+  if (isRustBelt) {
+    calculatedHours = parseFloat((job.baseHours * job.rustBeltFactor).toFixed(1));
   }
 
   return {
-    hours: finalHours,
-    rate: shopRate,
-    cost: parseFloat((finalHours * shopRate).toFixed(2)),
-    difficulty: job.difficulty,
-    multiplierApplied,
-    label: job.operationLabel
+    bookHours: job.baseHours,
+    realWorldHours: calculatedHours,
+    avgShopExecutionTime: job.avgShopTime,
+    worstCaseNightmareDuration: job.worstCaseNightmare,
+    laborCost: parseFloat((calculatedHours * shopRate).toFixed(2)),
+    nightmareScenarioCost: parseFloat((job.worstCaseNightmare * shopRate).toFixed(2)),
+    label: job.operationLabel,
+    rustTaxApplied: isRustBelt
   };
 }
 
-module.exports = { calculateJobLabor, LABOR_MATRIX };
+module.exports = { calculateJobLabor, LABOR_REALITY_TABLE };
