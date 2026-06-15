@@ -1,103 +1,84 @@
-const router = require('express').Router();
-const https = require('https');
+const express = require('express');
+const router = express.Router();
+const { runDiagnosticPipeline } = require('../brain/diagnosis.engine');
+const { groqChat } = require('../services/groq');
 
-function groqChat(messages) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({
-      model: 'llama3-8b-8192',
-      messages,
-      max_tokens: 800,
-      temperature: 0.3
-    });
-    const req = https.request({
-      hostname: 'api.groq.com',
-      path: '/openai/v1/chat/completions',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
-      }
-    }, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch(e) { reject(new Error('Bad GROQ response')); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-
-router.post('/', async (req, res, next) => {
+/**
+ * POST /api/estimate
+ * Generates an itemized AI parts and labor estimate grounded by local brain data.
+ */
+router.post('/', async (req, res) => {
   try {
-    const b = req.body || {};
-    const laborRate = Number(b.laborRate || process.env.DEFAULT_LABOR_RATE || 65);
-    const partsCost = Number(b.partsCost || 0);
-    const vehicle = b.vehicle || {};
-    const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ');
-    const symptoms = (b.customerStates || []).join(', ');
-    const notices = (b.mechanicNotices || []).join(', ');
-    const codes = (b.obdCodes || []).join(', ');
+    const {
+      vehicle = {},
+      obdCodes = [],
+      customerStates = [],
+      mechanicNotices = [],
+      laborRate = 65,
+      partsCost = 0,
+      mileage = 0
+    } = req.body;
 
-    const prompt = `You are an expert mobile mechanic estimator. Generate a professional repair estimate.
+    // 1. Run through the local pipeline to see what we are dealing with
+    const pipelineResults = runDiagnosticPipeline({
+      obdCodes,
+      customerStates,
+      mechanicNotices,
+      vehicle,
+      mileage
+    });
 
-Vehicle: ${vehicleStr || 'Unknown'}
-VIN: ${b.vin || 'N/A'}
-Customer reports: ${symptoms || 'N/A'}
-Mechanic notices: ${notices || 'N/A'}
-OBD codes: ${codes || 'None'}
-Labor rate: $${laborRate}/hr
-Parts provided: $${partsCost}
+    // 2. Extract top priority matches to help steer the pricing AI
+    const primaryDiagnosis = pipelineResults.topDiagnoses[0];
+    let rustBeltMultiplier = 1.0;
 
-Respond with a JSON object ONLY (no markdown, no explanation):
-{
-  "diagnosis": "brief diagnosis",
-  "repairs": ["repair 1", "repair 2"],
-  "estimatedHours": 2.5,
-  "laborCost": 162.50,
-  "partsCost": ${partsCost},
-  "total": 242.50,
-  "notes": "any important notes",
-  "priority": "high|medium|low"
-}`;
-
-    let aiResult = null;
-    if (process.env.GROQ_API_KEY) {
-      const groqRes = await groqChat([{ role: 'user', content: prompt }]);
-      const text = groqRes?.choices?.[0]?.message?.content || '';
-      try {
-        const clean = text.replace(/```json|```/g, '').trim();
-        aiResult = JSON.parse(clean);
-      } catch(e) {
-        aiResult = { diagnosis: text, repairs: [], estimatedHours: 1, laborCost: laborRate, partsCost, total: laborRate + partsCost, notes: '', priority: 'medium' };
-      }
-    } else {
-      aiResult = {
-        diagnosis: 'GROQ_API_KEY not set',
-        repairs: [],
-        estimatedHours: 1,
-        laborCost: laborRate,
-        partsCost,
-        total: laborRate + partsCost,
-        notes: 'Configure GROQ_API_KEY in environment',
-        priority: 'medium'
-      };
+    // Detect if our Rust Belt adjustment was applied to modify base labor expectations
+    if (primaryDiagnosis && primaryDiagnosis.appliedModifiers.some(m => m.includes('Rust Belt'))) {
+      rustBeltMultiplier = 1.25; // Slap a 25% tax on labor for fighting seized/rotted hardware
     }
 
-    // Optional Supabase save — won't crash if not configured
-    try {
-      const db = require('../services/db');
-      if (db) {
-        await db.from('estimates').insert({ total: aiResult.total, details: { ...aiResult, customer: b.customer, vehicle } });
-      }
-    } catch(e) { /* db optional */ }
+    const systemPrompt = `You are the expert financial estimation module of SKSK ProTech, built for mobile mechanics. Your job is to output a clean, professional, itemized price quote.
 
-    res.json({ success: true, estimate: aiResult });
+Vehicle Configuration:
+- ${vehicle.year || 'Unknown'} ${vehicle.make || 'Unknown'} ${vehicle.model || 'Unknown'} (${vehicle.trim || 'Standard'})
+- Odometer: ${mileage ? mileage.toLocaleString() : 'Unknown'} miles
+- Shop Base Labor Rate: $${laborRate}/hr
+- Rust Belt Labor Penalty Multiplier: ${rustBeltMultiplier}x (Apply if working on rotted underside/brakes/chassis)
+
+Pre-Calculated Local Brain Diagnostics:
+${primaryDiagnosis ? `- Target Issue: ${primaryDiagnosis.title} (${primaryDiagnosis.confidence} Confidence)\n- Component Subsystems: ${primaryDiagnosis.possibleIssues.join(', ')}` : '- No direct TSB pattern matched. Quote based on field notes and generic shop guides.'}
+
+Guidelines:
+1. Provide a completely itemized breakdown: Estimated Labor Hours, Total Labor Cost, Required Parts, and Estimated Parts Cost.
+2. If the Rust Belt Multiplier is ${rustBeltMultiplier}x and the job involves suspension, brakes, or exhaust, explicitly mention the extra time added for rust mitigation (e.g., torching, extracting seized bolts).
+3. Format the final summary using clear headers so it fits neatly on a mobile screen (Samsung A15) and can be parsed into a clean PDF invoice later.
+4. Keep the final total mathematically sound: Total = (Labor Hours * Labor Rate) + Parts Cost + Tax (assume 6.5% local transit sales tax).`;
+
+    const userPrompt = `Generate a realistic line-item job estimate based on these inputs:
+- Initial Parts Budget Input: $${partsCost}
+- Diagnostic Target: ${primaryDiagnosis ? primaryDiagnosis.title : 'General Inspection'}
+- Mechanic's On-Site Field Notes: "${mechanicNotices.join(', ') || 'None'}"`;
+
+    console.log('[Route] Calculating smart estimate via Groq...');
+    
+    const aiResponse = await groqChat([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ]);
+
+    res.json({
+      success: true,
+      appliedRustPenalty: rustBeltMultiplier > 1.0,
+      localBrainSummary: pipelineResults,
+      estimate: aiResponse
+    });
+
   } catch (err) {
-    next(err);
+    console.error('[Route Error] Estimation failed:', err.message || err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate financial estimate package.'
+    });
   }
 });
 
