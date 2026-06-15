@@ -9,7 +9,7 @@ const cache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 function groqChat(messages, opts = {}) {
-  const { max_tokens = 800, temperature = 0.3, model = 'llama3-8b-8192', useCache = true } = opts;
+  const { max_tokens = 800, temperature = 0.3, model = 'llama-3.1-8b-instant', useCache = true } = opts;
 
   // Build cache key from sorted messages
   const cacheKey = useCache ? JSON.stringify(messages.map(m => [m.role, m.content].join('|'))) : null;
@@ -38,7 +38,7 @@ function groqChat(messages, opts = {}) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      timeout: 25000 // 25s socket timeout
+      timeout: 25000
     }, (res) => {
       let data = '';
       res.on('data', c => data += c);
