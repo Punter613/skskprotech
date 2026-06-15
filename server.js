@@ -48,7 +48,7 @@ function asyncHandler(fn) {
 app.use('/api/diagnose', diagnose);
 app.use('/api/estimate', estimate);
 app.use('/api/invoice', invoice);
-
+app.use('/api/translate', require('./src/routes/translate'));
 // Payments route (only loaded if Stripe key is configured)
 if (process.env.STRIPE_SECRET_KEY) {
   try {
