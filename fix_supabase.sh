@@ -1,6 +1,17 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -e
 
+# SKSK ProTech - Supabase Connection Fix
+# Safely rewrites ONLY db.js with connection checking — preserves route logic
+
+echo "[supabase] Checking environment..."
+if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+  echo "[supabase] WARNING: SUPABASE_URL or SUPABASE_KEY not set"
+  echo "[supabase] Supabase is OPTIONAL — the app works without it"
+  echo "[supabase] To configure: export SUPABASE_URL=... && export SUPABASE_KEY=..."
+fi
+
+# Write a safe db.js that handles missing credentials gracefully
 cat > src/services/db.js <<'JS'
 const { createClient } = require('@supabase/supabase-js');
 
@@ -9,126 +20,18 @@ const key = process.env.SUPABASE_KEY;
 
 const supabase = url && key ? createClient(url, key) : null;
 
+if (supabase) {
+  console.log('[DB] Supabase connected');
+} else {
+  console.log('[DB] Supabase not configured — running without database');
+}
+
 module.exports = supabase;
 JS
 
-cat > src/routes/diagnose.js <<'JS'
-const router = require('express').Router();
-const db = require('../services/db');
-const { decodeVin } = require('../services/vin');
-
-router.post('/', async (req, res, next) => {
-  try {
-    if (!db) {
-      return res.status(503).json({ success: false, error: 'Database not configured' });
-    }
-
-    const input = req.body || {};
-    const vinDecoded = await decodeVin(input.vin);
-
-    const result = {
-      jobType: 'Diagnosis',
-      vin: input.vin || '',
-      vinDecoded,
-      notes: input.notes || [],
-      codes: input.codes || [],
-      symptoms: input.symptoms || []
-    };
-
-    await db.from('diagnostics').insert({
-      input,
-      result
-    });
-
-    res.json({ success: true, result });
-  } catch (err) {
-    next(err);
-  }
-});
-
-module.exports = router;
-JS
-
-cat > src/routes/estimate.js <<'JS'
-const router = require('express').Router();
-const db = require('../services/db');
-const { decodeVin } = require('../services/vin');
-
-router.post('/', async (req, res, next) => {
-  try {
-    if (!db) {
-      return res.status(503).json({ success: false, error: 'Database not configured' });
-    }
-
-    const incoming = req.body || {};
-    const vinDecoded = await decodeVin(incoming.vin);
-
-    const estimate = {
-      labor: Number(incoming.labor || 100),
-      parts: Number(incoming.parts || 50),
-      total: Number(incoming.labor || 100) + Number(incoming.parts || 50),
-      vin: incoming.vin || '',
-      vinDecoded
-    };
-
-    await db.from('estimates').insert({
-      total: estimate.total,
-      details: estimate
-    });
-
-    res.json({ success: true, estimate });
-  } catch (err) {
-    next(err);
-  }
-});
-
-module.exports = router;
-JS
-
-cat > src/routes/invoice.js <<'JS'
-const router = require('express').Router();
-const db = require('../services/db');
-const { decodeVin } = require('../services/vin');
-const { generateInvoicePdf } = require('../services/pdf');
-
-router.post('/', async (req, res, next) => {
-  try {
-    if (!db) {
-      return res.status(503).json({ success: false, error: 'Database not configured' });
-    }
-
-    const invoiceId = `INV-${Date.now()}`;
-    const body = req.body || {};
-    const vinDecoded = await decodeVin(body.vin);
-
-    const data = {
-      invoiceId,
-      customer: body.customer || {},
-      vin: body.vin || '',
-      vinDecoded,
-      vehicle: body.vehicle || {},
-      total: Number(body.total || 0),
-      details: body.details || body
-    };
-
-    await db.from('invoices').insert({
-      invoice_id: invoiceId,
-      data
-    });
-
-    const file = await generateInvoicePdf(data);
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${invoiceId}.pdf"`);
-    res.send(file);
-  } catch (err) {
-    next(err);
-  }
-});
-
-module.exports = router;
-JS
-
-git add -A
-git commit -m "Remove perl dependency from Supabase fix"
+echo "[supabase] db.js updated with safe connection handling"
+echo "[supabase] Committing..."
+git add src/services/db.js
+git diff --cached --quiet || git commit -m "Fix Supabase connection handling"
 git push
+echo "[supabase] Done!"

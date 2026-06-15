@@ -1,41 +1,14 @@
 const router = require('express').Router();
-const https = require('https');
-
-function groqChat(messages) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({
-      model: 'llama3-8b-8192',
-      messages,
-      max_tokens: 800,
-      temperature: 0.3
-    });
-    const req = https.request({
-      hostname: 'api.groq.com',
-      path: '/openai/v1/chat/completions',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
-      }
-    }, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch(e) { reject(new Error('Bad GROQ response')); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
+const { groqChat, parseGroqJson } = require('../services/groq');
+const db = require('../services/db');
 
 router.post('/', async (req, res, next) => {
   try {
     const b = req.body || {};
-    const laborRate = Number(b.laborRate || process.env.DEFAULT_LABOR_RATE || 65);
-    const partsCost = Number(b.partsCost || 0);
+
+    // Input validation
+    const laborRate = Math.max(0, Number(b.laborRate || process.env.DEFAULT_LABOR_RATE || 65));
+    const partsCost = Math.max(0, Number(b.partsCost || 0));
     const vehicle = b.vehicle || {};
     const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ');
     const symptoms = (b.customerStates || []).join(', ');
@@ -66,18 +39,42 @@ Respond with a JSON object ONLY (no markdown, no explanation):
 
     let aiResult = null;
     if (process.env.GROQ_API_KEY) {
-      const groqRes = await groqChat([{ role: 'user', content: prompt }]);
-      const text = groqRes?.choices?.[0]?.message?.content || '';
       try {
-        const clean = text.replace(/```json|```/g, '').trim();
-        aiResult = JSON.parse(clean);
-      } catch(e) {
-        aiResult = { diagnosis: text, repairs: [], estimatedHours: 1, laborCost: laborRate, partsCost, total: laborRate + partsCost, notes: '', priority: 'medium' };
+        const groqRes = await groqChat([{ role: 'user', content: prompt }], { max_tokens: 800 });
+        const text = groqRes?.choices?.[0]?.message?.content || '';
+        aiResult = parseGroqJson(text);
+
+        if (!aiResult) {
+          // Fallback: treat the text as the diagnosis
+          const fallbackHours = 1;
+          aiResult = {
+            diagnosis: text.substring(0, 500),
+            repairs: [],
+            estimatedHours: fallbackHours,
+            laborCost: Math.round(laborRate * fallbackHours * 100) / 100,
+            partsCost,
+            total: Math.round((laborRate * fallbackHours + partsCost) * 100) / 100,
+            notes: 'AI returned non-JSON; manual review needed',
+            priority: 'medium'
+          };
+        }
+      } catch (groqErr) {
+        console.warn('[Estimate] Groq error:', groqErr.message);
+        aiResult = {
+          diagnosis: 'AI temporarily unavailable — using fallback estimate',
+          repairs: ['Diagnostic inspection required'],
+          estimatedHours: 1,
+          laborCost: laborRate,
+          partsCost,
+          total: laborRate + partsCost,
+          notes: `AI error: ${groqErr.message}`,
+          priority: 'medium'
+        };
       }
     } else {
       aiResult = {
-        diagnosis: 'GROQ_API_KEY not set',
-        repairs: [],
+        diagnosis: 'AI not configured — set GROQ_API_KEY',
+        repairs: ['Manual inspection required'],
         estimatedHours: 1,
         laborCost: laborRate,
         partsCost,
@@ -88,12 +85,16 @@ Respond with a JSON object ONLY (no markdown, no explanation):
     }
 
     // Optional Supabase save — won't crash if not configured
-    try {
-      const db = require('../services/db');
-      if (db) {
-        await db.from('estimates').insert({ total: aiResult.total, details: { ...aiResult, customer: b.customer, vehicle } });
+    if (db) {
+      try {
+        await db.from('estimates').insert({
+          total: aiResult.total,
+          details: { ...aiResult, customer: b.customer, vehicle }
+        });
+      } catch (e) {
+        console.warn('[Estimate] DB save skipped:', e.message);
       }
-    } catch(e) { /* db optional */ }
+    }
 
     res.json({ success: true, estimate: aiResult });
   } catch (err) {

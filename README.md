@@ -1,113 +1,70 @@
-# SKSK ProTech — Mobile Mechanic AI Estimator
+# SKSK ProTech - Mobile Mechanic AI Estimator
 
 An AI-powered mobile mechanic diagnostic and estimate generator built for **Samsung A15** and other Android devices. This Progressive Web App (PWA) works offline and can be installed directly to your home screen like a native app.
 
 ## Features
 
-✅ **AI-Powered Estimates** - Uses Groq LLM for intelligent diagnostic analysis  
-✅ **PWA Installation** - Install to home screen on Android/iOS (works offline)  
-✅ **Samsung A15 Optimized** - Touch-friendly, responsive design  
-✅ **Offline Support** - Service worker caches estimates and data  
-✅ **Real-time Pricing** - Labor, parts, tax calculations  
-✅ **Vehicle Database** - Known issues for common vehicle models  
-✅ **Customer Management** - Save and track estimates via Supabase  
-✅ **Dark Mode** - Reduced eye strain for field work  
+- **AI-Powered Estimates** - Uses Groq LLM for intelligent diagnostic analysis
+- **PWA Installation** - Install to home screen on Android/iOS (works offline)
+- **Samsung A15 Optimized** - Touch-friendly, responsive design
+- **Offline Support** - Service worker caches app shell for offline use
+- **Real-time Pricing** - Labor, parts, tax calculations
+- **VIN Decoding** - Extracts year/make/model from VIN via NHTSA API
+- **Customer Management** - Save and track estimates via Supabase (optional)
+- **Dark Mode** - Reduced eye strain for field work
 
 ---
 
-## Installation & Setup
-
-### Prerequisites
-- Node.js 18+
-- npm or yarn
-- Supabase account (optional, for data persistence)
-- Groq API key (get free at https://console.groq.com)
-
-### 1. Clone & Install
+## Quick Start
 
 ```bash
 git clone https://github.com/Punter613/skskprotech.git
 cd skskprotech
 npm install
-```
-
-### 2. Configure Environment
-
-Copy `.env.example` to `.env` and fill in your API keys:
-
-```bash
 cp .env.example .env
+# Edit .env with your API keys
+npm start
 ```
-
-Edit `.env`:
-```
-GROQ_API_KEY=your_api_key_here
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your_key_here
-```
-
-### 3. Start Development Server
-
-```bash
-npm run dev
-```
-
-Server runs on `http://localhost:4000`
 
 ---
 
-## Using on Samsung A15
+## API Keys Setup
 
-### Installation as App
-
-1. Open the app in **Chrome**, **Samsung Internet**, or **Edge** browser
-2. Tap the address bar → **"Install app"** or **three dots (⋮)** → **"Install"
-3. App appears on home screen as **SKSK ProTech**
-4. Works completely offline after first load
-
-### Optimal Settings
-
-- **Display**: Full screen (standalone mode)
-- **Updates**: Auto-update when online
-- **Data**: Cached on device for offline use
+| Service | Key | Required | Get It From |
+|---------|-----|----------|-------------|
+| Groq AI | `GROQ_API_KEY` | **Yes** | https://console.groq.com |
+| Supabase | `SUPABASE_URL` + `SUPABASE_KEY` | No | https://supabase.com |
+| Stripe | `STRIPE_SECRET_KEY` | No | https://stripe.com |
 
 ---
 
 ## API Endpoints
 
-### POST `/api/estimate`
-Generate a repair estimate with AI analysis.
+### `POST /api/estimate`
+Generate AI repair estimate.
 
 **Request:**
 ```json
 {
-  "incomingPayload": {
-    "customer": {
-      "name": "John Doe",
-      "phone": "555-0123",
-      "email": "john@example.com"
-    },
-    "vehicle": {
-      "year": "2008",
-      "make": "Ford",
-      "model": "F150"
-    },
-    "obdCodes": ["P0300", "P0171"],
-    "customerStates": ["Engine knocking", "Poor acceleration"],
-    "mechanicNotices": ["Spark plugs fouled"],
-    "laborRate": 65
-  }
+  "customer": { "name": "John", "phone": "555-0123", "email": "john@example.com" },
+  "vehicle": { "year": "2008", "make": "Ford", "model": "F150", "trim": "XLT" },
+  "obdCodes": ["P0300", "P0171"],
+  "customerStates": ["Engine knocking", "Poor acceleration"],
+  "mechanicNotices": ["Spark plugs fouled"],
+  "laborRate": 65,
+  "partsCost": 80,
+  "vin": "1FTPX14V87FA12345"
 }
 ```
 
-### POST `/api/diagnose`
-Save a diagnostic record.
+### `POST /api/diagnose`
+AI-powered diagnostic analysis.
 
-### POST `/api/invoice`
-Generate an invoice from an estimate.
+### `POST /api/invoice`
+Generate professional PDF invoice.
 
-### GET `/health`
-Check server status.
+### `GET /health`
+Server health status with DB/AI config check.
 
 ---
 
@@ -115,87 +72,86 @@ Check server status.
 
 ```
 skskprotech/
-├── index.html              # Main PWA app (single page)
-├── service-worker.js       # Offline caching & sync
-├── manifest.json           # PWA app metadata
-├── server.js               # Express backend
-├── package.json            # Dependencies
-├── .env.example            # Environment template
-├── .env                    # Your secrets (DO NOT commit)
-├── .gitignore              # Version control ignore list
-└── README.md               # This file
+├── index.html                    # PWA frontend (single page)
+├── server.js                     # Express backend with CORS, security headers
+├── sw.js                         # Service worker for offline support
+├── manifest.json                 # PWA app manifest
+├── package.json                  # Dependencies
+├── .env.example                  # Environment variables template
+├── .gitignore                    # Git ignore rules
+├── apply_update.sh               # Safe update script (Termux)
+├── fix_supabase.sh               # Supabase connection fix (safe)
+├── install_pdfkit.sh             # PDFKit install helper
+├── src/
+│   ├── routes/
+│   │   ├── estimate.js           # AI estimate generation
+│   │   ├── diagnose.js           # AI diagnostic analysis
+│   │   ├── invoice.js            # PDF invoice generation
+│   │   └── payments.js           # Stripe payments (lazy-loaded)
+│   └── services/
+│       ├── groq.js               # Shared Groq LLM client with caching
+│       ├── db.js                 # Supabase client (safe fallback)
+│       ├── vin.js                # VIN decoder (NHTSA API + local)
+│       └── pdf.js                # PDF generation engine
+└── functions/api/                # Cloudflare Pages functions
+    ├── estimate.js
+    ├── diagnose.js
+    └── invoice.js
 ```
 
 ---
 
 ## Deployment
 
-### Backend (Express Server)
+### Backend (Node.js)
 
-**Option 1: Render** (recommended, free tier)
+**Render (recommended)**
 ```bash
 git push origin main
-# Create new Web Service on render.com
-# Connect GitHub repo → Set env variables in dashboard
+# Connect repo at render.com, set env vars in dashboard
 ```
 
-**Option 2: Railway**
+**Self-hosted / Termux**
 ```bash
-npm install -g @railway/cli
-railway login
-railway up
+./apply_update.sh   # Pull, install, verify
+npm start           # Start server
 ```
 
-### Frontend (Static Files)
+### Frontend (PWA)
 
-Deploy to any static host:
-
+**Cloudflare Pages**
 ```bash
-# Cloudflare Pages
 wrangler pages deploy .
-
-# GitHub Pages
-git push origin main
-# Enable Pages in repo settings
-
-# Vercel
-vercel --prod
 ```
+
+**Any static host**
+Upload `index.html`, `sw.js`, `manifest.json` and the `icons/` folder.
 
 ---
 
-## Troubleshooting
+## What's Fixed & Optimized
 
-### App won't install on Android
-- ✅ Use Chrome, Samsung Internet, or Edge (not Firefox)
-- ✅ Check HTTPS is enabled (for deployed version)
-- ✅ Clear browser cache and try again
+### Critical Fixes
+- **HTML regex bug** - `splitLines()` had a broken multiline regex that crashed JavaScript
+- **Missing dotenv** - `.env` file was never loaded, all API keys were undefined
+- **CORS not configured** - `cors` package installed but never used, causing cross-origin failures
+- **Stripe crash on startup** - App crashed if `STRIPE_SECRET_KEY` was missing; now lazy-loads gracefully
+- **Destructive shell scripts** - `apply_update.sh` and `fix_supabase.sh` overwrote working AI code with stubs
 
-### Estimates failing with "Network unavailable"
-- ✅ Check API_BASE URL in `index.html` matches your backend
-- ✅ Verify GROQ_API_KEY is set in `.env`
-- ✅ Check CORS headers in `server.js`
-
-### Service Worker not updating
-- ✅ Uninstall app and reinstall
-- ✅ Chrome: `chrome://serviceworker-internals/` → Unregister
-- ✅ Clear browser cache
+### Efficiency Optimizations
+- **Shared Groq service** - Eliminated duplicate `groqChat()` code in estimate/diagnose routes
+- **Groq response caching** - Identical prompts are cached for 5 minutes to reduce API costs
+- **Real VIN decoding** - Extracts model year from VIN position 10, calls NHTSA API for full decode
+- **Improved PDF invoices** - Professional layout with branded header, itemized charges, styled footer
+- **Security headers** - Added X-Frame-Options, X-Content-Type-Options, X-XSS-Protection
+- **Request timeouts** - All routes have 30s timeout with graceful error handling
+- **Graceful shutdown** - Handles SIGTERM/SIGINT for clean server restarts
+- **Health check** - Returns status of DB, Stripe, and Groq configuration
 
 ---
 
 ## License
 
-ISC — See LICENSE file
+ISC - See LICENSE file
 
----
-
-## Support
-
-📧 Issues: [GitHub Issues](https://github.com/Punter613/skskprotech/issues)  
-💬 Discussions: [GitHub Discussions](https://github.com/Punter613/skskprotech/discussions)
-
----
-
-**Made with ❤️ for mobile mechanics everywhere**
-
-v1.2.0 | Last Updated: June 2026
+Made for mobile mechanics everywhere

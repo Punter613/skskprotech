@@ -1,35 +1,6 @@
 const router = require('express').Router();
-const https = require('https');
-
-function groqChat(messages) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({
-      model: 'llama3-8b-8192',
-      messages,
-      max_tokens: 900,
-      temperature: 0.3
-    });
-    const req = https.request({
-      hostname: 'api.groq.com',
-      path: '/openai/v1/chat/completions',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
-      }
-    }, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch(e) { reject(new Error('Bad GROQ response')); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
+const { groqChat, parseGroqJson } = require('../services/groq');
+const db = require('../services/db');
 
 router.post('/', async (req, res, next) => {
   try {
@@ -61,24 +32,59 @@ Respond with JSON ONLY (no markdown):
 
     let aiResult = null;
     if (process.env.GROQ_API_KEY) {
-      const groqRes = await groqChat([{ role: 'user', content: prompt }]);
-      const text = groqRes?.choices?.[0]?.message?.content || '';
       try {
-        const clean = text.replace(/```json|```/g, '').trim();
-        aiResult = JSON.parse(clean);
-      } catch(e) {
-        aiResult = { primaryCause: text, secondaryCauses: [], codeExplanations: {}, recommendedTests: [], recommendedRepairs: [], urgency: 'soon', safetyRisk: false, estimatedRepairTime: 'unknown', notes: '' };
+        const groqRes = await groqChat([{ role: 'user', content: prompt }], { max_tokens: 900 });
+        const text = groqRes?.choices?.[0]?.message?.content || '';
+        aiResult = parseGroqJson(text);
+
+        if (!aiResult) {
+          aiResult = {
+            primaryCause: text.substring(0, 500),
+            secondaryCauses: [],
+            codeExplanations: {},
+            recommendedTests: ['Visual inspection'],
+            recommendedRepairs: [],
+            urgency: 'soon',
+            safetyRisk: false,
+            estimatedRepairTime: 'unknown',
+            notes: 'AI returned non-JSON; manual review needed'
+          };
+        }
+      } catch (groqErr) {
+        console.warn('[Diagnose] Groq error:', groqErr.message);
+        aiResult = {
+          primaryCause: 'AI temporarily unavailable',
+          secondaryCauses: [],
+          codeExplanations: {},
+          recommendedTests: ['Manual diagnostic inspection'],
+          recommendedRepairs: [],
+          urgency: 'soon',
+          safetyRisk: false,
+          estimatedRepairTime: 'unknown',
+          notes: `AI error: ${groqErr.message}`
+        };
       }
     } else {
-      aiResult = { primaryCause: 'GROQ_API_KEY not configured', secondaryCauses: [], codeExplanations: {}, recommendedTests: [], recommendedRepairs: [], urgency: 'soon', safetyRisk: false, estimatedRepairTime: 'N/A', notes: 'Set GROQ_API_KEY env var' };
+      aiResult = {
+        primaryCause: 'GROQ_API_KEY not configured',
+        secondaryCauses: [],
+        codeExplanations: {},
+        recommendedTests: ['Set up AI API key'],
+        recommendedRepairs: [],
+        urgency: 'soon',
+        safetyRisk: false,
+        estimatedRepairTime: 'N/A',
+        notes: 'Set GROQ_API_KEY env var for AI diagnostics'
+      };
     }
 
-    try {
-      const db = require('../services/db');
-      if (db) {
+    if (db) {
+      try {
         await db.from('diagnostics').insert({ input: b, result: aiResult });
+      } catch (e) {
+        console.warn('[Diagnose] DB save skipped:', e.message);
       }
-    } catch(e) { /* db optional */ }
+    }
 
     res.json({ success: true, result: aiResult });
   } catch (err) {

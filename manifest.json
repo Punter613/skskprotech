@@ -5,8 +5,8 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "theme_color": "#0f172a",
-  "background_color": "#ffffff",
+  "theme_color": "#0b0b0f",
+  "background_color": "#07070a",
   "description": "Mobile Mechanic AI",
   "icons": [
     {
