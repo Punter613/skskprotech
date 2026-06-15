@@ -394,7 +394,10 @@
 
   <script>
     const statusEl = document.getElementById('status');
-    const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+    const API_BASE = window.location.hostname === 'localhost' 
+  ? 'http://localhost:3000' 
+  : 'https://p613-backend.onrender.com';
+
     const customerName = document.getElementById('customerName');
     const customerPhone = document.getElementById('customerPhone');
     const customerEmail = document.getElementById('customerEmail');
@@ -416,9 +419,7 @@
 
     function splitLines(value) {
       return (value || '')
-        .split(/
-?
-/)
+        .split(/\r?\n/)
         .map(s => s.trim())
         .filter(Boolean);
     }
