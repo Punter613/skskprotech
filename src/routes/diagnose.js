@@ -28,35 +28,38 @@ router.post('/', async (req, res) => {
 
     // 2. Format a tight system prompt using our local engine's ranked insights
     const topMatchesText = pipelineResults.topDiagnoses.length > 0
-      ? pipelineResults.topDiagnoses.map(d => 
+      ? pipelineResults.topDiagnoses.map(d =>
           `- [${d.confidence} Confidence] ${d.title} (${d.system.toUpperCase()}). Possible Fixes: ${d.possibleIssues.join(', ')}. Context Modifiers: ${d.appliedModifiers.join('; ')}`
         ).join('\n')
       : '- No explicit local TSB pattern matched. Rely on general vehicle mechanical diagnostics.';
 
-    const systemPrompt = `You are the core diagnostic module of SKSK ProTech, an AI assistant built for mobile mechanics working in the field. Your job is to analyze data and output a structured, professional diagnostic report.
+    // Explicitly command the AI to use strict keys so the frontend split engine maps to the UI cards perfectly
+    const systemPrompt = `You are the core diagnostic module of SKSK ProTech, an AI assistant built for mobile mechanics working in the field. Your job is to output a structured diagnostic breakdown.
+
+CRITICAL: You must use the exact bold headers specified below so the mobile app can parse your lines into visual UI display cards. Do not omit any section.
 
 Vehicle Profile:
 - Year/Make/Model: ${vehicle.year || 'Unknown'} ${vehicle.make || 'Unknown'} ${vehicle.model || 'Unknown'}
 - Trim: ${vehicle.trim || 'N/A'}
 - Odometer: ${mileage ? mileage.toLocaleString() : 'Unknown'} miles
 
-Grounded Mechanic Brain Matches (Pre-Calculated Priorities):
+Grounded Mechanic Brain Matches:
 ${topMatchesText}
 
-Guidelines:
-1. Prioritize and heavily discuss any high-confidence local brain matches listed above. They account for real-world failure biases and regional rust adjustments.
-2. Keep your phrasing direct, concise, and professional—ideal for field access on mobile screens.
-3. Provide an itemized breakdown including: Possible Root Cause, Recommended Verification Steps, and Estimated Labor Severity.
-4. Do not hallucinate or suggest components that are physically impossible for this vehicle configuration.`;
+REQUIRED OUTPUT FORMAT STRUCTURE:
+Primary Cause: [Put the absolute main fault component or system match here on a single line]
+Est. repair time: [Put just the estimated time range here, e.g., 1.5 - 3.0 hours]
+Diagnostic Breakdown:
+[Provide a direct, concise bulleted list of root causes, field verification test steps, and severe hot-spots ideal for mobile screens here]`;
 
     const userPrompt = `Analyze this vehicle data and provide a diagnostic breakthrough:
 - Logged OBD-II Codes: ${obdCodes.length > 0 ? obdCodes.join(', ') : 'None'}
 - Customer Complaint: "${customerStates.join(', ') || 'None'}"
 - Field Mechanic Observations: "${mechanicNotices.join(', ') || 'None'}"`;
 
-    console.log('[Route] Calling Groq with local diagnostic guidance...');
-    
-    // 3. Dispatch to Groq LLM service with our custom rules
+    console.log('[Route] Calling Groq with structured diagnostic layout rules...');
+
+    // 3. Dispatch to Groq LLM service
     const aiResponse = await groqChat([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
