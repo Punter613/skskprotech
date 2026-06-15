@@ -45,7 +45,13 @@ router.post('/', async (req, res) => {
   "notes": "Final configuration observations"
 }
 
-Vehicle Parameters: 2008 Ford F150. Shop Rate: $${laborRate}/hr. Multiplier: ${rustBeltMultiplier}x. Parts Target: $${partsCost}.`;
+Vehicle Parameters: 2008 Ford F150. Shop Rate: $${laborRate}/hr. Multiplier: ${rustBeltMultiplier}x. Parts Target: $${partsCost}.
+
+CRITICAL PROTOCOL REQUIREMENT: If the Pre-Calculated Local Brain Diagnostics returns a "Shaffer Custom Extraction Protocol Required" modifier, you MUST explicitly override standard repair suggestions and instruct the mechanic to list these exact matching steps in the "repairSteps" array:
+1. Attempt standard specialty extraction kits.
+2. If tools slip, pull off the exhaust manifolds to establish absolute clear alignment.
+3. Execute Shaffer Method: Fracture porcelain halfway down, run custom long tap into the fused shroud tip, insert all-thread with a top nut to lock the tap and a middle nut to pull the sleeve clear.
+4. Clean the combustion chambers completely through the open manifold access to verify zero debris remains.`;
 
     const userPrompt = `Generate the structured estimation payload for notes: "${mechanicNotices.join(', ') || 'General Inspection'}" and complaints: "${customerStates.join(', ')}"`;
 
@@ -55,7 +61,6 @@ Vehicle Parameters: 2008 Ford F150. Shop Rate: $${laborRate}/hr. Multiplier: ${r
       { role: 'user', content: userPrompt }
     ]);
 
-    // Extract the text content safely whether it's a raw string or an object wrapper
     const aiText = typeof rawGroqResponse === 'string' 
       ? rawGroqResponse 
       : (rawGroqResponse.choices?.[0]?.message?.content || '');
@@ -64,7 +69,7 @@ Vehicle Parameters: 2008 Ford F150. Shop Rate: $${laborRate}/hr. Multiplier: ${r
       throw new Error('Groq returned an empty response text block.');
     }
 
-    // Strip out any markdown block text wrappers if present
+    // Fixed single-line regex to eliminate terminal paste syntax crashes
     const cleanJsonString = aiText.replace(/```json|```/g, '').trim();
     const parsedEstimate = JSON.parse(cleanJsonString);
 
