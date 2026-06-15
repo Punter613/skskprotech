@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const { groqChat } = require('../services/groq');
-const { evaluateSafetyRisk } = require('../knowledge/vehicle.risk.table');
+const { getVehicleRiskProfile } = require('../knowledge/vehicle.risk.table');
 const { findKnownPatterns } = require('../knowledge/failure.patterns');
 const { calculateConfidence } = require('../knowledge/confidence.scorer');
+const { REPAIR_INTELLIGENCE_VAULT } = require('../knowledge/repair.intelligence.library');
 
-// Bulletproof extractor — finds first valid { } block regardless of surrounding garbage
 function extractJSON(text) {
   if (!text) return null;
   text = text.replace(/\`\`\`json\\s*/gi, '').replace(/\`\`\`\\s*/g, '');
@@ -29,7 +29,7 @@ function safeResult(overrides = {}) {
   return {
     urgency: 'soon',
     safetyRisk: false,
-    primaryCause: 'Unable to determine — manual inspection required',
+    primaryCause: 'Manual field inspection required',
     secondaryCauses: [],
     codeExplanations: {},
     probability: [],
@@ -40,7 +40,9 @@ function safeResult(overrides = {}) {
     additionalChecks: [],
     estimatedRepairTime: 'N/A',
     notes: '',
-    diagnosticConfidence: { percentage: 30, rating: 'LOW' }, // Added to base schema
+    diagnosticConfidence: { percentage: 30, rating: 'LOW' },
+    localVehicleTelemetry: null,
+    injectedFieldProtocols: null,
     ...overrides
   };
 }
@@ -56,21 +58,49 @@ router.post('/', async (req, res) => {
       vehicle = {}
     } = req.body;
 
-    // 1. Run Local Logic Core Analysis Intercepts
-    const localSafetyResult = evaluateSafetyRisk(symptoms, notes, vehicle);
+    console.log('[Pipeline v3] Initializing Data Core Run...');
+
+    // 1. Query Local Risk Profile Database
+    const targetRiskProfile = getVehicleRiskProfile(vehicle);
+
+    // 2. Scan Platform Failure Patterns Core Logic
     const matchedPatterns = findKnownPatterns(vehicle, symptoms, codes, notes);
+
+    // 3. Evaluate Safety Threat Matrix Controls
+    let localSafetyTriggered = false;
+    let localSafetyNotes = '';
+    
+    if (targetRiskProfile) {
+      const combinedText = [...symptoms, ...codes, ...notes].join(' ').toLowerCase();
+      const hazardousElements = targetRiskProfile.safetyCriticalComponents || [];
+      for (const component of hazardousElements) {
+        if (combinedText.includes(component.replace('_', ' '))) {
+          localSafetyTriggered = true;
+          localSafetyNotes = `[Database Critical Alert] This component match matches known risk arrays for a ${targetRiskProfile.vehicleId}.`;
+        }
+      }
+    }
+
+    // 4. Extract Real Field Intelligence Protocols
+    let fieldProtocols = null;
+    if (targetRiskProfile && targetRiskProfile.vehicleId === 'FORD_F150_5.4_TRITON') {
+      fieldProtocols = REPAIR_INTELLIGENCE_VAULT['FORD_54_TRITON_SPARK_PLUG'];
+    } else if (targetRiskProfile && targetRiskProfile.vehicleId === 'GM_5.3_VORTEC_AFM') {
+      fieldProtocols = REPAIR_INTELLIGENCE_VAULT['GM_53_AFM_LIFTER_REPLACE'];
+    }
+
+    // 5. Calculate Data Confidence Score
     const confidenceScore = calculateConfidence({
       patternMatches: matchedPatterns.length,
       codeCount: codes.length,
       symptomCount: symptoms.length,
-      safetyTriggered: localSafetyResult.safetyRisk
+      safetyTriggered: localSafetyTriggered
     });
 
-    // 2. Format the Structural System Prompt
-    let systemPrompt = `You are the expert logic unit of SKSK ProTech — a master automotive diagnostic technician with 25 years of real shop experience.
-You MUST output a single valid JSON object. No backticks, no markdown, no commentary before or after.
+    // 6. Assemble the System Prompt with Embedded DB Records
+    let systemPrompt = `You are the expert reasoning engine of SKSK ProTech. You MUST output a single valid JSON object matching the requested structure.
 
-Use EXACTLY this structure:
+Use EXACTLY this layout structure template:
 {
   "urgency": "immediate",
   "safetyRisk": true,
@@ -87,89 +117,65 @@ Use EXACTLY this structure:
   "notes": "string"
 }`;
 
-    // Inject exact platform profile into prompt reasoning tree (Issue #4)
-    if (matchedPatterns.length > 0) {
-      systemPrompt += `\\n\\nVEHICLE FAILURE PROFILE AND HISTORICAL LIABILITIES:
-${JSON.stringify(matchedPatterns, null, 2)}
-You MUST evaluate these confirmed local database records first when calculating diagnostic causes.`;
+    if (targetRiskProfile) {
+      systemPrompt += `\\n\\nCRITICAL LOCAL DATABASE RISK PROFILE DETECTED:
+${JSON.stringify(targetRiskProfile, null, 2)}
+You MUST integrate this model profile and its known common failures when building your diagnostic lines.`;
+    }
+
+    if (fieldProtocols) {
+      systemPrompt += `\\n\\nHARD MECHANICAL REPAIR PROTOCOLS TO ENFORCE:
+${JSON.stringify(fieldProtocols, null, 2)}
+Ensure any generated repair steps coordinate with the shop and field strategies listed above.`;
     }
 
     systemPrompt += `\\n\\nRULES:
-- urgency: EXACTLY one of "immediate", "soon", or "monitor" — no other values
+- urgency: EXACTLY one of "immediate", "soon", or "monitor"
 - safetyRisk: boolean true or false only
-- All arrays contain strings only
-- probability likelihood is a number 0-100
-- Output raw JSON text only — nothing else`;
+- All output must be valid raw JSON blocks only.`;
 
-    const userPrompt = `Vehicle Profile: Year: ${vehicle.year || 'N/A'}, Make: ${vehicle.make || 'N/A'}, Model: ${vehicle.model || 'N/A'}, Engine/Trim: ${vehicle.trim || 'N/A'}
-VIN: ${vin || 'N/A'}
-Mileage: ${mileage || 'N/A'}
-OBD Codes: ${codes.join(', ') || 'None'}
-Symptoms: ${symptoms.join(', ') || 'N/A'}
-Tech Notes: ${notes.join(', ') || 'N/A'}`;
+    const userPrompt = `Vehicle Context: Year: ${vehicle.year || 'N/A'}, Make: ${vehicle.make || 'N/A'}, Model: ${vehicle.model || 'N/A'}, Engine: ${vehicle.trim || 'N/A'}
+Codes: ${codes.join(', ')} | Symptoms: ${symptoms.join(', ')} | Tech Notes: ${notes.join(', ')}`;
 
-    console.log('[Diagnose Engine v2] Processing pipeline loop...');
+    console.log('[Pipeline v3] Dispatched data arrays to Groq cluster...');
     const groqRes = await groqChat([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
-    ], { max_tokens: 1400, temperature: 0.2 });
+    ], { max_tokens: 1500, temperature: 0.15 });
 
-    const aiText = typeof groqRes === 'string'
-      ? groqRes
-      : (groqRes?.choices?.[0]?.message?.content || '');
-
-    if (!aiText) throw new Error('Groq returned empty response payload');
+    const aiText = typeof groqRes === 'string' ? groqRes : (groqRes?.choices?.[0]?.message?.content || '');
+    if (!aiText) throw new Error('Groq returned an empty response text stream.');
 
     let parsed = extractJSON(aiText);
-
-    // Issue #3 - Prevent object payload edge-case crashes
     if (!parsed || typeof parsed !== 'object') {
-      console.warn('[Diagnose Engine] JSON layout broken or corrupted. Falling back.');
       parsed = safeResult();
     }
 
-    // 3. Force Local Database Enforcement Overrides
+    // 7. Execute Total Database Rule Enforcement Overrides right before payload delivery
     const finalResult = { ...safeResult(), ...parsed };
 
-    // Enforce local confidence matrix (Issue #2)
     finalResult.diagnosticConfidence = confidenceScore;
+    finalResult.localVehicleTelemetry = targetRiskProfile;
+    finalResult.injectedFieldProtocols = fieldProtocols;
 
-    // Enforce known liabilities survival path (Issue #1)
-    if (matchedPatterns.length > 0) {
-      const dbIssues = matchedPatterns.flatMap(p => p.knownIssues || []);
+    // Force hard overrides if local rules match database profiles
+    if (targetRiskProfile) {
       finalResult.knownIssues = [
-        ...new Set([...(finalResult.knownIssues || []), ...dbIssues])
+        ...new Set([...(finalResult.knownIssues || []), ...(targetRiskProfile.commonFailures || [])])
       ];
     }
 
-    // Enforce safety critical flags
-    if (localSafetyResult.safetyRisk) {
+    if (localSafetyTriggered) {
       finalResult.safetyRisk = true;
       finalResult.urgency = 'immediate';
-      if (!finalResult.notes.includes('Safety Risk Flagged')) {
-        finalResult.notes = `${localSafetyResult.riskNotes} ${finalResult.notes}`.trim();
-      }
+      finalResult.notes = `${localSafetyNotes} ${finalResult.notes}`.trim();
     }
-
-    if (!['immediate', 'soon', 'monitor'].includes(finalResult.urgency)) {
-      finalResult.urgency = 'soon';
-    }
-
-    // Optional DB tracking save hooks
-    try {
-      const db = require('../services/db');
-      if (db) await db.from('diagnostics').insert({ input: req.body, result: finalResult });
-    } catch (e) { }
 
     res.json({ success: true, result: finalResult });
 
   } catch (err) {
-    console.error('[Diagnose Engine v2 Crash]:', err.message);
-    res.status(500).json({
-      success: false,
-      error: 'Diagnosis failed',
-      details: err.message
-    });
+    console.error('[Pipeline v3 Crash]:', err.message);
+    res.status(500).json({ success: false, error: 'Internal logic tracking failure.', details: err.message });
   }
 });
 
