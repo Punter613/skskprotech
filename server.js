@@ -7,6 +7,7 @@ const cors = require('cors');
 const diagnose = require('./src/routes/diagnose');
 const estimate = require('./src/routes/estimate');
 const invoice = require('./src/routes/invoice');
+const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
 
 const app = express();
 
@@ -104,6 +105,9 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({ success: false, error: 'Not found' });
 });
+
+// Keep Supabase from falling asleep
+startKeepAwakeLoop();
 
 const port = process.env.PORT || 3000;
 const server = app.listen(port, () => {
