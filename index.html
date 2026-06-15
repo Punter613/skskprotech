@@ -1222,6 +1222,53 @@
       navigator.serviceWorker.register('/sw.js').catch(()=>{});
     }
 
+    
+    // --- Advanced Sharing & PDF Operations ---
+    async function triggerPdfDownload(estimateData) {
+      try {
+        setStatus('Generating PDF...', 'success');
+        const response = await fetch('/api/invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(estimateData)
+        });
+        
+        if (!response.ok) throw new Error('Backend failed to stream PDF');
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Estimate_${estimateData.vehicle?.make || 'Vehicle'}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setStatus('PDF Downloaded.', 'success');
+      } catch (err) {
+        console.error(err);
+        setStatus('PDF download failed.', 'error');
+      }
+    }
+
+    function shareViaSMS(customerPhone, estimateSummary) {
+      if (!customerPhone) {
+        setStatus('Missing customer phone number.', 'error');
+        return;
+      }
+      const messageText = encodeURIComponent(`SKSK ProTech Estimate Summary:\n\n${estimateSummary}`);
+      window.location.href = `sms:${customerPhone}?body=${messageText}`;
+    }
+
+    function shareViaEmail(customerEmail, vehicleInfo, estimateSummary) {
+      if (!customerEmail) {
+        setStatus('Missing customer email address.', 'error');
+        return;
+      }
+      const subject = encodeURIComponent(`Repair Estimate: ${vehicleInfo}`);
+      const body = encodeURIComponent(`Hi, here is your requested vehicle estimate:\n\n${estimateSummary}`);
+      window.location.href = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
+    }
+
     restoreForm();
   </script>
 </body>
