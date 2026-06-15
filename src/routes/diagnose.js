@@ -1,88 +1,80 @@
-const router = require('express').Router();
-const https = require('https');
+const express = require('express');
+const router = express.Router();
+const { runDiagnosticPipeline } = require('../brain/diagnosis.engine');
+const { groqChat } = require('../services/groq');
 
-function groqChat(messages) {
-  return new Promise((resolve, reject) => {
-    const body = JSON.stringify({
-      model: 'llama3-8b-8192',
-      messages,
-      max_tokens: 900,
-      temperature: 0.3
-    });
-    const req = https.request({
-      hostname: 'api.groq.com',
-      path: '/openai/v1/chat/completions',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
-      }
-    }, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch(e) { reject(new Error('Bad GROQ response')); }
-      });
-    });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-
-router.post('/', async (req, res, next) => {
+/**
+ * POST /api/diagnose
+ * AI-powered diagnostic engine backed by local mechanic rules & TSB matching.
+ */
+router.post('/', async (req, res) => {
   try {
-    const b = req.body || {};
-    const symptoms = (b.symptoms || []).join(', ');
-    const codes = (b.codes || []).join(', ');
-    const notes = (b.notes || []).join(', ');
+    const {
+      vehicle = {},
+      obdCodes = [],
+      customerStates = [],
+      mechanicNotices = [],
+      mileage = 0
+    } = req.body;
 
-    const prompt = `You are an expert automotive diagnostic technician. Analyze the following and provide a clear diagnosis.
+    // 1. Run data through our local diagnostic logic block
+    const pipelineResults = runDiagnosticPipeline({
+      obdCodes,
+      customerStates,
+      mechanicNotices,
+      vehicle,
+      mileage
+    });
 
-VIN: ${b.vin || 'N/A'}
-Mileage: ${b.mileage || 'N/A'}
-Symptoms: ${symptoms || 'N/A'}
-OBD Codes: ${codes || 'None'}
-Tech Notes: ${notes || 'N/A'}
+    // 2. Format a tight system prompt using our local engine's ranked insights
+    const topMatchesText = pipelineResults.topDiagnoses.length > 0
+      ? pipelineResults.topDiagnoses.map(d => 
+          `- [${d.confidence} Confidence] ${d.title} (${d.system.toUpperCase()}). Possible Fixes: ${d.possibleIssues.join(', ')}. Context Modifiers: ${d.appliedModifiers.join('; ')}`
+        ).join('\n')
+      : '- No explicit local TSB pattern matched. Rely on general vehicle mechanical diagnostics.';
 
-Respond with JSON ONLY (no markdown):
-{
-  "primaryCause": "most likely cause",
-  "secondaryCauses": ["other possibility 1", "other possibility 2"],
-  "codeExplanations": {"P0300": "explanation"},
-  "recommendedTests": ["test 1", "test 2"],
-  "recommendedRepairs": ["repair 1", "repair 2"],
-  "urgency": "immediate|soon|monitor",
-  "safetyRisk": true,
-  "estimatedRepairTime": "2-3 hours",
-  "notes": "additional notes"
-}`;
+    const systemPrompt = `You are the core diagnostic module of SKSK ProTech, an AI assistant built for mobile mechanics working in the field. Your job is to analyze data and output a structured, professional diagnostic report.
 
-    let aiResult = null;
-    if (process.env.GROQ_API_KEY) {
-      const groqRes = await groqChat([{ role: 'user', content: prompt }]);
-      const text = groqRes?.choices?.[0]?.message?.content || '';
-      try {
-        const clean = text.replace(/```json|```/g, '').trim();
-        aiResult = JSON.parse(clean);
-      } catch(e) {
-        aiResult = { primaryCause: text, secondaryCauses: [], codeExplanations: {}, recommendedTests: [], recommendedRepairs: [], urgency: 'soon', safetyRisk: false, estimatedRepairTime: 'unknown', notes: '' };
-      }
-    } else {
-      aiResult = { primaryCause: 'GROQ_API_KEY not configured', secondaryCauses: [], codeExplanations: {}, recommendedTests: [], recommendedRepairs: [], urgency: 'soon', safetyRisk: false, estimatedRepairTime: 'N/A', notes: 'Set GROQ_API_KEY env var' };
-    }
+Vehicle Profile:
+- Year/Make/Model: ${vehicle.year || 'Unknown'} ${vehicle.make || 'Unknown'} ${vehicle.model || 'Unknown'}
+- Trim: ${vehicle.trim || 'N/A'}
+- Odometer: ${mileage ? mileage.toLocaleString() : 'Unknown'} miles
 
-    try {
-      const db = require('../services/db');
-      if (db) {
-        await db.from('diagnostics').insert({ input: b, result: aiResult });
-      }
-    } catch(e) { /* db optional */ }
+Grounded Mechanic Brain Matches (Pre-Calculated Priorities):
+${topMatchesText}
 
-    res.json({ success: true, result: aiResult });
+Guidelines:
+1. Prioritize and heavily discuss any high-confidence local brain matches listed above. They account for real-world failure biases and regional rust adjustments.
+2. Keep your phrasing direct, concise, and professional—ideal for field access on mobile screens.
+3. Provide an itemized breakdown including: Possible Root Cause, Recommended Verification Steps, and Estimated Labor Severity.
+4. Do not hallucinate or suggest components that are physically impossible for this vehicle configuration.`;
+
+    const userPrompt = `Analyze this vehicle data and provide a diagnostic breakthrough:
+- Logged OBD-II Codes: ${obdCodes.length > 0 ? obdCodes.join(', ') : 'None'}
+- Customer Complaint: "${customerStates.join(', ') || 'None'}"
+- Field Mechanic Observations: "${mechanicNotices.join(', ') || 'None'}"`;
+
+    console.log('[Route] Calling Groq with local diagnostic guidance...');
+    
+    // 3. Dispatch to Groq LLM service with our custom rules
+    const aiResponse = await groqChat([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ]);
+
+    // 4. Return everything cleanly back to the client app
+    res.json({
+      success: true,
+      localBrainSummary: pipelineResults,
+      diagnosis: aiResponse
+    });
+
   } catch (err) {
-    next(err);
+    console.error('[Route Error] Diagnosis failed:', err.message || err);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to process diagnostic analysis pool.'
+    });
   }
 });
 
