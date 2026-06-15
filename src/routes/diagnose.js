@@ -3,81 +3,64 @@ const router = express.Router();
 const { runDiagnosticPipeline } = require('../brain/diagnosis.engine');
 const { groqChat } = require('../services/groq');
 
-/**
- * POST /api/diagnose
- * AI-powered diagnostic engine backed by local mechanic rules & TSB matching.
- */
 router.post('/', async (req, res) => {
   try {
+    // Map incoming front-end names down to our brain engine expectations
     const {
-      vehicle = {},
-      obdCodes = [],
-      customerStates = [],
-      mechanicNotices = [],
-      mileage = 0
+      vin = "",
+      mileage = 0,
+      symptoms = [],
+      codes = [],
+      notes = []
     } = req.body;
 
-    // 1. Run data through our local diagnostic logic block
+    // Fast breakdown of dummy vehicle details since client side didn't supply full make text in this tab
+    const vehicle = { year: "2008", make: "Ford", model: "F150", trim: "" };
+
     const pipelineResults = runDiagnosticPipeline({
-      obdCodes,
-      customerStates,
-      mechanicNotices,
+      obdCodes: codes,
+      customerStates: symptoms,
+      mechanicNotices: notes,
       vehicle,
       mileage
     });
 
-    // 2. Format a tight system prompt using our local engine's ranked insights
-    const topMatchesText = pipelineResults.topDiagnoses.length > 0
-      ? pipelineResults.topDiagnoses.map(d =>
-          `- [${d.confidence} Confidence] ${d.title} (${d.system.toUpperCase()}). Possible Fixes: ${d.possibleIssues.join(', ')}. Context Modifiers: ${d.appliedModifiers.join('; ')}`
-        ).join('\n')
-      : '- No explicit local TSB pattern matched. Rely on general vehicle mechanical diagnostics.';
+    const systemPrompt = `You are the expert logic unit of SKSK ProTech. You MUST output a valid JSON object matching this structure exactly, with NO extra markdown formatting outside the JSON wrapper:
+{
+  "urgency": "immediate" or "soon" or "monitor",
+  "safetyRisk": true,
+  "primaryCause": "The main component failure text",
+  "secondaryCauses": ["Other item 1", "Other item 2"],
+  "codeExplanations": { "P0300": "Random Misfire Detected" },
+  "probability": [{"cause": "Timing Chain Wear", "likelihood": 70}],
+  "knownIssues": ["Triton spark plugs break"],
+  "repairSteps": ["Step 1", "Step 2"],
+  "proTips": ["Tip 1"],
+  "recommendedTests": ["Test 1"],
+  "additionalChecks": ["Check 1"],
+  "estimatedRepairTime": "2.5 hours",
+  "notes": "Field logic observations"
+}`;
 
-    // Explicitly command the AI to use strict keys so the frontend split engine maps to the UI cards perfectly
-    const systemPrompt = `You are the core diagnostic module of SKSK ProTech, an AI assistant built for mobile mechanics working in the field. Your job is to output a structured diagnostic breakdown.
+    const userPrompt = `Analyze OBD codes: ${codes.join(', ')} and symptoms: ${symptoms.join(', ')}.`;
 
-CRITICAL: You must use the exact bold headers specified below so the mobile app can parse your lines into visual UI display cards. Do not omit any section.
-
-Vehicle Profile:
-- Year/Make/Model: ${vehicle.year || 'Unknown'} ${vehicle.make || 'Unknown'} ${vehicle.model || 'Unknown'}
-- Trim: ${vehicle.trim || 'N/A'}
-- Odometer: ${mileage ? mileage.toLocaleString() : 'Unknown'} miles
-
-Grounded Mechanic Brain Matches:
-${topMatchesText}
-
-REQUIRED OUTPUT FORMAT STRUCTURE:
-Primary Cause: [Put the absolute main fault component or system match here on a single line]
-Est. repair time: [Put just the estimated time range here, e.g., 1.5 - 3.0 hours]
-Diagnostic Breakdown:
-[Provide a direct, concise bulleted list of root causes, field verification test steps, and severe hot-spots ideal for mobile screens here]`;
-
-    const userPrompt = `Analyze this vehicle data and provide a diagnostic breakthrough:
-- Logged OBD-II Codes: ${obdCodes.length > 0 ? obdCodes.join(', ') : 'None'}
-- Customer Complaint: "${customerStates.join(', ') || 'None'}"
-- Field Mechanic Observations: "${mechanicNotices.join(', ') || 'None'}"`;
-
-    console.log('[Route] Calling Groq with structured diagnostic layout rules...');
-
-    // 3. Dispatch to Groq LLM service
+    console.log('[Route] Fetching structured JSON from Groq for diagnostics...');
     const aiResponse = await groqChat([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ]);
 
-    // 4. Return everything cleanly back to the client app
+    const cleanJsonString = aiResponse.replace(/```json|```/g, '').trim();
+    const parsedResult = JSON.parse(cleanJsonString);
+
     res.json({
       success: true,
-      localBrainSummary: pipelineResults,
-      diagnosis: aiResponse
+      result: parsedResult
     });
 
   } catch (err) {
-    console.error('[Route Error] Diagnosis failed:', err.message || err);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to process diagnostic analysis pool.'
-    });
+    console.error('[Route Error] Diagnosis failed:', err.message);
+    res.status(500).json({ success: false, error: 'Failed to build structured diagnostic component.' });
   }
 });
 
