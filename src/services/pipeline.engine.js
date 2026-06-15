@@ -1,16 +1,13 @@
 /**
- * SKSK ProTech - Pipeline Orchestration Core (v7 Hardened)
- * Enforces rigid defensive payload mapping and strict trace tracking observability.
+ * SKSK ProTech - Pipeline Orchestration Core (v8 Compiler)
+ * Enforces explicit parameter destructuring pass and centralized trace contracts.
  */
-
+const { validateDiagnosticPayload } = require('./validator.service');
 const { executeRiskAnalysis } = require('../core/risk.engine');
 const { executePatternMatching } = require('../core/pattern.matcher');
 const { assemblePatternPayload } = require('../core/pattern.assembler');
-const { calculateConfidence, computeDynamicRiskScore } = require('../core/metrics.engine');
+const { calculateConfidence, computeDynamicRiskScore } = require('../core/metrics/index');
 
-/**
- * Defensive Entry Guard: Force absolute structural validation at line input (Issue #3)
- */
 function normalizePayload(payload = {}) {
   return {
     vehicle: payload.vehicle && typeof payload.vehicle === 'object' ? payload.vehicle : {},
@@ -24,32 +21,41 @@ function normalizePayload(payload = {}) {
   };
 }
 
-function runDiagnosticPipeline(rawPayload = {}, trace = { traceId: '0', logs: [] }) {
-  trace.logs.push('[Pipeline Entry] Executing strict sanitation normalization guards.');
+function runDiagnosticPipeline(rawPayload = {}, trace) {
+  trace.log('PIPELINE_INGESTION', 'Executing structural ingestion normalization checks.');
+  
+  // Enforce contract guard validations immediately at line input
+  validateDiagnosticPayload(rawPayload);
   const payload = normalizePayload(rawPayload);
 
-  // 1. Core Risk Analysis Run
+  // 1. Risk Analysis Core Compilation
   const riskAnalysis = executeRiskAnalysis(payload.vehicle, payload.vin, payload.axleCode, payload.symptoms, payload.codes, payload.notes, trace);
   
-  // 2. Isolated Pattern Matcher Phase (Issue #4 Split Part 1)
-  const matchedPatterns = executePatternMatching(riskAnalysis.profile, payload.symptoms, payload.codes, payload.notes, trace);
+  // FIX 1: Explicit parameter destructuring propagation to prevent hidden structure bugs (Issue #1)
+  const { profile, vinBuildProfile, localSafetyTriggered, safetyNotes } = riskAnalysis;
 
-  // 3. Isolated Assembly Mapping Phase (Issue #4 Split Part 2)
-  const assemblyData = assemblePatternPayload(matchedPatterns, payload.laborRate, riskAnalysis.profile.rustMultiplier > 1.0, trace);
+  // 2. Pattern Matcher Inference Pass
+  const matchedPatterns = executePatternMatching(profile, payload.symptoms, payload.codes, payload.notes, trace);
 
-  // 4. Frozen Metrics Calculations Run (Issue #6)
-  const dynamicRisk = computeDynamicRiskScore(riskAnalysis.profile.baseRiskScore, payload.mileage, riskAnalysis.profile.rustMultiplier, payload.codes.length);
+  // 3. Decoupled Assembly Mapping Pass
+  const assemblyData = assemblePatternPayload(matchedPatterns, payload.laborRate, profile.rustMultiplier > 1.0, trace);
+
+  // 4. Calibrated Metrics Calculations Pass
+  const dynamicRisk = computeDynamicRiskScore(profile.baseRiskScore, payload.mileage, profile.rustMultiplier, payload.codes.length);
   const confidence = calculateConfidence({
     patternMatches: matchedPatterns.length,
     codeCount: payload.codes.length,
     symptomCount: payload.symptoms.length,
-    safetyTriggered: riskAnalysis.localSafetyTriggered
+    safetyTriggered: localSafetyTriggered
   });
 
-  trace.logs.push(`[Pipeline Exit] Completed routing logic loop successfully. Matches found: ${matchedPatterns.length}`);
+  trace.log('PIPELINE_EMISSION', `Compiled output map loop. Metrics confidence settled: ${confidence.percentage}%`);
 
   return {
-    riskAnalysis,
+    profile,
+    vinBuildProfile,
+    localSafetyTriggered,
+    safetyNotes,
     matchedPatterns,
     assemblyData,
     dynamicRisk,

@@ -48,12 +48,18 @@ function safeResult(overrides = {}) {
 }
 
 router.post('/', async (req, res) => {
-  // Issue #5 - Advanced Observability Trace Mapping Setup
+  // FIX 2: Controlled execution trace API contract management (Issue #2)
   const executionTrace = {
     traceId: 'TR-' + Date.now().toString(16).toUpperCase(),
-    stage: 'ORCHESTRATION_START',
-    logs: ['[API Endpoint] Diagnostic request intercepted at network router layer.']
+    stage: 'INGESTION',
+    logs: [],
+    log: function(stage, message) {
+      this.stage = stage;
+      this.logs.push(`[${stage}] ${message}`);
+    }
   };
+  
+  executionTrace.log('API_ROUTER', 'Intercepted network diagnostic payload packet request wrapper.');
   
   try {
     const {
@@ -67,14 +73,24 @@ router.post('/', async (req, res) => {
       axleCode = ''
     } = req.body;
 
-    console.log(`[Trace Locked: ${executionTrace.traceId}] Processing input arrays...\n`);
+    console.log(`[Compiler Trace: ${executionTrace.traceId}] Processing architecture blocks...\n`);
 
-    // Kick off orchestrated internal system modules with deep log tracking visibility flow
-    const pipelineData = runDiagnosticPipeline({
+    // Fire the complete v8 compiler pipeline engine pass
+    const compiledData = runDiagnosticPipeline({
       vehicle, vin, axleCode, symptoms, codes, notes, laborRate, mileage
     }, executionTrace);
 
-    const { riskAnalysis, matchedPatterns, assemblyData, dynamicRisk, confidence } = pipelineData;
+    // Explicitly destructure destructured tracking variables out of our clean emission engine payload
+    const {
+      profile,
+      vinBuildProfile,
+      localSafetyTriggered,
+      safetyNotes,
+      matchedPatterns,
+      assemblyData,
+      dynamicRisk,
+      confidence
+    } = compiledData;
 
     let systemPrompt = `You are the expert logic unit of SKSK ProTech. Output a valid JSON block matching this layout perfectly.
 
@@ -95,8 +111,8 @@ Template structure:
   "notes": "string"
 }`;
 
-    if (riskAnalysis.profile.vehicleId !== 'GENERIC_VEHICLE_FALLBACK') {
-      systemPrompt += `\\n\\nVEHICLE PROFILE DATA: ${JSON.stringify({ ...riskAnalysis.profile, dynamicRisk }, null, 2)}`;
+    if (profile.vehicleId !== 'GENERIC_VEHICLE_FALLBACK') {
+      systemPrompt += `\\n\\nVEHICLE PROFILE DATA: ${JSON.stringify({ ...profile, dynamicRisk }, null, 2)}`;
     }
     if (assemblyData.breakdowns.length > 0) {
       systemPrompt += `\\n\\nCOST PRESSURES AND PARTS LIKELIHOOD ESTIMATES:
@@ -106,9 +122,8 @@ PARTS: ${JSON.stringify(assemblyData.partsRisks, null, 2)}`;
 
     const userPrompt = `Vehicle Make: ${vehicle.make || 'N/A'} | Model: ${vehicle.model || 'N/A'} | Faults: ${codes.join(', ')}`;
 
-    executionTrace.stage = 'GROQ_DISPATCH';
-    executionTrace.logs.push('[Groq Core] Dispatched structured instruction layout package to context API cluster.');
-    
+    executionTrace.log('GROQ_COMPILATION', 'Dispatched instruction packet layout to context cluster.');
+
     const groqRes = await groqChat([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
@@ -121,37 +136,36 @@ PARTS: ${JSON.stringify(assemblyData.partsRisks, null, 2)}`;
     const finalResult = { ...safeResult(), ...parsed };
 
     finalResult.diagnosticConfidence = confidence;
-    finalResult.localVehicleTelemetry = riskAnalysis.profile.vehicleId !== 'GENERIC_VEHICLE_FALLBACK' ? { ...riskAnalysis.profile, dynamicCalculatedRisk: dynamicRisk } : null;
+    finalResult.localVehicleTelemetry = profile.vehicleId !== 'GENERIC_VEHICLE_FALLBACK' ? { ...profile, dynamicCalculatedRisk: dynamicRisk } : null;
     finalResult.injectedFieldProtocols = assemblyData.protocols;
     finalResult.calculatedLaborBreakdown = assemblyData.breakdowns;
     finalResult.partsRiskAnalysis = assemblyData.partsRisks;
-    finalResult.vinManufacturingTelemetry = riskAnalysis.vinBuildProfile;
+    finalResult.vinManufacturingTelemetry = vinBuildProfile;
 
     if (assemblyData.breakdowns.length > 0) {
       const totalHours = assemblyData.breakdowns.reduce((sum, item) => sum + (item.realWorldHours || 0), 0);
       finalResult.estimatedRepairTime = `${totalHours.toFixed(1)} Real-World Flat-Rate Hours`;
     }
 
-    if (riskAnalysis.profile.baseRiskScore > 75 && matchedPatterns.length > 0) {
+    if (profile.baseRiskScore > 75 && matchedPatterns.length > 0) {
       finalResult.primaryCause = matchedPatterns[0].patternName.toUpperCase();
       finalResult.urgency = 'immediate';
       finalResult.safetyRisk = true;
     }
 
-    if (riskAnalysis.localSafetyTriggered) {
+    if (localSafetyTriggered) {
       finalResult.safetyRisk = true;
       finalResult.urgency = 'immediate';
-      finalResult.notes = `${riskAnalysis.safetyNotes} ${finalResult.notes}`.trim();
+      finalResult.notes = `${safetyNotes} ${finalResult.notes}`.trim();
     }
 
-    executionTrace.stage = 'PIPELINE_COMPLETE';
-    res.json({ success: true, result: finalResult, traceLog: executionTrace });
+    executionTrace.log('COMPILER_SUCCESS', 'Emitted validated diagnostic JSON payload packet block.');
+    res.json({ success: true, result: finalResult, traceLog: { traceId: executionTrace.traceId, logs: executionTrace.logs } });
 
   } catch (err) {
-    executionTrace.stage = 'PIPELINE_CRASHED';
-    executionTrace.logs.push(`[FATAL Core Exception]: ${err.message}`);
-    console.error(`[Fatal Core Exception on Trace ${executionTrace.traceId}]:`, err.message);
-    res.status(500).json({ success: false, error: 'Pipeline processing fault occurred.', trace: executionTrace });
+    executionTrace.log('COMPILER_CRASHED', `[FATAL Core Exception]: ${err.message}`);
+    console.error(`[Fatal Compiler Core Exception on Trace ${executionTrace.traceId}]:`, err.message);
+    res.status(500).json({ success: false, error: 'Pipeline processing fault occurred.', trace: { traceId: executionTrace.traceId, logs: executionTrace.logs } });
   }
 });
 

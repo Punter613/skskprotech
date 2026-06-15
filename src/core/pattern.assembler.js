@@ -1,29 +1,20 @@
-const { calculateJobLabor } = require('../knowledge/labor.matrix');
-const { evaluatePartsIntegrity } = require('../knowledge/parts.accuracy');
-const { REPAIR_INTELLIGENCE_VAULT } = require('../knowledge/repair.intelligence.library');
+/**
+ * SKSK ProTech - Pattern Assembly Coordinator (v8 Hardened)
+ * Clean coordinator pass executing isolated domain sub-assemblers.
+ */
+const { assembleLaborAssets } = require('./assembler/labor.assembler');
+const { assemblePartsAssets } = require('./assembler/parts.assembler');
+const { assembleProtocolAssets } = require('./assembler/protocol.assembler');
 const { FAILURE_KEYS } = require('../knowledge/constants');
 
-function assemblePatternPayload(matchedPatterns = [], laborRate = 65, isRustBelt = false, trace = { logs: [] }) {
-  trace.logs.push(`[Pattern Assembler] Assembling mechanical asset maps for ${matchedPatterns.length} targets.`);
+function assemblePatternPayload(matchedPatterns = [], laborRate = 65, isRustBelt = false, trace) {
+  trace.log('ASSEMBLER_ORCHESTRATION', `Coordinating asset mapping for locked failure keys count: ${matchedPatterns.length}`);
+
+  const breakdowns = assembleLaborAssets(matchedPatterns, laborRate, isRustBelt, trace);
+  const partsRisks = assemblePartsAssets(matchedPatterns, trace);
+  const protocols = assembleProtocolAssets(matchedPatterns, trace);
   
-  const breakdowns = [];
-  const partsRisks = [];
-  const protocols = [];
-  let activeKey = FAILURE_KEYS.GENERIC;
-
-  for (const pattern of matchedPatterns) {
-    // FIX 1: Enforce strict structural pattern.id matching across all layers (Issue #1)
-    const normalizedKey = pattern.patternId; 
-    trace.logs.push(`[Pattern Assembler] Resolving assets for locked pattern.id key: "${normalizedKey}"`);
-
-    breakdowns.push(calculateJobLabor(normalizedKey, laborRate, isRustBelt));
-    partsRisks.push(evaluatePartsIntegrity(normalizedKey));
-    
-    if (REPAIR_INTELLIGENCE_VAULT[pattern.linkProtocol]) {
-      protocols.push(REPAIR_INTELLIGENCE_VAULT[pattern.linkProtocol]);
-    }
-    activeKey = normalizedKey;
-  }
+  const activeKey = matchedPatterns.length > 0 ? matchedPatterns[matchedPatterns.length - 1].patternId : FAILURE_KEYS.GENERIC;
 
   return { breakdowns, partsRisks, protocols, activeKey };
 }
