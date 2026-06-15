@@ -1,6 +1,6 @@
 /**
  * SKSK ProTech - Upgraded Platform Failure Pattern Library
- * Expanded to index core fleet truck liabilities including Pentastar, EcoBoost, and Silverado blocks.
+ * Refined pattern matching rules to eliminate false-positive platform detection loops.
  */
 
 const KNOWN_PATTERNS = [
@@ -54,12 +54,14 @@ const KNOWN_PATTERNS = [
   }
 ];
 
-function findKnownPatterns(vehicle = {}, symptoms = [], codes = []) {
+function findKnownPatterns(vehicle = {}, symptoms = [], codes = [], notes = []) {
   const matches = [];
   const make = (vehicle.make || '').toLowerCase();
   const model = (vehicle.model || '').toLowerCase();
   const trimAndEngine = (vehicle.trim || '').toLowerCase();
-  const combinedText = [...symptoms, ...codes, ...notes = []].join(' ').toLowerCase();
+  
+  // Secure single-array compilation layout mapping
+  const combinedText = [...symptoms, ...codes, ...notes].join(' ').toLowerCase();
 
   for (const pattern of KNOWN_PATTERNS) {
     const cond = pattern.condition;
@@ -69,7 +71,11 @@ function findKnownPatterns(vehicle = {}, symptoms = [], codes = []) {
     let engineMatch = cond.engines ? cond.engines.some(e => trimAndEngine.includes(e.toLowerCase())) : true;
     let keywordMatch = cond.keywords ? cond.keywords.some(kw => combinedText.includes(kw.toLowerCase())) : false;
 
-    if ((modelMatch && engineMatch) || keywordMatch) {
+    // Strict Platform Guard Rails (Prevents a Focus from triggering Triton routines)
+    const platformMatch = modelMatch && engineMatch;
+    const strongKeywordMatch = keywordMatch && engineMatch;
+
+    if (platformMatch || strongKeywordMatch) {
       matches.push({
         patternId: pattern.id,
         patternName: pattern.patternName,

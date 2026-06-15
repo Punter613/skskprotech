@@ -58,7 +58,7 @@ router.post('/', async (req, res) => {
 
     // 1. Run Local Logic Core Analysis Intercepts
     const localSafetyResult = evaluateSafetyRisk(symptoms, notes, vehicle);
-    const matchedPatterns = findKnownPatterns(vehicle, symptoms, codes);
+    const matchedPatterns = findKnownPatterns(vehicle, symptoms, codes, notes);
     const confidenceScore = calculateConfidence({
       patternMatches: matchedPatterns.length,
       codeCount: codes.length,
