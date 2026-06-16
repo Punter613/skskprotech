@@ -16,7 +16,7 @@ try {
 
   // Phase 1: Fire Immutable Generator Only
   console.log('[Phase 1] Executing production asset builder code...');
-  execSync('node scripts/build_router_v10.js', { stdio: 'inherit' });
+  execSync('node scripts/build_router_v11.js', { stdio: 'inherit' });
 
   // Phase 2: Syntax Validation Pass Gatekeeper
   console.log('\n[Phase 2] Verifying compilation integrity limits...');
@@ -33,7 +33,7 @@ try {
 
   // Phase 4: Stage and Push Clean Artifacts Only
   console.log('\n[Phase 4] Shipping validated builds to target cluster...');
-  execSync(`git add ${TARGET_FILE} scripts/build_router_v10.js scripts/ship.js`);
+  execSync(`git add ${TARGET_FILE} scripts/build_router_v11.js scripts/ship.js`);
   
   const commitMessage = `Release Build v9-[SHA256-${hexHash}]: Enforce stable compiler pipeline architecture and isolate immutable factory generators`;
   execSync(`git commit -m "${commitMessage}"`, { stdio: 'inherit' });
