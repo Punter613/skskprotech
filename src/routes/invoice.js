@@ -4,54 +4,112 @@ const PDFDocument = require('pdfkit');
 
 /**
  * POST /api/invoice
- * Generates an on-the-fly PDF invoice and streams the binary file directly to the device.
+ * Generates an automated PDF invoice using global sanitized input filters.
  */
-router.post('/', async (req, res) => {
+router.post('/', require('../middleware/clean.input'), async (req, res) => {
   try {
-    const { customer = {}, vehicle = {}, estimateText = "No estimate provided.", totalAmount = "0.00" } = req.body;
+    // 1. Leverage the hyper-dense sanitized arrays straight from our middleware
+    const { vehicle, vin, mileage, obdCodes, symptoms, laborRate, parts, partsCost, customer } = req.sanitized;
 
-    // 1. Create a blank PDF document in system memory
+    // Pull or fallback structural fields passed from the frontend generation pass
+    const estimatedHours = Math.max(0, Number(req.body.estimatedHours) || 1.5);
+    const calculatedLabor = laborRate * estimatedHours;
+    const finalInvoiceTotal = calculatedLabor + partsCost;
+
+    // 2. Initialize layout document bounds
     const doc = new PDFDocument({ size: 'LETTER', margin: 50 });
 
-    // 2. Configure HTTP response headers so the mobile device treats it as a download
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="Estimate_${vehicle.make || 'Vehicle'}.pdf"`);
-
-    // 3. Pipe the PDF generator stream directly into the Express HTTP response object
+    res.setHeader('Content-Disposition', `attachment; filename="Invoice_${vehicle.make || 'Vehicle'}.pdf"`);
     doc.pipe(res);
 
-    // 4. Build out the visual layout of the PDF
-    doc.fillColor('#c1121f').fontSize(26).text('SKSK ProTech', { align: 'left' });
-    doc.fillColor('#b7b7c2').fontSize(10).text('Mobile Mechanic AI Auto Estimator', { align: 'left' });
-    doc.moveDown(2);
+    // 3. HEADER BLOCK (Commercial Layout Style)
+    doc.fillColor('#c1121f').fontSize(26).font('Helvetica-Bold').text('SKSK ProTech', { align: 'left' });
+    doc.fillColor('#666666').fontSize(9).font('Helvetica').text('Professional Mobile Diagnostics & Heavy Repair', { align: 'left' });
+    
+    // Invoice Meta (Top Right Align Alignment Grid)
+    doc.fillColor('#000000').fontSize(16).font('Helvetica-Bold').text('WORK ORDER / INVOICE', 350, 50, { align: 'right', width: 210 });
+    doc.fillColor('#333333').fontSize(9).font('Helvetica').text(`Date: ${new Date().toLocaleDateString()}`, 350, 70, { align: 'right', width: 210 });
+    doc.text(`Status: Balance Due`, 350, 82, { align: 'right', width: 210 });
 
-    // Customer / Vehicle Info Block
-    doc.fillColor('#101015').fontSize(14).text('CUSTOMER & VEHICLE DETAILS', { underline: true });
-    doc.fontSize(11).fillColor('#000000');
-    doc.text(`Customer Name: ${customer.name || 'Generic Customer'}`);
-    doc.text(`Contact Phone: ${customer.phone || 'N/A'}`);
-    doc.text(`Vehicle: ${vehicle.year || ''} ${vehicle.make || ''} ${vehicle.model || ''} (${vehicle.trim || 'Standard'})`);
-    doc.moveDown(1.5);
+    doc.moveDown(3);
+    const startY = Math.max(doc.y, 110);
 
-    // Job Details Block
-    doc.fontSize(14).fillColor('#101015').text('ITEMIZED JOB SUMMARY', { underline: true });
-    doc.fontSize(10).fillColor('#333333');
-    doc.moveDown(0.5);
-    doc.text(estimateText, { align: 'left', width: 500 });
-    doc.moveDown(2);
+    // 4. CLIENT & VEHICLE PROFILE GRID (Side-by-Side Double Column Box Layout)
+    // Left Column: Customer Information
+    doc.fillColor('#101015').fontSize(11).font('Helvetica-Bold').text('BILL TO:', 50, startY);
+    doc.fillColor('#000000').fontSize(10).font('Helvetica');
+    doc.text(`Name:  ${customer.name}`, 50, startY + 16);
+    doc.text(`Phone: ${customer.phone}`, 50, startY + 28);
 
-    // Total Price Box
-    doc.rect(350, doc.y, 200, 40).fill('#101015');
-    doc.fillColor('#ffffff').fontSize(14).text(`TOTAL DUE: $${totalAmount}`, 360, doc.y + 12, { align: 'center' });
+    // Right Column: Vehicle Diagnostics Specification Telemetry
+    doc.fillColor('#101015').fontSize(11).font('Helvetica-Bold').text('VEHICLE & FLEET SPECS:', 320, startY);
+    doc.fillColor('#000000').fontSize(10).font('Helvetica');
+    doc.text(`Year/Make/Model: ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.trim ? `(${vehicle.trim})` : ''}`, 320, startY + 16);
+    doc.text(`VIN Array Target: ${vin || 'N/A'}`, 320, startY + 28);
+    doc.text(`Odometer Log:     ${mileage.toLocaleString()} Miles`, 320, startY + 40);
 
-    // 5. Finalize and seal the stream
+    doc.moveDown(4);
+    let tableY = Math.max(doc.y, startY + 70);
+
+    // 5. ITEMIZED CHARGES TABLE (Clean Grid Layout Line-By-Line)
+    doc.rect(50, tableY, 512, 20).fill('#101015');
+    doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold');
+    doc.text('DESCRIPTION / LINE ITEM SERVICES', 60, tableY + 6);
+    doc.text('TOTAL PRICE', 480, tableY + 6, { align: 'right', width: 70 });
+    
+    let currentY = tableY + 20;
+    doc.fillColor('#000000').font('Helvetica').fontSize(10);
+
+    // Line Item A: Certified Mobile Labor Operations Block
+    doc.rect(50, currentY, 512, 24).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
+    doc.text(`Automotive Field Labor Services (${estimatedHours.toFixed(1)} Hours @ $${laborRate.toFixed(2)}/hr)`, 60, currentY + 7);
+    doc.text(`$${calculatedLabor.toFixed(2)}`, 480, currentY + 7, { align: 'right', width: 70 });
+    currentY += 24;
+
+    // Line Item B: Loop Through Individual Itemized Parts Arrays Cleanly
+    if (parts && parts.length > 0) {
+      parts.forEach(part => {
+        doc.rect(50, currentY, 512, 24).stroke();
+        doc.text(`Part: ${part.name || 'Component Replacement Hardware'}`, 60, currentY + 7);
+        doc.text(`$${Number(part.cost || 0).toFixed(2)}`, 480, currentY + 7, { align: 'right', width: 70 });
+        currentY += 24;
+      });
+    } else if (partsCost > 0) {
+      // Fallback baseline tier if client passed flat cumulative parts expense amounts
+      doc.rect(50, currentY, 512, 24).stroke();
+      doc.text('Automotive Replacement Hardware Components Package', 60, currentY + 7);
+      doc.text(`$${partsCost.toFixed(2)}`, 480, currentY + 7, { align: 'right', width: 70 });
+      currentY += 24;
+    }
+
+    // Line Item C: Captured Ingestion Logs Mapped to Line Descriptions
+    if (symptoms && symptoms.length > 0) {
+      doc.rect(50, currentY, 512, 24).stroke();
+      doc.text(`Diagnostic Profiles Evaluated: ${symptoms.slice(0, 3).join(', ')} ${obdCodes.length ? `[${obdCodes.join(', ')}]` : ''}`, 60, currentY + 7, { width: 400, lineBreak: false });
+      doc.text('$0.00', 480, currentY + 7, { align: 'right', width: 70 });
+      currentY += 24;
+    }
+
+    currentY += 15;
+
+    // 6. TOTAL BALANCE DUE CALCULATION CONTAINER (Defends against layout shifting)
+    doc.rect(330, currentY, 232, 45).fill('#101015');
+    doc.fillColor('#ffffff').fontSize(13).font('Helvetica-Bold');
+    doc.text(`TOTAL AMOUNT DUE:`, 340, currentY + 16, { align: 'left' });
+    doc.text(`$${finalInvoiceTotal.toFixed(2)}`, 480, currentY + 16, { align: 'right', width: 70 });
+
+    // 7. FOOTER POLICY
+    doc.fillColor('#777777').fontSize(8).font('Helvetica-Oblique');
+    doc.text('Thank you for choosing SKSK ProTech. All mobile service operations carry a baseline field validation guarantee. Terms: Balance due upon vehicle completion.', 50, 700, { align: 'center', width: 512 });
+
     doc.end();
-    console.log('[Invoice] PDF streamed successfully over HTTP payload.');
+    console.log(`[Invoice] Hardened PDF Generated for ${customer.name} - Total: $${finalInvoiceTotal.toFixed(2)}`);
 
   } catch (err) {
     console.error('[Invoice Error] PDF generation aborted:', err.message || err);
     if (!res.headersSent) {
-      res.status(500).json({ success: false, error: 'Failed to stitch together PDF artifact.' });
+      res.status(500).json({ success: false, error: 'Failed to stitch together PDF artifact.', details: err.message });
     }
   }
 });
