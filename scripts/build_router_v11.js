@@ -1,6 +1,6 @@
 /**
  * SKSK ProTech - Production Compiler Build Generator (v11-Stable)
- * Integrates an offline safety intercept directly into the master mold template.
+ * Integrates an offline safety intercept directly into the master mold template with clean ProTip mapping.
  */
 const fs = require('fs');
 const path = require('path');
@@ -88,7 +88,6 @@ router.post('/', async (req, res) => {
       axleCode = ''
     } = req.body;
 
-    // Normalize flexible incoming arrays for full cross-compatibility
     const targetCodes = Array.isArray(codes) && codes.length ? codes : (Array.isArray(obdCodes) ? obdCodes : []);
     const targetSymptoms = [
       ...(Array.isArray(symptoms) ? symptoms : []),
@@ -128,7 +127,6 @@ router.post('/', async (req, res) => {
       symptomTelemetry
     } = compiledData;
 
-    // LOCAL DETERMINISTIC INTERCEPT PASSTHROUGH
     const localProfile = getVehicleRiskProfile(vehicle, vin);
     const platformHits = findKnownPatterns(localProfile, targetSymptoms, targetCodes);
 
@@ -137,6 +135,16 @@ router.post('/', async (req, res) => {
       const procedureSpecs = getLocalProcedure(hit.linkProtocol);
       
       executionTrace.log('LOCAL_MATCH', \`Deterministic hit: \${hit.patternName}\`);
+      
+      // Clean as you go: Filter array to strip out nulls or undefined values instantly
+      const rawTips = procedureSpecs && procedureSpecs.criticalSpecs ? [
+        procedureSpecs.criticalSpecs.torqueSequence,
+        procedureSpecs.criticalSpecs.antiseizeNote
+      ] : [];
+      const cleanTips = rawTips.filter(Boolean);
+      if (cleanTips.length === 0) {
+        cleanTips.push("Always verify clearance specifications against factory block data prior to teardown.");
+      }
       
       const localResult = safeResult({
         urgency: 'immediate',
@@ -147,13 +155,12 @@ router.post('/', async (req, res) => {
         localVehicleTelemetry: localProfile ? { ...localProfile, dynamicCalculatedRisk: dynamicRisk } : null,
         probability: [{ cause: hit.patternName, likelihood: hit.likelihood }],
         repairSteps: procedureSpecs ? procedureSpecs.clearanceSteps : [],
-        proTips: procedureSpecs ? [procedureSpecs.criticalSpecs.torqueSequence, procedureSpecs.criticalSpecs.antiseizeNote] : []
+        proTips: cleanTips
       });
       
       return res.json({ success: true, result: localResult, traceLog: { traceId: executionTrace.traceId, logs: executionTrace.logs } });
     }
 
-    // CLOUD ACCESS VALIDATION GUARD
     if (!process.env.GROQ_API_KEY) {
       executionTrace.log('FATAL', 'Cloud key missing during local database miss.');
       return res.status(503).json({
@@ -287,4 +294,4 @@ RULES:
 module.exports = router;`;
 
 fs.writeFileSync(OUTPUT_PATH, routerCode, 'utf8');
-console.log('==> ✅ Compile successful: v11 generator locked and loaded.');
+console.log('==> ✅ Compile successful: v11 generator locked and loaded with clean array mapping.');
