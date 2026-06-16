@@ -1,4 +1,13 @@
-const express = require('express');
+/**
+ * SKSK ProTech - Production Compiler Build Generator (v11-Stable)
+ * Integrates non-fatal graceful pipeline exceptions and fixes regex string literal escaping.
+ */
+const fs = require('fs');
+const path = require('path');
+
+const OUTPUT_PATH = path.join(__dirname, '../src/routes/diagnose.js');
+
+const routerCode = `const express = require('express');
 const router = express.Router();
 const { groqChat } = require('../services/groq');
 const { runDiagnosticPipeline } = require('../services/pipeline.engine');
@@ -6,7 +15,7 @@ const { calibrateProbabilityArray } = require('../core/metrics/index');
 
 function extractJSON(text) {
   if (!text) return null;
-  text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+  text = text.replace(/\`\`\`json\\s*/gi, '').replace(/\`\`\`\\s*/g, '');
   const start = text.indexOf('{');
   if (start === -1) return null;
   let depth = 0;
@@ -55,7 +64,7 @@ router.post('/', async (req, res) => {
     logs: [],
     log: function(stage, message) {
       this.stage = stage;
-      this.logs.push(`[${stage}] ${message}`);
+      this.logs.push(\`[\${stage}] \${message}\`);
     }
   };
 
@@ -90,7 +99,7 @@ router.post('/', async (req, res) => {
         vehicle, vin, axleCode, symptoms, codes, notes, laborRate, mileage
       }, executionTrace);
     } catch (pipelineErr) {
-      executionTrace.log('PIPELINE_WARN', `Pipeline skipped: ${pipelineErr.message}`);
+      executionTrace.log('PIPELINE_WARN', \`Pipeline skipped: \${pipelineErr.message}\`);
     }
 
     const {
@@ -118,7 +127,7 @@ router.post('/', async (req, res) => {
       isProfileValidContext = true;
     }
 
-    let systemPrompt = `You are the expert logic unit of SKSK ProTech — a master automotive diagnostic technician with 25 years of real shop experience.
+    let systemPrompt = \`You are the expert logic unit of SKSK ProTech — a master automotive diagnostic technician with 25 years of real shop experience.
 
 Output a single valid JSON object matching this structure EXACTLY. No backticks, no markdown, no text before or after the JSON.
 
@@ -143,16 +152,16 @@ RULES:
 - safetyRisk: boolean true or false
 - probability likelihood: number 0-100
 - All array values must be strings
-- Output raw JSON only`;
+- Output raw JSON only\`;
 
     if (profile && isProfileValidContext) {
-      systemPrompt += `\\n\\nVEHICLE PROFILE: ${JSON.stringify({ ...profile, dynamicRisk }, null, 2)}`;
+      systemPrompt += \`\\\\n\\\\nVEHICLE PROFILE: \${JSON.stringify({ ...profile, dynamicRisk }, null, 2)}\`;
     }
     if (assemblyData && isProfileValidContext && assemblyData.breakdowns.length > 0) {
-      systemPrompt += `\\n\\nLABOR: ${JSON.stringify(assemblyData.breakdowns, null, 2)}\\nPARTS: ${JSON.stringify(assemblyData.partsRisks, null, 2)}`;
+      systemPrompt += \`\\\\n\\\\nLABOR: \${JSON.stringify(assemblyData.breakdowns, null, 2)}\\\\nPARTS: \${JSON.stringify(assemblyData.partsRisks, null, 2)}\`;
     }
 
-    const userPrompt = `Vehicle: ${vehicle.make || 'N/A'} ${vehicle.model || 'N/A'} | VIN: ${vin || 'N/A'} | Mileage: ${mileage || 'N/A'} | Codes: ${codes.join(', ') || 'None'} | Symptoms: ${symptoms.join(', ') || 'N/A'} | Tech Notes: ${notes.join(', ') || 'N/A'}`;
+    const userPrompt = \`Vehicle: \${vehicle.make || 'N/A'} \${vehicle.model || 'N/A'} | VIN: \${vin || 'N/A'} | Mileage: \${mileage || 'N/A'} | Codes: \${codes.join(', ') || 'None'} | Symptoms: \${symptoms.join(', ') || 'N/A'} | Tech Notes: \${notes.join(', ') || 'N/A'}\`;
 
     executionTrace.log('GROQ_DISPATCH', 'Sending to Groq...');
 
@@ -195,7 +204,7 @@ RULES:
 
     if (isProfileValidContext && assemblyData && assemblyData.breakdowns.length > 0) {
       const totalHours = assemblyData.breakdowns.reduce((sum, item) => sum + (item.realWorldHours || 0), 0);
-      finalResult.estimatedRepairTime = `${totalHours.toFixed(1)} Real-World Flat-Rate Hours`;
+      finalResult.estimatedRepairTime = \`\${totalHours.toFixed(1)} Real-World Flat-Rate Hours\`;
     }
 
     if (isProfileValidContext && profile && profile.baseRiskScore > 75 && matchedPatterns.length > 0) {
@@ -206,13 +215,13 @@ RULES:
 
     if (confidence && confidence.rating === 'MEDIUM' && symptomTelemetry.hasMismatchedSignals) {
       const activeKeys = Object.keys(symptomTelemetry.categories).filter(k => symptomTelemetry.categories[k]).join(', ');
-      finalResult.notes = `[Multi-system signals detected: ${activeKeys}] Manual validation recommended. ${finalResult.notes}`.trim();
+      finalResult.notes = \`[Multi-system signals detected: \${activeKeys}] Manual validation recommended. \${finalResult.notes}\`.trim();
     }
 
     if (localSafetyTriggered && isProfileValidContext) {
       finalResult.safetyRisk = true;
       finalResult.urgency = 'immediate';
-      finalResult.notes = `${safetyNotes} ${finalResult.notes}`.trim();
+      finalResult.notes = \`\${safetyNotes} \${finalResult.notes}\`.trim();
     }
 
     executionTrace.log('COMPILER_SUCCESS', 'Diagnostic response built.');
@@ -220,9 +229,12 @@ RULES:
 
   } catch (err) {
     executionTrace.log('FATAL', err.message);
-    console.error(`[Diagnose Fatal ${executionTrace.traceId}]:`, err.message);
+    console.error(\`[Diagnose Fatal \${executionTrace.traceId}]:\`, err.message);
     res.status(500).json({ success: false, error: 'Diagnosis failed', details: err.message, trace: executionTrace.traceId });
   }
 });
 
-module.exports = router;
+module.exports = router;`;
+
+fs.writeFileSync(OUTPUT_PATH, routerCode, 'utf8');
+console.log('==> ✅ Compile successful: v11 generator locked and loaded.');
