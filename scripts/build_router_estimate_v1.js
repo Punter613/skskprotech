@@ -1,4 +1,13 @@
-const express = require('express');
+/**
+ * SKSK ProTech - Production Estimate Router Generator (v1-Stable)
+ * Compiles the estimate route with v11 pipeline integration, robust JSON parsing, and dynamic vehicle prompts.
+ */
+const fs = require('fs');
+const path = require('path');
+
+const OUTPUT_PATH = path.join(__dirname, '../src/routes/estimate.js');
+
+const routerCode = `const express = require('express');
 const router = express.Router();
 const { runDiagnosticPipeline } = require('../services/pipeline.engine');
 const { groqChat } = require('../services/groq');
@@ -6,7 +15,7 @@ const { groqChat } = require('../services/groq');
 // Bracket-depth extraction logic to handle loose markdown text boundaries safely
 function extractJSON(text) {
   if (!text) return null;
-  text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+  text = text.replace(/\`\`\`json\\s*/gi, '').replace(/\`\`\`\\s*/g, '');
   const start = text.indexOf('{');
   if (start === -1) return null;
   let depth = 0;
@@ -85,7 +94,7 @@ router.post('/', async (req, res) => {
     const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim]
       .filter(Boolean).join(' ') || 'Unknown Vehicle';
 
-    const systemPrompt = `You are the expert estimation module of SKSK ProTech — a master automotive mechanic with 25 years of real shop experience.
+    const systemPrompt = \`You are the expert estimation module of SKSK ProTech — a master automotive mechanic with 25 years of real shop experience.
 
 Output a single valid JSON object ONLY. No backticks, no markdown, no text before or after.
 
@@ -94,7 +103,7 @@ Output a single valid JSON object ONLY. No backticks, no markdown, no text befor
   "diagnosis": "string",
   "estimatedHours": 2.5,
   "laborCost": 162.50,
-  "partsCost": ${partsCostNum},
+  "partsCost": \${partsCostNum},
   "total": 242.50,
   "repairs": ["string"],
   "probability": [{"cause": "string", "likelihood": 80}],
@@ -107,17 +116,17 @@ Output a single valid JSON object ONLY. No backticks, no markdown, no text befor
 
 RULES:
 - priority: exactly "high", "medium", or "low"
-- laborCost = estimatedHours x ${laborRateNum} x ${rustBeltMultiplier}
+- laborCost = estimatedHours x \${laborRateNum} x \${rustBeltMultiplier}
 - total = laborCost + partsCost
 - All array values must be strings
-- Output raw JSON only`;
+- Output raw JSON only\`;
 
-    const userPrompt = `Vehicle: ${vehicleStr}
-VIN: ${vin || 'N/A'}
-Shop Rate: $${laborRateNum}/hr | Parts Budget: $${partsCostNum} | Rust Multiplier: ${rustBeltMultiplier}x
-OBD Codes: ${obdCodes.join(', ') || 'None'}
-Customer Reports: ${customerStates.join(', ') || 'N/A'}
-Mechanic Notices: ${mechanicNotices.join(', ') || 'N/A'}`;
+    const userPrompt = \`Vehicle: \${vehicleStr}
+VIN: \${vin || 'N/A'}
+Shop Rate: $\${laborRateNum}/hr | Parts Budget: $\${partsCostNum} | Rust Multiplier: \${rustBeltMultiplier}x
+OBD Codes: \${obdCodes.join(', ') || 'None'}
+Customer Reports: \${customerStates.join(', ') || 'N/A'}
+Mechanic Notices: \${mechanicNotices.join(', ') || 'N/A'}\`;
 
     const groqRes = await groqChat([
       { role: 'system', content: systemPrompt },
@@ -159,4 +168,8 @@ Mechanic Notices: ${mechanicNotices.join(', ') || 'N/A'}`;
   }
 });
 
-module.exports = router;
+module.exports = router;`;
+
+console.log('[Factory] Compiling clean estimate manifest to route path layout...');
+fs.writeFileSync(OUTPUT_PATH, routerCode, 'utf8');
+console.log('==> ✅ Compile successful: src/routes/estimate.js hardened under structural compiler specs.');
