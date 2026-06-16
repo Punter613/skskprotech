@@ -1,7 +1,46 @@
 const express = require('express');
 const router = express.Router();
-const { runDiagnosticPipeline } = require('../brain/diagnosis.engine');
+const { runDiagnosticPipeline } = require('../services/pipeline.engine');
 const { groqChat } = require('../services/groq');
+
+// Same bulletproof extractor as diagnose.js
+function extractJSON(text) {
+  if (!text) return null;
+  text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') {
+      depth--;
+      if (depth === 0) {
+        try { return JSON.parse(text.slice(start, i + 1)); }
+        catch { return null; }
+      }
+    }
+  }
+  return null;
+}
+
+function safeEstimate(laborRate, partsCost, overrides = {}) {
+  return {
+    priority: 'medium',
+    diagnosis: 'Manual inspection required',
+    laborCost: laborRate,
+    partsCost: partsCost,
+    total: laborRate + partsCost,
+    repairs: ['Diagnostic inspection required'],
+    probability: [],
+    knownIssues: [],
+    repairSteps: [],
+    proTips: [],
+    additionalChecks: [],
+    notes: '',
+    estimatedHours: 1,
+    ...overrides
+  };
+}
 
 router.post('/', async (req, res) => {
   try {
@@ -12,79 +51,119 @@ router.post('/', async (req, res) => {
       mechanicNotices = [],
       laborRate = 65,
       partsCost = 0,
-      mileage = 0
+      mileage = 0,
+      vin = '',
+      customer = {}
     } = req.body;
 
-    const pipelineResults = runDiagnosticPipeline({
-      obdCodes,
-      customerStates,
-      mechanicNotices,
-      vehicle,
-      mileage
-    });
+    const laborRateNum = Math.max(0, Number(laborRate));
+    const partsCostNum = Math.max(0, Number(partsCost));
 
-    const primaryDiagnosis = pipelineResults.topDiagnoses[0];
+    // Run local brain pipeline — non-fatal if it errors
+    let pipelineResults = { topDiagnoses: [], appliedRustPenalty: false };
     let rustBeltMultiplier = 1.0;
-    if (primaryDiagnosis && primaryDiagnosis.appliedModifiers.some(m => m.includes('Rust Belt'))) {
-      rustBeltMultiplier = 1.25;
+
+    try {
+      const raw = runDiagnosticPipeline({
+        obdCodes,
+        customerStates,
+        mechanicNotices,
+        vehicle,
+        mileage
+      });
+      pipelineResults = raw;
+      const primaryDiagnosis = raw.topDiagnoses?.[0];
+      if (primaryDiagnosis?.appliedModifiers?.some(m => m.includes('Rust Belt'))) {
+        rustBeltMultiplier = 1.25;
+      }
+    } catch (pipelineErr) {
+      console.warn('[Estimate] Pipeline skipped:', pipelineErr.message);
     }
 
-    const systemPrompt = `You are the expert estimation module of SKSK ProTech. You MUST output a valid, raw JSON object matching this structure exactly, with NO introductory text, NO markdown code blocks, and NO trailing notes outside the JSON block itself:
+    // Build vehicle string from ACTUAL request data
+    const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim]
+      .filter(Boolean).join(' ') || 'Unknown Vehicle';
+
+    const systemPrompt = `You are the expert estimation module of SKSK ProTech — a master automotive mechanic with 25 years of real shop experience.
+
+Output a single valid JSON object ONLY. No backticks, no markdown, no text before or after.
+
 {
-  "priority": "medium",
-  "diagnosis": "Short summary sentence of findings",
-  "laborCost": 130,
-  "partsCost": 80,
-  "total": 210,
-  "repairs": ["Line-item repair description 1"],
-  "probability": [{"cause": "Suspected failure component", "likelihood": 85}],
-  "knownIssues": ["Common platform failure mode"],
-  "repairSteps": ["Step 1 of repair protocol"],
-  "proTips": ["Field mechanic workflow tip"],
-  "additionalChecks": ["While you are in there check item"],
-  "notes": "Final configuration observations"
+  "priority": "high",
+  "diagnosis": "string",
+  "estimatedHours": 2.5,
+  "laborCost": 162.50,
+  "partsCost": ${partsCostNum},
+  "total": 242.50,
+  "repairs": ["string"],
+  "probability": [{"cause": "string", "likelihood": 80}],
+  "knownIssues": ["string"],
+  "repairSteps": ["string"],
+  "proTips": ["string"],
+  "additionalChecks": ["string"],
+  "notes": "string"
 }
 
-Vehicle Parameters: 2008 Ford F150. Shop Rate: $${laborRate}/hr. Multiplier: ${rustBeltMultiplier}x. Parts Target: $${partsCost}.
+RULES:
+- priority: exactly "high", "medium", or "low"
+- laborCost = estimatedHours x ${laborRateNum} x ${rustBeltMultiplier} (rust belt multiplier)
+- total = laborCost + partsCost
+- All array values must be strings
+- Output raw JSON only`;
 
-CRITICAL PROTOCOL REQUIREMENT: If the Pre-Calculated Local Brain Diagnostics returns a "Shaffer Custom Extraction Protocol Required" modifier, you MUST explicitly override standard repair suggestions and instruct the mechanic to list these exact matching steps in the "repairSteps" array:
-1. Attempt standard specialty extraction kits.
-2. If tools slip, pull off the exhaust manifolds to establish absolute clear alignment.
-3. Execute Shaffer Method: Fracture porcelain halfway down, run custom long tap into the fused shroud tip, insert all-thread with a top nut to lock the tap and a middle nut to pull the sleeve clear.
-4. Clean the combustion chambers completely through the open manifold access to verify zero debris remains.`;
+    const userPrompt = `Vehicle: ${vehicleStr}
+VIN: ${vin || 'N/A'}
+Shop Rate: $${laborRateNum}/hr | Parts Budget: $${partsCostNum} | Rust Multiplier: ${rustBeltMultiplier}x
+OBD Codes: ${obdCodes.join(', ') || 'None'}
+Customer Reports: ${customerStates.join(', ') || 'N/A'}
+Mechanic Notices: ${mechanicNotices.join(', ') || 'N/A'}`;
 
-    const userPrompt = `Generate the structured estimation payload for notes: "${mechanicNotices.join(', ') || 'General Inspection'}" and complaints: "${customerStates.join(', ')}"`;
-
-    console.log('[Route] Fetching structured JSON from Groq...');
-    const rawGroqResponse = await groqChat([
+    const groqRes = await groqChat([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
-    ]);
+    ], { max_tokens: 1400, temperature: 0.2 });
 
-    const aiText = typeof rawGroqResponse === 'string' 
-      ? rawGroqResponse 
-      : (rawGroqResponse.choices?.[0]?.message?.content || '');
+    const aiText = typeof groqRes === 'string'
+      ? groqRes
+      : (groqRes?.choices?.[0]?.message?.content || '');
 
-    if (!aiText) {
-      throw new Error('Groq returned an empty response text block.');
+    if (!aiText) throw new Error('Groq returned empty response');
+
+    let parsed = extractJSON(aiText);
+
+    if (!parsed) {
+      console.warn('[Estimate] JSON extract failed. Raw:', aiText.substring(0, 300));
+      parsed = safeEstimate(laborRateNum, partsCostNum, { notes: 'AI parse failed — retry' });
     }
 
-    // Fixed single-line regex to eliminate terminal paste syntax crashes
-    const cleanJsonString = aiText.replace(/```json|```/g, '').trim();
-    const parsedEstimate = JSON.parse(cleanJsonString);
+    const finalEstimate = { ...safeEstimate(laborRateNum, partsCostNum), ...parsed };
+
+    // Sanitize priority
+    if (!['high', 'medium', 'low'].includes(finalEstimate.priority)) {
+      finalEstimate.priority = 'medium';
+    }
+
+    // Optional DB save
+    try {
+      const db = require('../services/db');
+      if (db) await db.from('estimates').insert({
+        total: finalEstimate.total,
+        details: { ...finalEstimate, customer, vehicle }
+      });
+    } catch (e) { /* db optional */ }
 
     res.json({
       success: true,
       appliedRustPenalty: rustBeltMultiplier > 1.0,
       localBrainSummary: pipelineResults,
-      estimate: parsedEstimate
+      estimate: finalEstimate
     });
 
   } catch (err) {
-    console.error('[Route Error] Estimation failed:', err.message || err);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to stitch structured estimate object.',
+    console.error('[Estimate] Error:', err.message);
+    res.status(500).json({
+      success: false,
+      error: 'Estimate failed',
       details: err.message
     });
   }
