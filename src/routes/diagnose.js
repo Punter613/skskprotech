@@ -4,9 +4,10 @@ const { groqChat } = require('../services/groq');
 const { runDiagnosticPipeline } = require('../services/pipeline.engine');
 const { calibrateProbabilityArray } = require('../core/metrics/index');
 
+// FIXED: was double-escaped \\s* which never matched anything
 function extractJSON(text) {
   if (!text) return null;
-  text = text.replace(/\`\`\`json\\s*/gi, '').replace(/\`\`\`\\s*/g, '');
+  text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
   const start = text.indexOf('{');
   if (start === -1) return null;
   let depth = 0;
@@ -58,9 +59,9 @@ router.post('/', async (req, res) => {
       this.logs.push(`[${stage}] ${message}`);
     }
   };
-  
-  executionTrace.log('API_ROUTER', 'Intercepted vehicle payload network request wrapper.');
-  
+
+  executionTrace.log('API_ROUTER', 'Payload received.');
+
   try {
     const {
       vin = '',
@@ -73,9 +74,28 @@ router.post('/', async (req, res) => {
       axleCode = ''
     } = req.body;
 
-    const compiledData = runDiagnosticPipeline({
-      vehicle, vin, axleCode, symptoms, codes, notes, laborRate, mileage
-    }, executionTrace);
+    // FIXED: pipeline.engine.js verifyVehicleSanity throws on missing vehicle fields
+    // Wrap so a blank diagnose form never hard-crashes before Groq runs
+    let compiledData = {
+      profile: null,
+      vinBuildProfile: null,
+      localSafetyTriggered: false,
+      safetyNotes: '',
+      matchedPatterns: [],
+      assemblyData: null,
+      dynamicRisk: 0,
+      confidence: { percentage: 30, rating: 'LOW' },
+      symptomTelemetry: { hasMismatchedSignals: false, categories: {}, overlappingClassesCount: 0 }
+    };
+
+    try {
+      compiledData = runDiagnosticPipeline({
+        vehicle, vin, axleCode, symptoms, codes, notes, laborRate, mileage
+      }, executionTrace);
+    } catch (pipelineErr) {
+      executionTrace.log('PIPELINE_WARN', `Pipeline skipped: ${pipelineErr.message}`);
+      // Non-fatal — Groq still runs with whatever context we have
+    }
 
     const {
       profile,
@@ -89,9 +109,24 @@ router.post('/', async (req, res) => {
       symptomTelemetry
     } = compiledData;
 
-    let systemPrompt = `You are the expert logic unit of SKSK ProTech. Output a valid JSON block matching this layout perfectly. No comments.
+    // Security gate — only inject vehicle telemetry if make/model matches profile
+    const inputMake = (vehicle.make || '').toLowerCase();
+    const inputModel = (vehicle.model || '').toLowerCase();
+    const profileId = profile ? profile.vehicleId : '';
 
-Template structure:
+    let isProfileValidContext = false;
+    if (profileId === 'FORD_F150_3V_TRITON' && inputMake.includes('ford') && (inputModel.includes('150') || inputModel.includes('f-150'))) {
+      isProfileValidContext = true;
+    } else if (profileId === 'GM_SILVERADO_AFM_5.3' && (inputMake.includes('chev') || inputMake.includes('gm')) && (inputModel.includes('silverado') || inputModel.includes('sierra'))) {
+      isProfileValidContext = true;
+    } else if (profileId === 'FORD_3.5_ECOBOOST_V1' && inputMake.includes('ford') && (inputModel.includes('150') || inputModel.includes('f-150'))) {
+      isProfileValidContext = true;
+    }
+
+    let systemPrompt = `You are the expert logic unit of SKSK ProTech — a master automotive diagnostic technician with 25 years of real shop experience.
+
+Output a single valid JSON object matching this structure EXACTLY. No backticks, no markdown, no text before or after the JSON.
+
 {
   "urgency": "immediate",
   "safetyRisk": true,
@@ -106,49 +141,54 @@ Template structure:
   "additionalChecks": ["string"],
   "estimatedRepairTime": "string",
   "notes": "string"
-}`;
+}
 
-    // HARD SECURITY GATE: Double check profile matches input context before injecting telemetry truth claims
-    const inputMake = (vehicle.make || '').toLowerCase();
-    const inputModel = (vehicle.model || '').toLowerCase();
-    const profileId = profile ? profile.vehicleId : '';
-    
-    let isProfileValidContext = false;
-    if (profileId === 'FORD_F150_3V_TRITON' && inputMake.includes('ford') && (inputModel.includes('150') || inputModel.includes('f-150'))) {
-      isProfileValidContext = true;
-    } else if (profileId === 'GM_SILVERADO_AFM_5.3' && (inputMake.includes('chev') || inputMake.includes('gm')) && (inputModel.includes('silverado') || inputModel.includes('sierra'))) {
-      isProfileValidContext = true;
-    } else if (profileId === 'FORD_3.5_ECOBOOST_V1' && inputMake.includes('ford') && (inputModel.includes('150') || inputModel.includes('f-150'))) {
-      isProfileValidContext = true;
-    }
+RULES:
+- urgency: EXACTLY "immediate", "soon", or "monitor" — nothing else
+- safetyRisk: boolean true or false
+- probability likelihood: number 0-100
+- All array values must be strings
+- Output raw JSON only`;
 
     if (profile && isProfileValidContext) {
-      systemPrompt += `\\n\\nVEHICLE PROFILE DATA: ${JSON.stringify({ ...profile, dynamicRisk }, null, 2)}`;
+      systemPrompt += `\n\nVEHICLE PROFILE: ${JSON.stringify({ ...profile, dynamicRisk }, null, 2)}`;
     }
     if (assemblyData && isProfileValidContext && assemblyData.breakdowns.length > 0) {
-      systemPrompt += `\\n\\nCOST PRESSURES AND PARTS LIKELIHOOD ESTIMATES:
-LABOR: ${JSON.stringify(assemblyData.breakdowns, null, 2)}
-PARTS: ${JSON.stringify(assemblyData.partsRisks, null, 2)}`;
+      systemPrompt += `\n\nLABOR: ${JSON.stringify(assemblyData.breakdowns, null, 2)}\nPARTS: ${JSON.stringify(assemblyData.partsRisks, null, 2)}`;
     }
 
-    const userPrompt = `Vehicle: ${vehicle.make || 'N/A'} ${vehicle.model || 'N/A'} | Fault Codes: ${codes.join(', ')} | Symptoms: ${symptoms.join(', ')}`;
+    const userPrompt = `Vehicle: ${vehicle.make || 'N/A'} ${vehicle.model || 'N/A'} | VIN: ${vin || 'N/A'} | Mileage: ${mileage || 'N/A'} | Codes: ${codes.join(', ') || 'None'} | Symptoms: ${symptoms.join(', ') || 'N/A'} | Tech Notes: ${notes.join(', ') || 'N/A'}`;
 
-    executionTrace.log('GROQ_COMPILATION', 'Dispatched contextual instruction payload down the cluster pipeline.');
+    executionTrace.log('GROQ_DISPATCH', 'Sending to Groq...');
 
     const groqRes = await groqChat([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ], { max_tokens: 1500, temperature: 0.15 });
 
-    const aiText = typeof groqRes === 'string' ? groqRes : (groqRes?.choices?.[0]?.message?.content || '');
+    const aiText = typeof groqRes === 'string'
+      ? groqRes
+      : (groqRes?.choices?.[0]?.message?.content || '');
+
+    if (!aiText) throw new Error('Groq returned empty response');
+
     let parsed = extractJSON(aiText);
-    if (!parsed || typeof parsed !== 'object') parsed = safeResult();
+
+    if (!parsed || typeof parsed !== 'object') {
+      console.warn('[Diagnose] JSON extract failed. Raw snippet:', aiText.substring(0, 300));
+      parsed = safeResult({ notes: 'AI returned unparseable response — please retry' });
+    }
 
     const finalResult = { ...safeResult(), ...parsed };
 
+    // Sanitize urgency in case AI went off-script
+    if (!['immediate', 'soon', 'monitor'].includes(finalResult.urgency)) {
+      finalResult.urgency = 'soon';
+    }
+
     finalResult.probability = calibrateProbabilityArray(
-      finalResult.probability || [], 
-      codes.length, 
+      finalResult.probability || [],
+      codes.length,
       symptomTelemetry.hasMismatchedSignals
     );
 
@@ -172,7 +212,7 @@ PARTS: ${JSON.stringify(assemblyData.partsRisks, null, 2)}`;
 
     if (confidence && confidence.rating === 'MEDIUM' && symptomTelemetry.hasMismatchedSignals) {
       const activeKeys = Object.keys(symptomTelemetry.categories).filter(k => symptomTelemetry.categories[k]).join(', ');
-      finalResult.notes = `[System Warning - Inspection Required] Multi-system class signals cross-contamination flagged (${activeKeys}). High-certainty metrics suspended. Manual diagnostic validation highly required. ${finalResult.notes}`.trim();
+      finalResult.notes = `[Multi-system signals detected: ${activeKeys}] Manual validation recommended. ${finalResult.notes}`.trim();
     }
 
     if (localSafetyTriggered && isProfileValidContext) {
@@ -181,13 +221,13 @@ PARTS: ${JSON.stringify(assemblyData.partsRisks, null, 2)}`;
       finalResult.notes = `${safetyNotes} ${finalResult.notes}`.trim();
     }
 
-    executionTrace.log('COMPILER_SUCCESS', 'Emitted sani-gate cleared diagnostic response map.');
+    executionTrace.log('SUCCESS', 'Diagnostic response built.');
     res.json({ success: true, result: finalResult, traceLog: { traceId: executionTrace.traceId, logs: executionTrace.logs } });
 
   } catch (err) {
-    executionTrace.log('COMPILER_CRASHED', `[FATAL Ingestion Engine Crash]: ${err.message}`);
-    console.error(`[Fatal Sani-Gate Exception on Trace ${executionTrace.traceId}]:`, err.message);
-    res.status(400).json({ success: false, error: 'Sani-Gate Validation Reject.', details: err.message, trace: executionTrace.traceId });
+    executionTrace.log('FATAL', err.message);
+    console.error(`[Diagnose Fatal ${executionTrace.traceId}]:`, err.message);
+    res.status(500).json({ success: false, error: 'Diagnosis failed', details: err.message, trace: executionTrace.traceId });
   }
 });
 
