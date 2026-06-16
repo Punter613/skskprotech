@@ -5,9 +5,10 @@ const path = require('path');
 const cors = require('cors');
 
 const diagnose = require('./src/routes/diagnose');
-const estimate = require('./src/routes/estimate');
+const estimateHeuristic = require('./src/routes/estimate'); // Mapped to estimate engine logic
 const invoice = require('./src/routes/invoice');
 const oemRouter = require('./src/routes/oem');
+const verifyToken = require('./src/middleware/auth');
 const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
 
 const app = express();
@@ -29,21 +30,9 @@ app.use((req, res, next) => {
   next();
 });
 
-function asyncHandler(fn) {
-  return (req, res, next) => {
-    const timeoutMs = parseInt(process.env.REQUEST_TIMEOUT_MS, 10) || 30000;
-    const timer = setTimeout(() => {
-      res.status(504).json({ success: false, error: 'Request timeout' });
-    }, timeoutMs);
-
-    Promise.resolve(fn(req, res, next))
-      .finally(() => clearTimeout(timer))
-      .catch(next);
-  };
-}
-
+// Production Spec Routing Lane Infrastructure
 app.use('/api/diagnose', diagnose);
-app.use('/api/estimate', estimate);
+app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); // Hardened via spec auth definitions
 app.use('/api/invoice', invoice);
 app.use('/api/translate', require('./src/routes/translate'));
 app.use(oemRouter);
@@ -63,7 +52,6 @@ if (process.env.STRIPE_SECRET_KEY) {
   });
 }
 
-express.static(path.join(__dirname));
 app.use(express.static(path.join(__dirname)));
 
 app.get('/health', async (req, res) => {
@@ -106,12 +94,13 @@ const server = app.listen(port, () => {
   console.log(`[Server] Health check: http://localhost:${port}/health`);
 });
 
-process.on('SIGTERM', () => {
-  console.log('[Server] SIGTERM received, shutting down gracefully');
-  server.close(() => process.exit(0));
-});
+const gracefulShutdown = () => {
+  console.log('[Server] Graceful shutdown triggered, draining connections...');
+  server.close(() => {
+    console.log('[Server] Process clean terminate complete.');
+    process.exit(0);
+  });
+};
 
-process.on('SIGINT', () => {
-  console.log('[Server] SIGINT received, shutting down gracefully');
-  server.close(() => process.exit(0));
-});
+process.on('SIGTERM', gracefulShutdown);
+process.on('SIGINT', gracefulShutdown);
