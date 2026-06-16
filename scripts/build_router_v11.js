@@ -1,6 +1,6 @@
 /**
  * SKSK ProTech - Production Compiler Build Generator (v11-Stable)
- * Integrates non-fatal graceful pipeline exceptions and fixes regex string literal escaping.
+ * Integrates an offline safety intercept directly into the master mold template.
  */
 const fs = require('fs');
 const path = require('path');
@@ -12,10 +12,13 @@ const router = express.Router();
 const { groqChat } = require('../services/groq');
 const { runDiagnosticPipeline } = require('../services/pipeline.engine');
 const { calibrateProbabilityArray } = require('../core/metrics/index');
+const { getVehicleRiskProfile } = require('../knowledge/vehicle.risk.table');
+const { findKnownPatterns } = require('../knowledge/failure.patterns');
+const { getLocalProcedure } = require('../knowledge/procedure.data');
 
 function extractJSON(text) {
   if (!text) return null;
-  text = text.replace(/\`\`\`json\\s*/gi, '').replace(/\`\`\`\\s*/g, '');
+  text = text.replace(/\\\`\\\`\\\`json\\\\s*/gi, '').replace(/\\\`\\\`\\\`\\\\s*/g, '');
   const start = text.indexOf('{');
   if (start === -1) return null;
   let depth = 0;
@@ -76,11 +79,22 @@ router.post('/', async (req, res) => {
       mileage = 0,
       symptoms = [],
       codes = [],
+      customerStates = [],
+      mechanicNotices = [],
+      obdCodes = [],
       notes = [],
       vehicle = {},
       laborRate = 65,
       axleCode = ''
     } = req.body;
+
+    // Normalize flexible incoming arrays for full cross-compatibility
+    const targetCodes = Array.isArray(codes) && codes.length ? codes : (Array.isArray(obdCodes) ? obdCodes : []);
+    const targetSymptoms = [
+      ...(Array.isArray(symptoms) ? symptoms : []),
+      ...(Array.isArray(customerStates) ? customerStates : []),
+      ...(Array.isArray(mechanicNotices) ? mechanicNotices : [])
+    ].map(s => String(s).toLowerCase().trim());
 
     let compiledData = {
       profile: null,
@@ -96,7 +110,7 @@ router.post('/', async (req, res) => {
 
     try {
       compiledData = runDiagnosticPipeline({
-        vehicle, vin, axleCode, symptoms, codes, notes, laborRate, mileage
+        vehicle, vin, axleCode, symptoms: targetSymptoms, codes: targetCodes, notes, laborRate, mileage
       }, executionTrace);
     } catch (pipelineErr) {
       executionTrace.log('PIPELINE_WARN', \`Pipeline skipped: \${pipelineErr.message}\`);
@@ -113,6 +127,42 @@ router.post('/', async (req, res) => {
       confidence,
       symptomTelemetry
     } = compiledData;
+
+    // LOCAL DETERMINISTIC INTERCEPT PASSTHROUGH
+    const localProfile = getVehicleRiskProfile(vehicle, vin);
+    const platformHits = findKnownPatterns(localProfile, targetSymptoms, targetCodes);
+
+    if (platformHits && platformHits.length > 0) {
+      const hit = platformHits[0];
+      const procedureSpecs = getLocalProcedure(hit.linkProtocol);
+      
+      executionTrace.log('LOCAL_MATCH', \`Deterministic hit: \${hit.patternName}\`);
+      
+      const localResult = safeResult({
+        urgency: 'immediate',
+        safetyRisk: true,
+        primaryCause: hit.patternName.toUpperCase(),
+        notes: \`Offline deterministic match active. \${hit.primaryCause}\`.trim(),
+        diagnosticConfidence: confidence || { percentage: 95, rating: 'HIGH' },
+        localVehicleTelemetry: localProfile ? { ...localProfile, dynamicCalculatedRisk: dynamicRisk } : null,
+        probability: [{ cause: hit.patternName, likelihood: hit.likelihood }],
+        repairSteps: procedureSpecs ? procedureSpecs.clearanceSteps : [],
+        proTips: procedureSpecs ? [procedureSpecs.criticalSpecs.torqueSequence, procedureSpecs.criticalSpecs.antiseizeNote] : []
+      });
+      
+      return res.json({ success: true, result: localResult, traceLog: { traceId: executionTrace.traceId, logs: executionTrace.logs } });
+    }
+
+    // CLOUD ACCESS VALIDATION GUARD
+    if (!process.env.GROQ_API_KEY) {
+      executionTrace.log('FATAL', 'Cloud key missing during local database miss.');
+      return res.status(503).json({
+        success: false,
+        error: "Diagnosis failed",
+        details: "Local pattern database miss and cloud GROQ_API_KEY is not configured.",
+        trace: executionTrace.traceId
+      });
+    }
 
     const inputMake = (vehicle.make || '').toLowerCase();
     const inputModel = (vehicle.model || '').toLowerCase();
@@ -161,7 +211,7 @@ RULES:
       systemPrompt += \`\\\\n\\\\nLABOR: \${JSON.stringify(assemblyData.breakdowns, null, 2)}\\\\nPARTS: \${JSON.stringify(assemblyData.partsRisks, null, 2)}\`;
     }
 
-    const userPrompt = \`Vehicle: \${vehicle.make || 'N/A'} \${vehicle.model || 'N/A'} | VIN: \${vin || 'N/A'} | Mileage: \${mileage || 'N/A'} | Codes: \${codes.join(', ') || 'None'} | Symptoms: \${symptoms.join(', ') || 'N/A'} | Tech Notes: \${notes.join(', ') || 'N/A'}\`;
+    const userPrompt = \`Vehicle: \${vehicle.make || 'N/A'} \${vehicle.model || 'N/A'} | VIN: \${vin || 'N/A'} | Mileage: \${mileage || 'N/A'} | Codes: \${targetCodes.join(', ') || 'None'} | Symptoms: \${targetSymptoms.join(', ') || 'N/A'} | Tech Notes: \${notes.join(', ') || 'N/A'}\`;
 
     executionTrace.log('GROQ_DISPATCH', 'Sending to Groq...');
 
@@ -191,7 +241,7 @@ RULES:
 
     finalResult.probability = calibrateProbabilityArray(
       finalResult.probability || [],
-      codes.length,
+      targetCodes.length,
       symptomTelemetry.hasMismatchedSignals
     );
 
