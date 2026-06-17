@@ -836,7 +836,6 @@
 
 <body>
 
-    <!-- HEADER -->
     <header class="header">
         <div class="brand-wrap">
             <div class="brand-icon">🔧</div>
@@ -853,7 +852,6 @@
 
     <div class="shell">
 
-        <!-- TABS -->
         <div class="tabs">
             <button class="tab active" data-tab="estimateTab">
                 <span class="tab-icon">📋</span>Estimate
@@ -869,10 +867,8 @@
             </button>
         </div>
 
-        <!-- ══ ESTIMATE TAB ══ -->
         <section class="panel active" id="estimateTab">
 
-            <!-- VOICE BAR -->
             <div class="voice-bar">
                 <span style="font-size:1.2rem">🎙️</span>
                 <p><strong>Voice Mode</strong> — speak symptoms, auto-fills the form</p>
@@ -903,7 +899,6 @@
 
             <div class="section-title">Vehicle</div>
 
-            <!-- VIN DECODE ROW -->
             <div class="vin-row" style="margin-bottom:12px">
                 <div class="field">
                     <label>VIN (paste to auto-fill vehicle info)</label>
@@ -965,11 +960,9 @@
                 </button>
             </div>
 
-            <!-- ESTIMATE RESULT -->
             <div class="result-card" id="estimateResult"></div>
         </section>
 
-        <!-- ══ DIAGNOSE TAB ══ -->
         <section class="panel" id="diagnoseTab">
 
             <div class="voice-bar">
@@ -1027,7 +1020,6 @@
             <div class="result-card" id="diagnoseResult"></div>
         </section>
 
-        <!-- ══ INVOICE TAB ══ -->
         <section class="panel" id="invoiceTab">
             <div class="section-title">Invoice Details</div>
 
@@ -1061,7 +1053,6 @@
             <div class="status-simple" id="invoiceStatus">Ready to generate.</div>
         </section>
 
-        <!-- ══ SHARE TAB ══ -->
         <section class="panel" id="shareTab">
             <div class="section-title">Share SKSK ProTech</div>
 
@@ -1391,24 +1382,19 @@
             </div>
           </div>` : ''}
 
-          ${Object.keys(r.codeExplanations||{}).length ? ` <
-                div class = "result-section" >
-                <
-                div class = "result-section-title" > < span class = "icon" > 🔢 < /span> Code Breakdown</div >
-                <
-                div class = "code-grid" >
-                $ {
-                    Object.entries(r.codeExplanations).map(([k, v]) => `
+          ${Object.keys(r.codeExplanations||{}).length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🔢</span> Code Breakdown</div>
+            <div class="code-grid">
+              ${Object.entries(r.codeExplanations).map(([k,v])=>`
                 <div class="code-row">
                   <span class="code-tag">${k}</span>
                   <span class="code-desc">${v}</span>
-                </div>`).join('')
-                } <
-                /div> <
-                /div>` : ''}
+                </div>`).join('')}
+            </div>
+          </div>` : ''}
 
-            $ {
-                r.probability?.length ? `
+          ${r.probability?.length ? `
           <div class="result-section">
             <div class="result-section-title"><span class="icon">📊</span> Probability Breakdown</div>
             <div class="prob-bar">
@@ -1418,67 +1404,50 @@
                   <div class="prob-track"><div class="prob-fill" style="width:${p.likelihood}%"></div></div>
                 </div>`).join('')}
             </div>
-          </div>` : ''
-            }
+          </div>` : ''}
 
-            $ {
-                r.knownIssues?.length ? `
+          ${r.knownIssues?.length ? `
           <div class="result-section">
             <div class="result-section-title"><span class="icon">⚠️</span> Known Issues — Watch For</div>
             <div class="list-items">
               ${r.knownIssues.map((x,i)=>`<div class="list-item"><span class="li-num">${i+1}</span>${x}</div>`).join('')}
             </div>
-          </div>` : ''
-            }
+          </div>` : ''}
 
-            $ {
-                r.repairSteps?.length ? `
+          ${r.repairSteps?.length ? `
           <div class="result-section">
             <div class="result-section-title"><span class="icon">🛠️</span> Repair Procedure</div>
             <div class="list-items">
               ${r.repairSteps.map((s,i)=>`<div class="list-item"><span class="li-num">${i+1}</span>${s}</div>`).join('')}
             </div>
-          </div>` : ''
-            }
+          </div>` : ''}
 
-            $ {
-                r.proTips?.length ? `
+          ${r.proTips?.length ? `
           <div class="result-section">
             <div class="result-section-title"><span class="icon">⚡</span> Pro Tips</div>
             <div class="list-items">
               ${r.proTips.map(t=>`<div class="list-item"><span class="li-icon">⚡</span>${t}</div>`).join('')}
             </div>
-          </div>` : ''
-            }
+          </div>` : ''}
 
-            $ {
-                r.recommendedTests?.length ? `
+          ${r.recommendedTests?.length ? `
           <div class="result-section">
             <div class="result-section-title"><span class="icon">🧪</span> Confirm With These Tests</div>
             <div class="list-items">
               ${r.recommendedTests.map(t=>`<div class="list-item"><span class="li-icon">→</span>${t}</div>`).join('')}
             </div>
-          </div>` : ''
-            }
+          </div>` : ''}
 
-            $ {
-                r.additionalChecks?.length ? `
+          ${r.additionalChecks?.length ? `
           <div class="result-section">
             <div class="result-section-title"><span class="icon">🔎</span> While You're In There</div>
             <div class="list-items">
               ${r.additionalChecks.map(c=>`<div class="list-item"><span class="li-icon">→</span>${c}</div>`).join('')}
             </div>
-          </div>` : ''
-            }
+          </div>` : ''}
 
-            <
-            div class = "result-muted" > ⏱Est.repair time: $ {
-                r.estimatedRepairTime || 'N/A'
-            }
-            $ {
-                r.notes ? `&nbsp;&nbsp;|&nbsp;&nbsp;📝 ${r.notes}` : ''
-            } < /div> <
-            /div>`;
+          <div class="result-muted">⏱ Est. repair time: ${r.estimatedRepairTime||'N/A'}${r.notes ? `&nbsp;&nbsp;|&nbsp;&nbsp;📝 ${r.notes}` : ''}</div>
+        </div>`;
         }
 
         // ── ESTIMATE ──
@@ -1495,7 +1464,7 @@
                         email: document.getElementById('customerEmail').value.trim()
                     },
                     vehicle: {
-                        year: document.getElementById('vehicleYear').value.trim(),
+                        year: parseInt(document.getElementById('vehicleYear').value.trim(), 10) || 2008,
                         make: document.getElementById('vehicleMake').value.trim(),
                         model: document.getElementById('vehicleModel').value.trim(),
                         trim: document.getElementById('vehicleTrim').value.trim()
@@ -1509,11 +1478,11 @@
                 };
 
                 const res = await fetchWithTimeout(`${API_BASE}/api/estimateHeuristic`, {
-                    l method: 'POST',
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'Authorization': 'Bearer DEVELOPMENT_TOKEN' // Passes your fresh server middleware shield
+                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
                     },
                     body: JSON.stringify(payload)
                 });
@@ -1551,7 +1520,9 @@
                 const res = await fetchWithTimeout(`${API_BASE}/api/diagnose`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
                     },
                     body: JSON.stringify(payload)
                 });
@@ -1589,7 +1560,9 @@
                 const res = await fetchWithTimeout(`${API_BASE}/api/invoice`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/pdf',
+                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
                     },
                     body: JSON.stringify(payload)
                 });
@@ -1657,7 +1630,8 @@
                 const response = await fetch('/api/invoice', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
                     },
                     body: JSON.stringify(estimateData)
                 });
@@ -1701,7 +1675,6 @@
 
         // --- Hooking Up Advanced UI Share Actions ---
         function gatherCurrentEstimatePayload() {
-            // Pulls current active data from the form fields to build the estimate block
             return {
                 customer: {
                     name: document.getElementById('customerName')?.value || 'Valued Customer',
@@ -1709,7 +1682,7 @@
                     email: document.getElementById('customerEmail')?.value || ''
                 },
                 vehicle: {
-                    year: document.getElementById('vehicleYear')?.value || '',
+                    year: parseInt(document.getElementById('vehicleYear')?.value, 10) || 2008,
                     make: document.getElementById('vehicleMake')?.value || '',
                     model: document.getElementById('vehicleModel')?.value || '',
                     trim: document.getElementById('vehicleTrim')?.value || 'Standard'
@@ -1723,22 +1696,18 @@
             };
         }
 
-        // Dynamic button attachment points if they exist in your UI framework
         document.addEventListener('DOMContentLoaded', () => {
-            // Wire up a PDF Button if added to DOM
             document.getElementById('btnPrintPdf')?.addEventListener('click', () => {
                 const payload = gatherCurrentEstimatePayload();
                 triggerPdfDownload(payload);
             });
 
-            // Wire up a Direct Text message button
             document.getElementById('btnSendSms')?.addEventListener('click', () => {
                 const payload = gatherCurrentEstimatePayload();
                 const summary = `Total Due: ${payload.totalAmount}\n\n${payload.estimateText}`;
                 shareViaSMS(payload.customer.phone, summary);
             });
 
-            // Wire up a Direct Email message button
             document.getElementById('btnSendEmail')?.addEventListener('click', () => {
                 const payload = gatherCurrentEstimatePayload();
                 const vInfo = `${payload.vehicle.year} ${payload.vehicle.make} ${payload.vehicle.model}`;
@@ -1752,3 +1721,4 @@
 </body>
 
 </html>
+
