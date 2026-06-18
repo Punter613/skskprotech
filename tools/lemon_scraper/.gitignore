@@ -1,0 +1,8 @@
+# Rust build artifacts
+/tools/lemon_scraper/target/
+/**/target/
+/**/target
+
+# Editor and temp files
+*.rs.bk
+*.swp
