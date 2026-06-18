@@ -1,0 +1,12 @@
+extends:
+  - "spectral:oas"
+
+# Example customizations (optional)
+rules:
+  info-contact:
+    description: "Info object should contain contact details"
+    severity: "warn"
+    given: "$"
+    then:
+      field: "info.contact"
+      function: truthy
