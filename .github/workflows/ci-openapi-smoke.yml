@@ -1,0 +1,83 @@
+name: CI — OpenAPI Lint & Smoke Test
+
+on:
+  push:
+    branches: ["main", "master", "develop"]
+  pull_request:
+    branches: ["main", "master", "develop"]
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "API base URL to test against"
+        required: false
+        default: "http://localhost:3000"
+      skip_smoke:
+        description: "Skip smoke tests (lint only)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  API_BASE_URL: ${{ github.event.inputs.api_base_url || 'http://localhost:3000' }}
+  MAX_RETRIES: "5"
+  RETRY_DELAY: "3"
+  PDF_OUT: "/tmp/invoice_smoke.pdf"
+
+jobs:
+  lint-openapi:
+    name: "Lint — Spectral OpenAPI"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Spectral CLI
+        run: npm install -g @stoplight/spectral-cli
+
+      - name: Lint openapi.yaml
+        run: |
+          spectral lint openapi.yaml \
+            --ruleset @stoplight/spectral-oas \
+            --fail-severity warn \
+            --format pretty
+
+  smoke-test:
+    name: "Smoke Test — Integration Verification"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: lint-openapi
+    if: ${{ github.event.inputs.skip_smoke != 'true' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install runtime dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y jq curl
+
+      - name: Execute Local Server Instance
+        run: |
+          npm ci
+          node server.js &
+          echo "SERVER_PID=$!" >> $GITHUB_ENV
+          sleep 3
+
+      - name: Run smoke tests
+        env:
+          API_BASE_URL: "http://localhost:3000"
+          TOKEN: ${{ secrets.API_TOKEN }}
+        run: bash scripts/smoke_test.sh
+
+      - name: Stop API Server Process Container
+        if: always()
+        run: kill ${{ env.SERVER_PID }} 2>/dev/null || true
