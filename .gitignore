@@ -38,3 +38,7 @@ temp/
 # Logs
 logs/
 *.log
+# local artifacts
+server.js.save
+*.pdf
+*.save
