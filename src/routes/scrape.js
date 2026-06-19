@@ -19,11 +19,13 @@ if (supabaseUrl && supabaseKey) {
   }
 }
 
-// Helper function to handle the binary execution process per mirror
-function runScraperForUrl(targetUrl) {
+// 🎯 ARGUMENT FIX: Accepts both base domain and keyword as distinct elements
+function runScraperForUrl(baseDomain, keyword) {
   return new Promise((resolve, reject) => {
     const binaryPath = path.join(__dirname, '../../bin/lemon_scraper');
-    const proc = spawn(binaryPath, [targetUrl], { timeout: 45000 });
+    
+    // 🎯 PASSES BOTH POSITIONAL SLOTS: args[1] = URL, args[2] = Keyword
+    const proc = spawn(binaryPath, [baseDomain, keyword], { timeout: 45000 });
 
     let out = '';
     let err = '';
@@ -53,7 +55,6 @@ router.post('/', async (req, res) => {
   if (!keyword) return res.status(400).json({ error: 'keyword required' });
   if (keyword.length > 200) return res.status(400).json({ error: 'keyword too long' });
 
-  // 🎯 THE TRIPLE-REDUNDANT MANIFOLD
   const mirrors = [
     'https://lemon-manuals.la',
     'https://lemon-manuals.org.ua',
@@ -64,24 +65,20 @@ router.post('/', async (req, res) => {
   let executionError = null;
   let activeMirrorUsed = '';
 
-  // Loop through available global lines sequentially if one chokes
   for (const baseDomain of mirrors) {
     try {
-      const targetUrl = `${baseDomain}/search?q=${encodeURIComponent(keyword)}`;
-      console.log(`🔌 Attempting extraction route via: ${targetUrl}`);
+      console.log(`🔌 Attempting extraction route via: ${baseDomain} looking for "${keyword}"`);
       
-      scraperData = await runScraperForUrl(targetUrl);
+      // Feed both pieces of fuel down to the binary wrapper
+      scraperData = await runScraperForUrl(baseDomain, keyword);
       activeMirrorUsed = baseDomain;
-      
-      // If we succeed, break the loop completely
       break; 
     } catch (err) {
       console.warn(`⚠️ Line failover tripped on ${baseDomain}: ${err.message}. Rotating lines...`);
-      executionError = err; // Keep track of the last error just in case
+      executionError = err;
     }
   }
 
-  // If all lines went down and returned nothing, throw the service error flag
   if (!scraperData) {
     return res.status(502).json({
       error: 'All distributed scraper mirrors failed to respond',
@@ -89,7 +86,6 @@ router.post('/', async (req, res) => {
     });
   }
 
-  // Map the items cleanly
   const normalized =
     scraperData.items?.map(item => ({
       title: String(item.title || ''),
@@ -98,7 +94,6 @@ router.post('/', async (req, res) => {
       meta: item.meta || {},
     })) || [];
 
-  // Commit to cache if data is present and DB is loaded
   if (normalized.length > 0 && db) {
     const targetDay = new Date().toISOString().slice(0, 10);
 
