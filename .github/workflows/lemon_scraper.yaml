@@ -1,35 +1,31 @@
-name: Build lemon_scraper
+name: Build Scraper Binary
 
 on:
   push:
-    paths:
-      - 'tools/lemon_scraper/**'
-  workflow_dispatch:
+    branches: [ main ]
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install Rust
         run: rustup default stable
 
-      - name: Install Cross-RS Engine
-        run: |
-          curl -L https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-musl.tar.gz | tar xz
-          sudo mv cross /usr/local/bin/
+      - name: Build release binary
+        run: cargo build --release --manifest-path=tools/lemon_scraper/Cargo.toml
 
-      # 🛠️ SWAPPED: Forging a static binary for x86_64 servers instead of ARM64 phones
-      - name: Build release for x86_64 MUSL via Cross
+      - name: Commit binary back to repository
         run: |
-          cross build --release \
-            --manifest-path=tools/lemon_scraper/Cargo.toml \
-            --target x86_64-unknown-linux-musl \
-            --features reqwest/native-tls-vendored,reqwest/trust-dns
-            
-      - name: Upload Server Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lemon_scraper-server-x86_64
-          path: tools/lemon_scraper/target/x86_64-unknown-linux-musl/release/lemon_scraper
+          mkdir -p bin
+          cp tools/lemon_scraper/target/release/lemon_scraper bin/lemon_scraper
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add bin/lemon_scraper
+          git commit -m "build: auto-forge production x86_64 binary [skip ci]" || echo "No changes to binary"
+          git push
