@@ -15,21 +15,16 @@ jobs:
       - name: Install Rust
         run: rustup default stable
 
-      - name: Add MUSL target
-        run: rustup target add aarch64-unknown-linux-musl
-
-      - name: Install ARM64 Cross-Linker
+      # 📥 Snatch the pre-compiled Cross binary from GitHub releases in 2 seconds
+      - name: Install Cross-RS Engine
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          curl -L https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-musl.tar.gz | tar xz
+          sudo mv cross /usr/local/bin/
 
-      # ⚡ We pass BOTH the Linker and the C Compiler (CC) flags so OpenSSL source compiles clean
-      - name: Build release for aarch64 MUSL
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
-          CC_aarch64_unknown_linux_musl: aarch64-linux-gnu-gcc
+      # ⚡ Let Cross spin up the dedicated container to cast the static MUSL block perfectly
+      - name: Build release for aarch64 MUSL via Cross
         run: |
-          cargo build --release \
+          cross build --release \
             --manifest-path=tools/lemon_scraper/Cargo.toml \
             --target aarch64-unknown-linux-musl \
             --features reqwest/native-tls-vendored
