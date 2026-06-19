@@ -73,7 +73,7 @@ router.post('/', async (req, res) => {
         codes: obdCodes,
         mileage,
         laborRate: laborRateNum
-      }, { log: () => {} }); // Trace stub to suppress console noise in estimation passes
+      }, { log: () => {}, logs: [] }); // Trace stub to suppress console noise in estimation passes
 
       if (pipelineResults.profile && pipelineResults.profile.rustMultiplier > 1.0) {
         rustBeltMultiplier = pipelineResults.profile.rustMultiplier;
