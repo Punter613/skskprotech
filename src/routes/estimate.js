@@ -82,7 +82,7 @@ router.post('/', async (req, res) => {
     }
 
     // FIX: Dynamically construct the vehicle identity string from ACTUAL real-time request parameters
-    const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim]
+    const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim, (vehicle.engine || vehicle.motorSize || "")].filter(Boolean).join(" ");
       .filter(Boolean).join(' ') || 'Unknown Vehicle';
 
     const systemPrompt = `You are the expert estimation module of SKSK ProTech — a master automotive mechanic with 25 years of real shop experience.
