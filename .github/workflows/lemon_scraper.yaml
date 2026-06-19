@@ -18,13 +18,11 @@ jobs:
       - name: Add target
         run: rustup target add aarch64-unknown-linux-gnu
 
-      # 🔧 Just install the native toolchain—no messy multiarch system libraries needed
       - name: Install ARM64 Cross-Linker
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      # ⚡ Bake OpenSSL directly into the block from source code using reqwest features
       - name: Build release for aarch64
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
@@ -38,4 +36,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lemon_scraper-aarch64
-          path: target/aarch64-unknown-linux-gnu/release/lemon_scraper
+          # 🎯 Pointing directly to the sub-folder target bay
+          path: tools/lemon_scraper/target/aarch64-unknown-linux-gnu/release/lemon_scraper
