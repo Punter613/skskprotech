@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { runDiagnosticPipeline } = require('../services/pipeline.engine');
+const { scrapeLEMONManuals } = require("../services/lemon");
 const { groqChat } = require('../services/groq');
 
 // Bracket-depth extraction logic to handle loose markdown text boundaries safely
