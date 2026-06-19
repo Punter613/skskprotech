@@ -25,12 +25,13 @@ router.post('/', async (req, res) => {
   if (!keyword) return res.status(400).json({ error: 'keyword required' });
   if (keyword.length > 200) return res.status(400).json({ error: 'keyword too long' });
 
-  // 🎯 URL ASSEMBLY: Swap out 'lemon-manuals.la/search?q=' with the exact target path if different
-  const targetUrl = `https://www.lemon-manuals.la/search?q=${encodeURIComponent(keyword)}`;
+  // 🎯 MIRROR SWITCHBOARD: Change this to 'https://lemon-manuals.org.ua' if you want to swap lines
+  const baseDomain = 'https://lemon-manuals.la';
   
-  // Hand the fully qualified absolute URL down to the Rust nth(1) slot
+  // 🎯 NAKED URL STRUCTURING: Strips out the 'www.' so DNS lookups don't drop the socket
+  const targetUrl = `${baseDomain}/search?q=${encodeURIComponent(keyword)}`;
+  
   const args = [targetUrl];
-  
   const binaryPath = path.join(__dirname, '../../bin/lemon_scraper');
   const proc = spawn(binaryPath, args, { timeout: 120000 });
 
