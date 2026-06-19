@@ -19,108 +19,82 @@ if (supabaseUrl && supabaseKey) {
   }
 }
 
-// 🎯 BACK TO SINGLE SLOT: Passes the full, completed query URL straight down the line
-function runScraperForUrl(targetUrl) {
-  return new Promise((resolve, reject) => {
-    const binaryPath = path.join(__dirname, '../../bin/lemon_scraper');
-    const proc = spawn(binaryPath, [targetUrl], { timeout: 45000 });
-
-    let out = '';
-    let err = '';
-
-    proc.stdout.on('data', d => out += d.toString());
-    proc.stderr.on('data', d => err += d.toString());
-
-    proc.on('close', (code) => {
-      if (code !== 0) {
-        return reject(new Error(err || `Exit code ${code}`));
-      }
-      try {
-        const parsed = JSON.parse(out);
-        resolve(parsed);
-      } catch (e) {
-        reject(new Error(`Invalid JSON output from scraper: ${e.message}`));
-      }
-    });
-
-    proc.on('error', (spawnErr) => reject(spawnErr));
-  });
-}
-
 router.post('/', async (req, res) => {
-  const keyword = String((req.body && req.body.keyword) || '').trim();
+  const url = String(req.body.url || '').trim();
+  const keyword = String(req.body.keyword || 'specifications').trim(); // Fallback label for DB reference
 
-  if (!keyword) return res.status(400).json({ error: 'keyword required' });
-  if (keyword.length > 200) return res.status(400).json({ error: 'keyword too long' });
+  if (!url) return res.status(400).json({ error: 'url required' });
+  if (url.length > 500) return res.status(400).json({ error: 'url too long' });
 
-  // Your global mirror array matching that beautiful keygen map
-  const mirrors = [
-    'https://lemon-manuals.la',
-    'https://lemon-manuals.org.ua',
-    'https://lemon-manuals.gy'
-  ];
+  // 🎯 WIDENED VALIDATION: Permits any of your verified international mirror channels
+  const isValidMirror = 
+    url.includes('lemon-manuals.la') || 
+    url.includes('lemon-manuals.org.ua') || 
+    url.includes('lemon-manuals.gy');
 
-  let scraperData = null;
-  let executionError = null;
-  let activeMirrorUsed = '';
+  if (!isValidMirror) {
+    return res.status(400).json({ error: 'URL must belong to a verified lemon-manuals mirror domain (.la, .org.ua, .gy)' });
+  }
 
-  for (const baseDomain of mirrors) {
-    try {
-      // 🎯 CONSTRUCT NAKED SEARCH LINK: Combines the mirror host and the query param
-      const targetUrl = `${baseDomain}/search?q=${encodeURIComponent(keyword)}`;
-      console.log(`🔌 Launching extraction line: ${targetUrl}`);
-      
-      // Fire the single absolute URL argument down to the Rust engine
-      scraperData = await runScraperForUrl(targetUrl);
-      activeMirrorUsed = baseDomain;
-      break; 
-    } catch (err) {
-      console.warn(`⚠️ Line failover tripped on ${baseDomain}: ${err.message}. Rotating lines...`);
-      executionError = err;
+  const binaryPath = path.join(__dirname, '../../bin/lemon_scraper');
+  const args = [url];
+  const proc = spawn(binaryPath, args, { timeout: 120000 });
+
+  let out = '';
+  let err = '';
+
+  proc.stdout.on('data', d => out += d.toString());
+  proc.stderr.on('data', d => err += d.toString());
+
+  proc.on('close', async (code) => {
+    if (code !== 0) {
+      console.error('scraper error', code, err);
+      return res.status(502).json({ error: 'scraper failed', details: err.slice(0, 200) });
     }
-  }
 
-  if (!scraperData) {
-    return res.status(502).json({
-      error: 'All distributed scraper mirrors failed to respond',
-      details: executionError ? executionError.message : 'Unknown network failure'
-    });
-  }
+    let parsed;
+    try {
+      parsed = JSON.parse(out);
+    } catch (e) {
+      console.error('parse error', e, out);
+      return res.status(500).json({ error: 'invalid scraper output layout' });
+    }
 
-  const normalized =
-    scraperData.items?.map(item => ({
-      title: String(item.title || ''),
-      url: String(item.url || ''),
-      price: item.price ?? null,
-      meta: item.meta || {},
+    // 🎯 STRUCTURE ALIGNMENT: Maps your Rust binary's true 'matches' array cleanly into your database format
+    const normalized = parsed.matches?.map(matchString => ({
+      title: matchString,
+      url: parsed.url || url,
+      price: null,
+      meta: { 
+        duration_ms: parsed.duration_ms || null,
+        extracted_at: new Date().toISOString()
+      },
     })) || [];
 
-  if (normalized.length > 0 && db) {
-    const targetDay = new Date().toISOString().slice(0, 10);
-
-    try {
-      const { error } = await db
-        .from('scrapes')
-        .upsert(
-          {
-            keyword,
+    // Log the data to the Supabase log grid if records were retrieved
+    if (normalized.length > 0 && db) {
+      try {
+        await db
+          .from('scrapes')
+          .insert({
+            keyword: `URL_CRAWL - ${keyword}`,
             results: normalized,
-            created_at: new Date().toISOString(),
-          },
-          { onConflict: 'keyword,created_day' }
-        );
-
-      if (error) {
-        console.error('❌ Supabase upsert failed:', error.message);
-      } else {
-        console.log(`🔄 Saved/Upserted cache for: "${keyword}" on day [${targetDay}] via mirror [${activeMirrorUsed}]`);
+            result_count: normalized.length,
+            source: 'lemon_scraper_directory',
+            created_at: new Date().toISOString()
+          });
+        console.log(`🔄 Logged ${normalized.length} manual records extracted from directory source.`);
+      } catch (dbErr) {
+        console.error('⚠️ DB insertion exception caught during log update:', dbErr);
       }
-    } catch (dbErr) {
-      console.error('⚠️ Critical DB exception caught during cache save:', dbErr);
     }
-  }
 
-  return res.json({ keyword, mirror: activeMirrorUsed, results: normalized });
+    return res.json({ 
+      url: parsed.url || url,
+      duration_ms: parsed.duration_ms || 0,
+      results: normalized 
+    });
+  });
 });
 
 module.exports = router;
