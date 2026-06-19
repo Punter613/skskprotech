@@ -19,13 +19,11 @@ if (supabaseUrl && supabaseKey) {
   }
 }
 
-// 🎯 ARGUMENT FIX: Accepts both base domain and keyword as distinct elements
-function runScraperForUrl(baseDomain, keyword) {
+// 🎯 BACK TO SINGLE SLOT: Passes the full, completed query URL straight down the line
+function runScraperForUrl(targetUrl) {
   return new Promise((resolve, reject) => {
     const binaryPath = path.join(__dirname, '../../bin/lemon_scraper');
-    
-    // 🎯 PASSES BOTH POSITIONAL SLOTS: args[1] = URL, args[2] = Keyword
-    const proc = spawn(binaryPath, [baseDomain, keyword], { timeout: 45000 });
+    const proc = spawn(binaryPath, [targetUrl], { timeout: 45000 });
 
     let out = '';
     let err = '';
@@ -55,6 +53,7 @@ router.post('/', async (req, res) => {
   if (!keyword) return res.status(400).json({ error: 'keyword required' });
   if (keyword.length > 200) return res.status(400).json({ error: 'keyword too long' });
 
+  // Your global mirror array matching that beautiful keygen map
   const mirrors = [
     'https://lemon-manuals.la',
     'https://lemon-manuals.org.ua',
@@ -67,10 +66,12 @@ router.post('/', async (req, res) => {
 
   for (const baseDomain of mirrors) {
     try {
-      console.log(`🔌 Attempting extraction route via: ${baseDomain} looking for "${keyword}"`);
+      // 🎯 CONSTRUCT NAKED SEARCH LINK: Combines the mirror host and the query param
+      const targetUrl = `${baseDomain}/search?q=${encodeURIComponent(keyword)}`;
+      console.log(`🔌 Launching extraction line: ${targetUrl}`);
       
-      // Feed both pieces of fuel down to the binary wrapper
-      scraperData = await runScraperForUrl(baseDomain, keyword);
+      // Fire the single absolute URL argument down to the Rust engine
+      scraperData = await runScraperForUrl(targetUrl);
       activeMirrorUsed = baseDomain;
       break; 
     } catch (err) {
