@@ -18,21 +18,22 @@ jobs:
       - name: Add target
         run: rustup target add aarch64-unknown-linux-gnu
 
-      # 📦 Unlock the arm64 architecture and pull the native ARM64 ssl libraries
-      - name: Install ARM64 Cross-Linker and System Libraries
+      # 🔧 Just install the native toolchain—no messy multiarch system libraries needed
+      - name: Install ARM64 Cross-Linker
         run: |
-          sudo dpkg --add-architecture arm64
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu libssl-dev:arm64
+          sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      # ⚡ Pass the cross-compilation flags so pkg-config knows how to route OpenSSL
+      # ⚡ Bake OpenSSL directly into the block from source code using reqwest features
       - name: Build release for aarch64
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-          PKG_CONFIG_ALLOW_CROSS: "1"
-          PKG_CONFIG_PATH: "/usr/lib/aarch64-linux-gnu/pkgconfig"
-        run: cargo build --release --manifest-path=tools/lemon_scraper/Cargo.toml --target aarch64-unknown-linux-gnu
-
+        run: |
+          cargo build --release \
+            --manifest-path=tools/lemon_scraper/Cargo.toml \
+            --target aarch64-unknown-linux-gnu \
+            --features reqwest/native-tls-vendored
+            
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
