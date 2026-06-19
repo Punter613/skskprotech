@@ -1,58 +1,58 @@
 import createClient from "openapi-fetch";
-import type { paths } from "../types/api"; // automatically generated from your yaml
+import type { paths, components } from "../types/api";
 
 const client = createClient<paths>({
-  baseUrl: "/", // Hooks directly to your Cloudflare Pages edge setup
+  baseUrl: "/", // Cloudflare Pages Edge target
 });
 
 export async function getEstimate(body: {
+  id: string;
   labor: number;
   parts: number;
   vin: string;
 }) {
-  const { data, error } = await client.POST("/api/estimate", {
+  const { data, error } = await client.POST("/api/estimateHeuristic", {
     body,
   });
   if (error) throw error;
   return data;
 }
 
-export async function diagnose(input: {
-  vin: string;
-  symptoms: string[];
-  codes: string[];
-  notes?: string;
+export async function diagnose(body: {
+  id: string;
+  vehicle?: {
+    year?: number;
+    make?: string;
+    trim?: string;
+  };
+  obdCodes?: string[];
+  customerStates?: string[];
 }) {
   const { data, error } = await client.POST("/api/diagnose", {
-    body: input,
+    body,
   });
   if (error) throw error;
   return data;
 }
 
 export async function getInvoice(body: {
+  id: string;
   customer: {
-    name: string;
-    phone: string;
-    email: string;
+    name?: string;
+    phone?: string;
   };
   vehicle: {
-    year: number;
-    make: string;
-    model: string;
-    trim: string;
+    year?: number;
+    make?: string;
+    model?: string;
+    trim?: string;
   };
   labor: number;
-  parts: number;
+  parts: components["schemas"]["Part"][];
   codes: string[];
 }) {
   const { data, error } = await client.POST("/api/invoice", {
-    body: {
-      ...body,
-      // Forcing standard numeric types for calculation security
-      labor: Number(body.labor),
-      parts: Number(body.parts)
-    },
+    body,
   });
   if (error) throw error;
   return data;
