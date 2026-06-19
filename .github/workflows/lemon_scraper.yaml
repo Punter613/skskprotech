@@ -15,27 +15,21 @@ jobs:
       - name: Install Rust
         run: rustup default stable
 
-      # 🎯 STEP 1: Run it right here on GitHub's terminal using the runner's native engine
-      - name: 🚀 Live Test Run on GitHub Terminal
-        run: |
-          echo "🪞 Striking up the Cookie Mirror Test directly on the cloud runner..."
-          cargo run --release --manifest-path=tools/lemon_scraper/Cargo.toml -- "https://httpbin.org/cookies"
-
-      # 📦 STEP 2: Still package your phone binary for later use
       - name: Install Cross-RS Engine
         run: |
           curl -L https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-musl.tar.gz | tar xz
           sudo mv cross /usr/local/bin/
 
-      - name: Build release for aarch64 MUSL via Cross
+      # 🛠️ SWAPPED: Forging a static binary for x86_64 servers instead of ARM64 phones
+      - name: Build release for x86_64 MUSL via Cross
         run: |
           cross build --release \
             --manifest-path=tools/lemon_scraper/Cargo.toml \
-            --target aarch64-unknown-linux-musl \
+            --target x86_64-unknown-linux-musl \
             --features reqwest/native-tls-vendored,reqwest/trust-dns
             
-      - name: Upload artifact
+      - name: Upload Server Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lemon_scraper-aarch64
-          path: tools/lemon_scraper/target/aarch64-unknown-linux-musl/release/lemon_scraper
+          name: lemon_scraper-server-x86_64
+          path: tools/lemon_scraper/target/x86_64-unknown-linux-musl/release/lemon_scraper
