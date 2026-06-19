@@ -1,78 +1,133 @@
-use reqwest::header::{HeaderMap, USER_AGENT};
+use reqwest::header::{HeaderMap, HeaderValue};
 use scraper::{Html, Selector};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
-use tokio::time::{sleep, Duration};
 
-#[derive(Serialize)]
-struct Extract {
+#[derive(Debug, Serialize, Deserialize)]
+struct ScrapedItem {
+    title: String,
     url: String,
-    matches: Vec<String>,
-    duration_ms: u128,
+    price: Option<f64>,
+    meta: HashMap<String, String>,
 }
 
-async fn fetch_with_retries(client: &reqwest::Client, url: &str, attempts: u8) -> Result<String, reqwest::Error> {
-    let mut last_err = None;
-    for i in 0..attempts {
-        match client.get(url).send().await {
-            Ok(resp) => return resp.text().await,
-            Err(e) => {
-                last_err = Some(e);
-                let backoff = Duration::from_secs(1 + (i as u64) * 2);
-                sleep(backoff).await;
-            }
-        }
-    }
-    Err(last_err.unwrap())
+#[derive(Debug, Serialize)]
+struct ScrapResult {
+    items: Vec<ScrapedItem>,
+    crawled_urls: usize,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start_time = Instant::now();
 
-    let url = std::env::args().nth(1).unwrap_or_else(|| {
-        "https://lemon-manuals.la/Hyundai/2005/Tucson%20V6-2.7L/Repair%20and%20Diagnosis/Technical%20Service%20Bulletins/All%20Technical%20Service%20Bulletins/Suspension%20-%20Strut%20Tower%20Bar%20Torque%20Specification/".to_string()
-    });
+    let mut base_url = "https://lemon-manuals.la/Hyundai/2005/Tucson%20V6-2.7L/Repair%20and%20Diagnosis/".to_string();
+    
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 {
+        base_url = args[1].clone();
+    }
 
     let mut headers = HeaderMap::new();
     headers.insert(
-        USER_AGENT,
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36".parse()?,
+        reqwest::header::USER_AGENT,
+        HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"),
     );
 
     let client = reqwest::Client::builder()
         .default_headers(headers)
         .build()?;
 
-    let body = fetch_with_retries(&client, &url, 3).await?;
+    // 🎯 USER OPTIMIZATION: Pre-allocate space for ~100 items on the heap to eliminate reallocation lag
+    let mut items = Vec::with_capacity(100);
+    let mut visited: HashSet<String> = HashSet::new();
+    let max_depth = 4;
 
-    let document = Html::parse_document(&body);
-    let selector = Selector::parse("main, #content, .content, body").unwrap();
+    let mut queue: Vec<(String, usize)> = vec![(base_url, 0)];
 
-    let mut matches: Vec<String> = Vec::new();
+    while let Some((current_url, current_depth)) = queue.pop() {
+        if current_depth > max_depth {
+            continue;
+        }
 
-    if let Some(element) = document.select(&selector).next() {
-        let text: Vec<String> = element
-            .text()
-            .map(|t| t.trim().replace('\n', " ").replace('\t', " "))
-            .filter(|t| !t.is_empty())
-            .map(|s| s.to_string())
-            .collect();
+        if visited.contains(&current_url) {
+            continue;
+        }
+        visited.insert(current_url.clone());
 
-        for line in text {
-            if line.contains("Torque") || line.contains("Nm") || line.contains("lb-ft") || line.contains("Specification") {
-                matches.push(line);
+        let response = match client.get(&current_url).send().await {
+            Ok(res) => res,
+            Err(_) => continue,
+        };
+
+        let html = match response.text().await {
+            Ok(txt) => txt,
+            Err(_) => continue,
+        };
+
+        let document = Html::parse_document(&html);
+        let link_selector = Selector::parse("a[href]").unwrap();
+
+        for element in document.select(&link_selector) {
+            if let Some(href) = element.value().attr("href") {
+                let full_url = normalize_url(&current_url, href);
+
+                if (full_url.contains("lemon-manuals.la") 
+                   || full_url.contains("lemon-manuals.org.ua") 
+                   || full_url.contains("lemon-manuals.gy"))
+                   && !full_url.ends_with(".pdf")
+                   && !full_url.contains('#') {
+                    
+                    if full_url.ends_with('/') || full_url.contains("/Repair/") || full_url.contains("/Diagnosis/") {
+                        queue.push((full_url, current_depth + 1));
+                    } else {
+                        let title_selector = Selector::parse("title").unwrap();
+                        let title = document
+                            .select(&title_selector)
+                            .next()
+                            .map(|el| el.text().collect::<String>())
+                            .unwrap_or_else(|| "Unknown Manual".to_string());
+
+                        items.push(ScrapedItem {
+                            title: title.trim().to_string(),
+                            url: full_url,
+                            price: None,
+                            meta: HashMap::new(),
+                        });
+                    }
+                }
             }
         }
     }
 
-    let duration = start_time.elapsed();
-    let out = Extract {
-        url,
-        matches,
-        duration_ms: duration.as_millis(),
+    // 🎯 COMPOSITE DEDUPLICATION: Prevents dropping distinct sub-manual chapters that share a URL
+    items.sort_by(|a, b| (&a.url, &a.title).cmp(&(&b.url, &b.title)));
+    items.dedup_by(|a, b| a.url == b.url && a.title == b.title);
+
+    let result = ScrapResult {
+        items,
+        crawled_urls: visited.len(),
     };
 
-    println!("{}", serde_json::to_string_pretty(&out)?);
+    println!("{}", serde_json::to_string(&result)?);
     Ok(())
+}
+
+fn normalize_url(base: &str, href: &str) -> String {
+    if href.starts_with("http://") || href.starts_with("https://") {
+        return href.to_string();
+    }
+
+    if href.starts_with('/') {
+        if let Some(end_idx) = base.find("//") {
+            if let Some(slash_idx) = base[end_idx + 2..].find('/') {
+                return base[..end_idx + 2 + slash_idx].to_string() + href;
+            }
+        }
+        return "https://lemon-manuals.la".to_string() + href;
+    }
+
+    let base_clean = base.trim_end_matches('/');
+    format!("{}/{}", base_clean, href)
 }
