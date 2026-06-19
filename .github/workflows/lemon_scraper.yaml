@@ -15,26 +15,26 @@ jobs:
       - name: Install Rust
         run: rustup default stable
 
-      - name: Add target
-        run: rustup target add aarch64-unknown-linux-gnu
+      - name: Add MUSL target
+        run: rustup target add aarch64-unknown-linux-musl
 
       - name: Install ARM64 Cross-Linker
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      - name: Build release for aarch64
+      # ⚡ Building for MUSL forces a self-contained executable that doesn't need external linkers
+      - name: Build release for aarch64 MUSL
         env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
         run: |
           cargo build --release \
             --manifest-path=tools/lemon_scraper/Cargo.toml \
-            --target aarch64-unknown-linux-gnu \
+            --target aarch64-unknown-linux-musl \
             --features reqwest/native-tls-vendored
             
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: lemon_scraper-aarch64
-          # 🎯 Pointing directly to the sub-folder target bay
-          path: tools/lemon_scraper/target/aarch64-unknown-linux-gnu/release/lemon_scraper
+          path: tools/lemon_scraper/target/aarch64-unknown-linux-musl/release/lemon_scraper
