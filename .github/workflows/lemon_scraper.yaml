@@ -23,10 +23,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      # ⚡ Building for MUSL forces a self-contained executable that doesn't need external linkers
+      # ⚡ We pass BOTH the Linker and the C Compiler (CC) flags so OpenSSL source compiles clean
       - name: Build release for aarch64 MUSL
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_musl: aarch64-linux-gnu-gcc
         run: |
           cargo build --release \
             --manifest-path=tools/lemon_scraper/Cargo.toml \
