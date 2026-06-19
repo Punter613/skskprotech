@@ -13,6 +13,10 @@ const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
 
 const app = express();
 
+// Scraper Route Mount
+const scrapeRouter = require('./src/routes/scrape');
+app.use('/api/scrape', scrapeRouter);
+
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
   methods: ['GET', 'POST', 'OPTIONS'],
