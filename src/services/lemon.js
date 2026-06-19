@@ -23,9 +23,9 @@ async function scrapeLEMONManuals(vin) {
     const vehiclePath = engineEnc ? `${modelEnc}%20${engineEnc}` : modelEnc;
     const baseURL = `https://lemon-manuals.la/${make.toLowerCase()}/${year}/${vehiclePath}/Repair%20and%20Diagnosis/`;
     
-    console.log(`🔗 Backend triggering lemonscraper for: ${baseURL}`);
+    console.log(`🔗 Backend triggering lemon_scraper for: ${baseURL}`);
 
-    const { stdout, stderr } = await exec(`./tools/lemon_scraper/target/release/lemonscraper "${baseURL}"`);
+    const { stdout, stderr } = await exec(`./tools/lemon_scraper/target/release/lemon_scraper "${baseURL}"`);
     
     if (stderr) console.error('⚠️ [Scraper Warning]:', stderr);
     
