@@ -15,6 +15,9 @@ else
 fi
 
 echo "🛠️ Step 3: Compiling the Rust lemonscraper binary..."
+# Navigate straight to the nested folder where Cargo.toml actually lives
+cd tools/lemon_scraper
 cargo build --release
+cd ../..
 
 echo "🚀 Step 4: Build complete!"
