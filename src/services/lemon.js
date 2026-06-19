@@ -25,7 +25,7 @@ async function scrapeLEMONManuals(vin) {
     
     console.log(`🔗 Backend triggering lemonscraper for: ${baseURL}`);
 
-    const { stdout, stderr } = await exec(`target/release/lemonscraper "${baseURL}"`);
+    const { stdout, stderr } = await exec(`./tools/lemon_scraper/target/release/lemonscraper "${baseURL}"`);
     
     if (stderr) console.error('⚠️ [Scraper Warning]:', stderr);
     
