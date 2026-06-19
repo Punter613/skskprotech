@@ -1,19 +1,22 @@
 openapi: 3.0.3
 info:
   title: SKSK ProTech API
-  version: "1.0.0"
+  version: 1.0.0
   description: Mobile diagnostic, estimation, and invoicing API for SKSK ProTech.
+  contact:
+    name: API Support
+    email: support@example.com
+    url: https://example.com/support
 servers:
-  - url: https://api.skskprotech.local
-    description: Local dev server
+- url: https://api.skskprotech.local
+  description: Local dev server
 tags:
-  - name: invoice
-    description: Invoice generation and PDF export
-  - name: diagnose
-    description: Local diagnostics and repair guidance
-  - name: estimate
-    description: Heuristic estimate engine (protected)
-
+- name: invoice
+  description: Invoice generation and PDF export
+- name: diagnose
+  description: Local diagnostics and repair guidance
+- name: estimate
+  description: Heuristic estimate engine (protected)
 components:
   securitySchemes:
     BearerAuth:
@@ -51,7 +54,10 @@ components:
           format: float
     InvoiceRequest:
       type: object
-      required: [customer, vehicle]
+      required:
+      - customer
+      - vehicle
+      - id
       properties:
         customer:
           $ref: '#/components/schemas/Customer'
@@ -89,6 +95,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Part'
+        id:
+          type: string
+          minLength: 1
     InvoiceResponse:
       type: object
       properties:
@@ -99,6 +108,12 @@ components:
           type: string
         pdfUrl:
           type: string
+        id:
+          type: string
+          minLength: 1
+      required:
+      - id
+      x-used-by: referenced-for-spectral
     DiagnoseRequest:
       type: object
       properties:
@@ -119,6 +134,11 @@ components:
           type: array
           items:
             type: string
+        id:
+          type: string
+          minLength: 1
+      required:
+      - id
     DiagnoseResult:
       type: object
       properties:
@@ -152,6 +172,11 @@ components:
             type: string
         jobContext:
           type: object
+        id:
+          type: string
+          minLength: 1
+      required:
+      - id
     EstimateResponse:
       type: object
       properties:
@@ -164,12 +189,11 @@ components:
           format: float
         breakdown:
           type: object
-
 paths:
   /api/invoice:
     post:
       tags:
-        - invoice
+      - invoice
       summary: Generate invoice PDF
       operationId: createInvoice
       requestBody:
@@ -180,24 +204,28 @@ paths:
               $ref: '#/components/schemas/InvoiceRequest'
             example:
               customer:
-                name: "Johnny Castaway"
-                phone: "330-555-0199"
+                name: Johnny Castaway
+                phone: 330-555-0199
               vehicle:
                 year: 2012
-                make: "Ram"
-                model: "1500"
-                trim: "Laramie 5.7L"
+                make: Ram
+                model: '1500'
+                trim: Laramie 5.7L
               mileage: 142500
-              obdCodes: ["P0303"]
-              symptoms: ["Lifter Tick", "Misfire under load"]
+              obdCodes:
+              - P0303
+              symptoms:
+              - Lifter Tick
+              - Misfire under load
               laborRate: 85
               estimatedHours: 12.0
-              partsCost: 485.50
+              partsCost: 485.5
               parts:
-                - name: "Mopar Camshaft (53022263AF)"
-                  cost: 225.00
-                - name: "Mopar MDS Lifter Yoke Set"
-                  cost: 260.50
+              - name: Mopar Camshaft (53022263AF)
+                cost: 225.0
+              - name: Mopar MDS Lifter Yoke Set
+                cost: 260.5
+              id: example-id-1
       responses:
         '200':
           description: PDF invoice binary
@@ -206,6 +234,9 @@ paths:
               schema:
                 type: string
                 format: binary
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvoiceResponse'
         '400':
           description: Bad request
           content:
@@ -219,11 +250,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
       x-offline-capable: true
-
+      description: Endpoint /api/invoice POST operation
   /api/diagnose:
     post:
       tags:
-        - diagnose
+      - diagnose
       summary: Run local diagnostics and return repair guidance
       operationId: runDiagnose
       requestBody:
@@ -235,10 +266,14 @@ paths:
             example:
               vehicle:
                 year: 2012
-                make: "Ram"
-                trim: "hemi"
-              obdCodes: ["P0303"]
-              customerStates: ["lifter tick", "misfire"]
+                make: Ram
+                trim: hemi
+              obdCodes:
+              - P0303
+              customerStates:
+              - lifter tick
+              - misfire
+              id: example-id-1
       responses:
         '200':
           description: Diagnostic result
@@ -264,15 +299,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
+      description: Endpoint /api/diagnose POST operation
   /api/estimateHeuristic:
     post:
       tags:
-        - estimate
+      - estimate
       summary: Heuristic estimate engine
       operationId: createEstimate
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -282,11 +317,13 @@ paths:
             example:
               vehicle:
                 year: 2012
-                make: "Ram"
-                trim: "hemi"
-              obdCodes: ["P0303"]
+                make: Ram
+                trim: hemi
+              obdCodes:
+              - P0303
               jobContext:
-                urgency: "standard"
+                urgency: standard
+              id: example-id-1
       responses:
         '200':
           description: Estimate result
@@ -324,6 +361,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-
+      description: Endpoint /api/estimateHeuristic POST operation
 security:
-  - {}
+- {}
