@@ -17,14 +17,14 @@ jobs:
     - name: Set up Node.js Runtime
       uses: actions/node@v4
       with:
-        node-level: '20'
+        node-version: '20'
         cache: 'npm'
 
     - name: Install Project Dependencies
       run: npm ci || npm install
 
     - name: Hardened OpenAPI Contract Lint
-      run: npx --yes @stoplight/spectral-cli@6.16.0 lint openapi.yaml --ruleset .spectral.yaml --format pretty
+      run: npx spectral lint openapi.yaml --ruleset .spectral.yaml --format pretty
 
     - name: Automatic Type Generation Line
       run: npm run gen
