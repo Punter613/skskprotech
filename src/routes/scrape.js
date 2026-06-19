@@ -19,79 +19,112 @@ if (supabaseUrl && supabaseKey) {
   }
 }
 
+// Helper function to handle the binary execution process per mirror
+function runScraperForUrl(targetUrl) {
+  return new Promise((resolve, reject) => {
+    const binaryPath = path.join(__dirname, '../../bin/lemon_scraper');
+    const proc = spawn(binaryPath, [targetUrl], { timeout: 45000 });
+
+    let out = '';
+    let err = '';
+
+    proc.stdout.on('data', d => out += d.toString());
+    proc.stderr.on('data', d => err += d.toString());
+
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        return reject(new Error(err || `Exit code ${code}`));
+      }
+      try {
+        const parsed = JSON.parse(out);
+        resolve(parsed);
+      } catch (e) {
+        reject(new Error(`Invalid JSON output from scraper: ${e.message}`));
+      }
+    });
+
+    proc.on('error', (spawnErr) => reject(spawnErr));
+  });
+}
+
 router.post('/', async (req, res) => {
   const keyword = String((req.body && req.body.keyword) || '').trim();
 
   if (!keyword) return res.status(400).json({ error: 'keyword required' });
   if (keyword.length > 200) return res.status(400).json({ error: 'keyword too long' });
 
-  // 🎯 MIRROR SWITCHBOARD: Change this to 'https://lemon-manuals.org.ua' if you want to swap lines
-  const baseDomain = 'https://lemon-manuals.la';
-  
-  // 🎯 NAKED URL STRUCTURING: Strips out the 'www.' so DNS lookups don't drop the socket
-  const targetUrl = `${baseDomain}/search?q=${encodeURIComponent(keyword)}`;
-  
-  const args = [targetUrl];
-  const binaryPath = path.join(__dirname, '../../bin/lemon_scraper');
-  const proc = spawn(binaryPath, args, { timeout: 120000 });
+  // 🎯 THE TRIPLE-REDUNDANT MANIFOLD
+  const mirrors = [
+    'https://lemon-manuals.la',
+    'https://lemon-manuals.org.ua',
+    'https://lemon-manuals.gy'
+  ];
 
-  let out = '';
-  let err = '';
+  let scraperData = null;
+  let executionError = null;
+  let activeMirrorUsed = '';
 
-  proc.stdout.on('data', d => out += d.toString());
-  proc.stderr.on('data', d => err += d.toString());
-
-  proc.on('close', async (code) => {
-    if (code !== 0) {
-      console.error('scraper error', code, err);
-      return res.status(502).json({ error: 'scraper failed', details: err.slice(0, 200) });
-    }
-
-    let parsed;
+  // Loop through available global lines sequentially if one chokes
+  for (const baseDomain of mirrors) {
     try {
-      parsed = JSON.parse(out);
-    } catch (e) {
-      console.error('parse error', e, out);
-      return res.status(500).json({ error: 'invalid scraper output' });
+      const targetUrl = `${baseDomain}/search?q=${encodeURIComponent(keyword)}`;
+      console.log(`🔌 Attempting extraction route via: ${targetUrl}`);
+      
+      scraperData = await runScraperForUrl(targetUrl);
+      activeMirrorUsed = baseDomain;
+      
+      // If we succeed, break the loop completely
+      break; 
+    } catch (err) {
+      console.warn(`⚠️ Line failover tripped on ${baseDomain}: ${err.message}. Rotating lines...`);
+      executionError = err; // Keep track of the last error just in case
     }
+  }
 
-    const normalized =
-      parsed.items?.map(item => ({
-        title: String(item.title || ''),
-        url: String(item.url || ''),
-        price: item.price ?? null,
-        meta: item.meta || {},
-      })) || [];
+  // If all lines went down and returned nothing, throw the service error flag
+  if (!scraperData) {
+    return res.status(502).json({
+      error: 'All distributed scraper mirrors failed to respond',
+      details: executionError ? executionError.message : 'Unknown network failure'
+    });
+  }
 
-    if (normalized.length > 0 && db) {
-      const targetDay = new Date().toISOString().slice(0, 10);
+  // Map the items cleanly
+  const normalized =
+    scraperData.items?.map(item => ({
+      title: String(item.title || ''),
+      url: String(item.url || ''),
+      price: item.price ?? null,
+      meta: item.meta || {},
+    })) || [];
 
-      try {
-        const { error } = await db
-          .from('scrapes')
-          .upsert(
-            {
-              keyword,
-              results: normalized,
-              created_at: new Date().toISOString(),
-            },
-            { 
-              onConflict: 'keyword,created_day' 
-            }
-          );
+  // Commit to cache if data is present and DB is loaded
+  if (normalized.length > 0 && db) {
+    const targetDay = new Date().toISOString().slice(0, 10);
 
-        if (error) {
-          console.error('❌ Supabase upsert failed:', error.message);
-        } else {
-          console.log(`🔄 Saved/Upserted cache for: "${keyword}" on day [${targetDay}]`);
-        }
-      } catch (dbErr) {
-        console.error('⚠️ Critical DB exception caught during cache save:', dbErr);
+    try {
+      const { error } = await db
+        .from('scrapes')
+        .upsert(
+          {
+            keyword,
+            results: normalized,
+            created_at: new Date().toISOString(),
+          },
+          { onConflict: 'keyword,created_day' }
+        );
+
+      if (error) {
+        console.error('❌ Supabase upsert failed:', error.message);
+      } else {
+        console.log(`🔄 Saved/Upserted cache for: "${keyword}" on day [${targetDay}] via mirror [${activeMirrorUsed}]`);
       }
+    } catch (dbErr) {
+      console.error('⚠️ Critical DB exception caught during cache save:', dbErr);
     }
+  }
 
-    return res.json({ keyword, results: normalized });
-  });
+  return res.json({ keyword, mirror: activeMirrorUsed, results: normalized });
 });
 
 module.exports = router;
