@@ -15,19 +15,24 @@ jobs:
       - name: Install Rust
         run: rustup default stable
 
-      # 📥 Snatch the pre-compiled Cross binary from GitHub releases in 2 seconds
+      # 🎯 STEP 1: Run it right here on GitHub's terminal using the runner's native engine
+      - name: 🚀 Live Test Run on GitHub Terminal
+        run: |
+          echo "🪞 Striking up the Cookie Mirror Test directly on the cloud runner..."
+          cargo run --release --manifest-path=tools/lemon_scraper/Cargo.toml -- "https://httpbin.org/cookies"
+
+      # 📦 STEP 2: Still package your phone binary for later use
       - name: Install Cross-RS Engine
         run: |
           curl -L https://github.com/cross-rs/cross/releases/latest/download/cross-x86_64-unknown-linux-musl.tar.gz | tar xz
           sudo mv cross /usr/local/bin/
 
-      # ⚡ Let Cross spin up the dedicated container to cast the static MUSL block perfectly
       - name: Build release for aarch64 MUSL via Cross
         run: |
           cross build --release \
             --manifest-path=tools/lemon_scraper/Cargo.toml \
             --target aarch64-unknown-linux-musl \
-            --features reqwest/native-tls-vendored
+            --features reqwest/native-tls-vendored,reqwest/trust-dns
             
       - name: Upload artifact
         uses: actions/upload-artifact@v4
