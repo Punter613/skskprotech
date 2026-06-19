@@ -4,10 +4,8 @@ const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const router = express.Router();
 
-// 🎯 EXPRESS ISOLATION FIX: Parse payloads locally so order of operations in server.js can't break it
 router.use(express.json());
 
-// 🎯 KEY TOLERANCE FIX: Scan for multiple common naming variants to match your Render dashboard setup
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
@@ -19,19 +17,20 @@ if (supabaseUrl && supabaseKey) {
   } catch (initErr) {
     console.error("❌ Failed to parse Supabase initialization:", initErr.message);
   }
-} else {
-  // 🎯 ANTI-CRASH GUARD: If keys are missing, log a warning but DO NOT crash the server on boot!
-  console.error("⚠️ Supabase environment variables are missing or mismatched. Caching layer is currently bypassed.");
 }
 
 router.post('/', async (req, res) => {
-  // Safe check ensures we don't throw an unhandled exception if req.body is missing
   const keyword = String((req.body && req.body.keyword) || '').trim();
 
   if (!keyword) return res.status(400).json({ error: 'keyword required' });
   if (keyword.length > 200) return res.status(400).json({ error: 'keyword too long' });
 
-  const args = [keyword];
+  // 🎯 URL ASSEMBLY: Swap out 'lemon-manuals.la/search?q=' with the exact target path if different
+  const targetUrl = `https://www.lemon-manuals.la/search?q=${encodeURIComponent(keyword)}`;
+  
+  // Hand the fully qualified absolute URL down to the Rust nth(1) slot
+  const args = [targetUrl];
+  
   const binaryPath = path.join(__dirname, '../../bin/lemon_scraper');
   const proc = spawn(binaryPath, args, { timeout: 120000 });
 
@@ -63,7 +62,6 @@ router.post('/', async (req, res) => {
         meta: item.meta || {},
       })) || [];
 
-    // Only attempt database interaction if the client successfully spun up on boot
     if (normalized.length > 0 && db) {
       const targetDay = new Date().toISOString().slice(0, 10);
 
