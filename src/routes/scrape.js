@@ -4,21 +4,34 @@ const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const router = express.Router();
 
-const db = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+// 🎯 EXPRESS ISOLATION FIX: Parse payloads locally so order of operations in server.js can't break it
+router.use(express.json());
+
+// 🎯 KEY TOLERANCE FIX: Scan for multiple common naming variants to match your Render dashboard setup
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+let db = null;
+if (supabaseUrl && supabaseKey) {
+  try {
+    db = createClient(supabaseUrl, supabaseKey);
+    console.log("⚡ Supabase client successfully initialized for scraping cache.");
+  } catch (initErr) {
+    console.error("❌ Failed to parse Supabase initialization:", initErr.message);
+  }
+} else {
+  // 🎯 ANTI-CRASH GUARD: If keys are missing, log a warning but DO NOT crash the server on boot!
+  console.error("⚠️ Supabase environment variables are missing or mismatched. Caching layer is currently bypassed.");
+}
 
 router.post('/', async (req, res) => {
-  const keyword = String(req.body.keyword || '').trim();
+  // Safe check ensures we don't throw an unhandled exception if req.body is missing
+  const keyword = String((req.body && req.body.keyword) || '').trim();
 
   if (!keyword) return res.status(400).json({ error: 'keyword required' });
   if (keyword.length > 200) return res.status(400).json({ error: 'keyword too long' });
 
-  // 🎯 POSITIONAL SPECS: Feeds raw keyword straight to your Rust engine's nth(1) slot
   const args = [keyword];
-  
-  // Adjusted pathing to look down into bin from the root directory layout
   const binaryPath = path.join(__dirname, '../../bin/lemon_scraper');
   const proc = spawn(binaryPath, args, { timeout: 120000 });
 
@@ -50,7 +63,8 @@ router.post('/', async (req, res) => {
         meta: item.meta || {},
       })) || [];
 
-    if (normalized.length > 0) {
+    // Only attempt database interaction if the client successfully spun up on boot
+    if (normalized.length > 0 && db) {
       const targetDay = new Date().toISOString().slice(0, 10);
 
       try {
@@ -73,11 +87,7 @@ router.post('/', async (req, res) => {
           console.log(`🔄 Saved/Upserted cache for: "${keyword}" on day [${targetDay}]`);
         }
       } catch (dbErr) {
-        if (dbErr.code === '23505') {
-          console.log(`⚠️ Duplicate keyword+day matching, skipping: "${keyword}"`);
-        } else {
-          console.error('⚠️ Critical DB exception:', dbErr);
-        }
+        console.error('⚠️ Critical DB exception caught during cache save:', dbErr);
       }
     }
 
