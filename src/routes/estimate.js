@@ -159,4 +159,35 @@ Mechanic Notices: ${mechanicNotices.join(', ') || 'N/A'}`;
   }
 });
 
+
+// 🎯 FACTORY VIN DECODER: Hooks directly into the NHTSA database for 100% factory accuracy
+router.post("/decode", async (req, res) => {
+  const vin = String(req.body.vin || "").toUpperCase().trim();
+
+  if (!vin || vin.length !== 17) {
+    return res.status(400).json({ error: "Valid 17-character VIN required" });
+  }
+
+  try {
+    const response = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${vin}?format=json`);
+    const data = await response.json();
+    const vehicle = data.Results?.[0];
+
+    if (!vehicle || !vehicle.Make) {
+      return res.status(404).json({ error: "No factory records found for this VIN layout" });
+    }
+
+    return res.json({
+      year: vehicle.ModelYear || "",
+      make: vehicle.Make || "",
+      model: vehicle.Model || "",
+      trim: vehicle.Trim || "",
+      engine: vehicle.DisplacementL ? `${vehicle.DisplacementL}L` : ""
+    });
+  } catch (err) {
+    console.error("❌ [VIN Decoder Error]:", err.message);
+    return res.status(502).json({ error: "Failed to communicate with federal decoding infrastructure" });
+  }
+});
+
 module.exports = router;
