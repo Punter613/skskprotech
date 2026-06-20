@@ -104,7 +104,7 @@ router.post('/', async (req, res) => {
     
     if (vin && vehicleInfo.make && vehicleInfo.model) {
       try {
-        manuals = await scrapeLEMONManuals(vin);
+        manuals = await scrapeLEMONManuals(vehicleInfo);
         if (manuals && manuals.length > 0) {
           appliedRustPenalty = true;
           console.log(`✅ [LEMON Scraper] Found ${manuals.length} manual pages`);
