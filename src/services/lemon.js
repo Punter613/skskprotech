@@ -25,10 +25,19 @@ async function scrapeLEMONManuals(vehicleInfo) {
 
     console.log(`🔗 Scraper triggering for: ${baseURL}`);
 
-    const { stdout, stderr } = await exec(`./tools/lemon_scraper/target/release/lemon_scraper "${baseURL}"`);
+    // ✅ FIX: Use absolute path for Render
+    const scraperPath = process.env.LEMON_SCRAPER_PATH || './tools/lemon_scraper/target/release/lemon_scraper';
+    const { stdout, stderr } = await exec(`${scraperPath} "${baseURL}"`);
 
     if (stderr) console.error('⚠️ [Scraper Warning]:', stderr);
-    return JSON.parse(stdout);
+    
+    // Parse output - handle empty results
+    const parsed = JSON.parse(stdout);
+    if (!parsed.items || parsed.items.length === 0) {
+      console.warn('⚠️ [Scraper Warning]: No items found');
+      return null;
+    }
+    return parsed;
   } catch (err) {
     console.error('❌ [Scraper Pipeline Error]:', err.message);
     return null;
