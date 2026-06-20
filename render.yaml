@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: p613-backend
+    env: node
+    buildCommand: |
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      export PATH="$HOME/.cargo/bin:$PATH"
+      npm install
+      npm run build
+      cd tools/lemon_scraper && cargo build --release
+    startCommand: |
+      export PATH="$HOME/.cargo/bin:$PATH"
+      node server.js
