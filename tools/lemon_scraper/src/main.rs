@@ -35,7 +35,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"),
     );
 
-    // ✅ FIX: Add timeout (5 seconds per request)
     let client = reqwest::Client::builder()
         .default_headers(headers)
         .timeout(std::time::Duration::from_secs(5))
@@ -43,8 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut items = Vec::with_capacity(100);
     let mut visited: HashSet<String> = HashSet::new();
-    let max_depth = 2;  // ✅ FIX: Reduced from 4 to 2 (faster)
-    let max_pages = 20; // ✅ FIX: Stop after 20 pages
+    let max_depth = 2;
+    let max_pages = 20;
 
     let mut queue: Vec<(String, usize)> = vec![(base_url, 0)];
 
@@ -57,7 +56,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        // ✅ FIX: Stop if we've crawled too many pages
         if visited.len() >= max_pages {
             eprintln!("⚠️  Reached max pages limit ({})", max_pages);
             break;
@@ -65,13 +63,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         visited.insert(current_url.clone());
 
-        // ✅ FIX: Add timeout wrapper
+        // ✅ Fixed timeout pattern
         let response = match tokio::time::timeout(
             std::time::Duration::from_secs(5),
             client.get(&current_url).send()
         ).await {
             Ok(Ok(res)) => res,
-            Ok(Err(_) | Err(_)) => continue,
+            Ok(Err(_)) => continue,
+            Err(_) => continue,
         };
 
         let html = match response.text().await {
