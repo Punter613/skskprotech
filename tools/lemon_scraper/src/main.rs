@@ -35,13 +35,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         HeaderValue::from_static("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"),
     );
 
+    // ✅ FIX: Add timeout (5 seconds per request)
     let client = reqwest::Client::builder()
         .default_headers(headers)
+        .timeout(std::time::Duration::from_secs(5))
         .build()?;
 
     let mut items = Vec::with_capacity(100);
     let mut visited: HashSet<String> = HashSet::new();
-    let max_depth = 4;
+    let max_depth = 2;  // ✅ FIX: Reduced from 4 to 2 (faster)
+    let max_pages = 20; // ✅ FIX: Stop after 20 pages
 
     let mut queue: Vec<(String, usize)> = vec![(base_url, 0)];
 
@@ -53,11 +56,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if visited.contains(&current_url) {
             continue;
         }
+
+        // ✅ FIX: Stop if we've crawled too many pages
+        if visited.len() >= max_pages {
+            eprintln!("⚠️  Reached max pages limit ({})", max_pages);
+            break;
+        }
+
         visited.insert(current_url.clone());
 
-        let response = match client.get(&current_url).send().await {
-            Ok(res) => res,
-            Err(_) => continue,
+        // ✅ FIX: Add timeout wrapper
+        let response = match tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            client.get(&current_url).send()
+        ).await {
+            Ok(Ok(res)) => res,
+            Ok(Err(_) | Err(_)) => continue,
         };
 
         let html = match response.text().await {
@@ -66,8 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         let document = Html::parse_document(&html);
-        
-        // Get title for THIS page
+
         let title_selector = Selector::parse("title").unwrap();
         let title = document
             .select(&title_selector)
@@ -75,7 +88,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .map(|el| el.text().collect::<String>())
             .unwrap_or_else(|| "Unknown Manual".to_string());
 
-        // ✅ FIX: Add EVERY visited page to items (directories + leaf pages)
         items.push(ScrapedItem {
             title: title.trim().to_string(),
             url: current_url.clone(),
@@ -95,7 +107,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                    && !full_url.ends_with(".pdf")
                    && !full_url.contains('#') {
 
-                    // ✅ FIX: Only queue directories (end with /)
                     if full_url.ends_with('/') {
                         queue.push((full_url, current_depth + 1));
                     }
