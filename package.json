@@ -7,20 +7,14 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "build": "npm run install-rust && node scripts/build_router_v9.js && npm run build-rust",
-    "install-rust": "if ! command -v cargo 2>/dev/null; then echo 'Installing Rust...' && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && export PATH="$HOME/.cargo/bin:$PATH"; fi",
-    "build-rust": "export PATH="$HOME/.cargo/bin:$PATH" && if command -v cargo 2>/dev/null; then cd tools/lemon_scraper && cargo build --release; else echo 'Cargo not found, skipping Rust build'; fi",
+    "install-rust": "if ! command -v cargo 2>/dev/null; then echo Installing Rust... && curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; fi && export PATH=$HOME/.cargo/bin:$PATH",
+    "build-rust": "export PATH=$HOME/.cargo/bin:$PATH && if command -v cargo 2>/dev/null; then cd tools/lemon_scraper && cargo build --release; else echo Cargo not found; fi",
     "ship": "node scripts/ship.js",
     "gen:types": "openapi-typescript openapi.yaml -o src/types/api.d.ts",
     "gen": "npm run gen:types",
     "test:ts": "tsc --noEmit"
   },
-  "keywords": [
-    "auto",
-    "estimator",
-    "stripe",
-    "ai",
-    "groq"
-  ],
+  "keywords": ["auto", "estimator", "stripe", "ai", "groq"],
   "author": "Brian Shaffer",
   "license": "ISC",
   "dependencies": {
@@ -40,7 +34,5 @@
     "openapi-typescript": "^7.13.0",
     "typescript": "^5.9.3"
   },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+  "engines": {"node": ">=18.0.0"}
 }
