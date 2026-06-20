@@ -17,6 +17,10 @@ const app = express();
 const scrapeRouter = require('./src/routes/scrape');
 app.use('/api/scrape', scrapeRouter);
 
+// Live Parts Pricing Engine Lane
+const partsRouter = require('./src/routes/parts');
+app.use('/api/parts', partsRouter);
+
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
   methods: ['GET', 'POST', 'OPTIONS'],
