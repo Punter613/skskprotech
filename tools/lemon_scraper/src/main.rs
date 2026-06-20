@@ -23,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start_time = Instant::now();
 
     let mut base_url = "https://lemon-manuals.la/Hyundai/2005/Tucson%20V6-2.7L/Repair%20and%20Diagnosis/".to_string();
-    
+
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 {
         base_url = args[1].clone();
@@ -39,7 +39,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .default_headers(headers)
         .build()?;
 
-    // 🎯 USER OPTIMIZATION: Pre-allocate space for ~100 items on the heap to eliminate reallocation lag
     let mut items = Vec::with_capacity(100);
     let mut visited: HashSet<String> = HashSet::new();
     let max_depth = 4;
@@ -67,41 +66,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
 
         let document = Html::parse_document(&html);
+        
+        // Get title for THIS page
+        let title_selector = Selector::parse("title").unwrap();
+        let title = document
+            .select(&title_selector)
+            .next()
+            .map(|el| el.text().collect::<String>())
+            .unwrap_or_else(|| "Unknown Manual".to_string());
+
+        // ✅ FIX: Add EVERY visited page to items (directories + leaf pages)
+        items.push(ScrapedItem {
+            title: title.trim().to_string(),
+            url: current_url.clone(),
+            price: None,
+            meta: HashMap::new(),
+        });
+
         let link_selector = Selector::parse("a[href]").unwrap();
 
         for element in document.select(&link_selector) {
             if let Some(href) = element.value().attr("href") {
                 let full_url = normalize_url(&current_url, href);
 
-                if (full_url.contains("lemon-manuals.la") 
-                   || full_url.contains("lemon-manuals.org.ua") 
+                if (full_url.contains("lemon-manuals.la")
+                   || full_url.contains("lemon-manuals.org.ua")
                    || full_url.contains("lemon-manuals.gy"))
                    && !full_url.ends_with(".pdf")
                    && !full_url.contains('#') {
-                    
-                    if full_url.ends_with('/') || full_url.contains("/Repair/") || full_url.contains("/Diagnosis/") {
-                        queue.push((full_url, current_depth + 1));
-                    } else {
-                        let title_selector = Selector::parse("title").unwrap();
-                        let title = document
-                            .select(&title_selector)
-                            .next()
-                            .map(|el| el.text().collect::<String>())
-                            .unwrap_or_else(|| "Unknown Manual".to_string());
 
-                        items.push(ScrapedItem {
-                            title: title.trim().to_string(),
-                            url: full_url,
-                            price: None,
-                            meta: HashMap::new(),
-                        });
+                    // ✅ FIX: Only queue directories (end with /)
+                    if full_url.ends_with('/') {
+                        queue.push((full_url, current_depth + 1));
                     }
                 }
             }
         }
     }
 
-    // 🎯 COMPOSITE DEDUPLICATION: Prevents dropping distinct sub-manual chapters that share a URL
     items.sort_by(|a, b| (&a.url, &a.title).cmp(&(&b.url, &b.title)));
     items.dedup_by(|a, b| a.url == b.url && a.title == b.title);
 
