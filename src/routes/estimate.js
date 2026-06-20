@@ -85,7 +85,7 @@ router.post('/', async (req, res) => {
     let vehicleInfo = vehicle;
     if (vin && (!vehicleInfo.make || !vehicleInfo.model)) {
       try {
-        const decodeResponse = await fetch('http://localhost:10000/api/estimateHeuristic/decode', {
+        const decodeResponse = await fetch(`http://localhost:${process.env.PORT || 3000}/api/estimateHeuristic/decode`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ vin })
