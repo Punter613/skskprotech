@@ -20,7 +20,7 @@ struct ScrapResult {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let start_time = Instant::now();
+    let _start_time = Instant::now();
 
     let mut base_url = "https://lemon-manuals.la/Hyundai/2005/Tucson%20V6-2.7L/Repair%20and%20Diagnosis/".to_string();
 
