@@ -1,157 +1,34 @@
-# SKSK ProTech - Mobile Mechanic AI Estimator
+# 🛠️ SKSK ProTech - Core Backend Engine
 
-An AI-powered mobile mechanic diagnostic and estimate generator built for **Samsung A15** and other Android devices. This Progressive Web App (PWA) works offline and can be installed directly to your home screen like a native app.
+SKSK ProTech is a high-speed, enterprise-grade auto estimation and field service pipeline built for mobile mechanics and independent shops. It takes raw technician field notes and vehicle data, refines it through an automated data loop, and spits out client-ready invoices and field diagnostics in seconds.
 
-## Features
-
-- **AI-Powered Estimates** - Uses Groq LLM for intelligent diagnostic analysis
-- **PWA Installation** - Install to home screen on Android/iOS (works offline)
-- **Samsung A15 Optimized** - Touch-friendly, responsive design
-- **Offline Support** - Service worker caches app shell for offline use
-- **Real-time Pricing** - Labor, parts, tax calculations
-- **VIN Decoding** - Extracts year/make/model from VIN via NHTSA API
-- **Customer Management** - Save and track estimates via Supabase (optional)
-- **Dark Mode** - Reduced eye strain for field work
+**Production Server:** `https://p613-backend.onrender.com`  
+**Runtime Environment:** Node.js (v26+) / Termux Mobile Workshop / Render Cloud
 
 ---
 
-## Quick Start
+## 🟢 Where We Are (Current Status)
 
-```bash
-git clone https://github.com/Punter613/skskprotech.git
-cd skskprotech
-npm install
-cp .env.example .env
-# Edit .env with your API keys
-npm start
-```
+The core architecture is officially fully operational, debugged, and running live in production. Instead of hitting multiple slow endpoints, the app utilizes a unified **one-shot estimation pipeline** (`POST /api/full-estimate`) that completes a massive multi-system data sequence in under 7 seconds:
 
----
-
-## API Keys Setup
-
-| Service | Key | Required | Get It From |
-|---------|-----|----------|-------------|
-| Groq AI | `GROQ_API_KEY` | **Yes** | https://console.groq.com |
-| Supabase | `SUPABASE_URL` + `SUPABASE_KEY` | No | https://supabase.com |
-| Stripe | `STRIPE_SECRET_KEY` | No | https://stripe.com |
+*   **Federal VIN Decoding:** Directly interfaces with the NHTSA VPIC API to instantly resolve 17-character VIN strings into exact Year, Make, Model, and Engine factory configurations.
+*   **Factory Manual Scrape:** Automatically scans and indexes specialized repair sheets and Technical Service Bulletins (TSBs) via the `lemon-manuals` crawler, utilizing a local storage caching architecture.
+*   **The AI Shop Foreman:** Leverages the Groq LLaMA-3 framework to analyze customer complaints, mechanic findings, and active OBD-II trouble codes to calculate realistic shop labor times, strict priority levels, and deep-dive diagnostic evaluations.
+*   **3-Tier Cost Matrix:** Automatically breaks down part search requests into an actionable commercial tier array:
+    *   *Economy Tier:* Everyday aftermarket pricing (AutoZone/Retail).
+    *   *OEM Tier:* Factory certified specification matching (eBay Motors API).
+    *   *Premium Performance:* Severe-duty component routing (NAPA Commercial Hub).
+*   **Shaffer Field Guides:** Generates precise, mobile-optimized step-by-step repair documentation on demand, complete with critical tool sizes, safety protocols, and torque specifications.
+*   **Pristine Text Parsing:** Utilizes a non-regex array line-splitting engine to reliably handle markdown text conversions without risking syntax crashes.
 
 ---
 
-## API Endpoints
+## 🚀 The Potential (Future Roadmap)
 
-### `POST /api/estimate`
-Generate AI repair estimate.
+With the core structural pipes running wide open, SKSK ProTech is primed to scale from a backend framework into a full commercial shop management platform:
 
-**Request:**
-```json
-{
-  "customer": { "name": "John", "phone": "555-0123", "email": "john@example.com" },
-  "vehicle": { "year": "2008", "make": "Ford", "model": "F150", "trim": "XLT" },
-  "obdCodes": ["P0300", "P0171"],
-  "customerStates": ["Engine knocking", "Poor acceleration"],
-  "mechanicNotices": ["Spark plugs fouled"],
-  "laborRate": 65,
-  "partsCost": 80,
-  "vin": "1FTPX14V87FA12345"
-}
-```
-
-### `POST /api/diagnose`
-AI-powered diagnostic analysis.
-
-### `POST /api/invoice`
-Generate professional PDF invoice.
-
-### `GET /health`
-Server health status with DB/AI config check.
-
----
-
-## Project Structure
-
-```
-skskprotech/
-├── index.html                    # PWA frontend (single page)
-├── server.js                     # Express backend with CORS, security headers
-├── sw.js                         # Service worker for offline support
-├── manifest.json                 # PWA app manifest
-├── package.json                  # Dependencies
-├── .env.example                  # Environment variables template
-├── .gitignore                    # Git ignore rules
-├── apply_update.sh               # Safe update script (Termux)
-├── fix_supabase.sh               # Supabase connection fix (safe)
-├── install_pdfkit.sh             # PDFKit install helper
-├── src/
-│   ├── routes/
-│   │   ├── estimate.js           # AI estimate generation
-│   │   ├── diagnose.js           # AI diagnostic analysis
-│   │   ├── invoice.js            # PDF invoice generation
-│   │   └── payments.js           # Stripe payments (lazy-loaded)
-│   └── services/
-│       ├── groq.js               # Shared Groq LLM client with caching
-│       ├── db.js                 # Supabase client (safe fallback)
-│       ├── vin.js                # VIN decoder (NHTSA API + local)
-│       └── pdf.js                # PDF generation engine
-└── functions/api/                # Cloudflare Pages functions
-    ├── estimate.js
-    ├── diagnose.js
-    └── invoice.js
-```
-
----
-
-## Deployment
-
-### Backend (Node.js)
-
-**Render (recommended)**
-```bash
-git push origin main
-# Connect repo at render.com, set env vars in dashboard
-```
-
-**Self-hosted / Termux**
-```bash
-./apply_update.sh   # Pull, install, verify
-npm start           # Start server
-```
-
-### Frontend (PWA)
-
-**Cloudflare Pages**
-```bash
-wrangler pages deploy .
-```
-
-**Any static host**
-Upload `index.html`, `sw.js`, `manifest.json` and the `icons/` folder.
-
----
-
-## What's Fixed & Optimized
-
-### Critical Fixes
-- **HTML regex bug** - `splitLines()` had a broken multiline regex that crashed JavaScript
-- **Missing dotenv** - `.env` file was never loaded, all API keys were undefined
-- **CORS not configured** - `cors` package installed but never used, causing cross-origin failures
-- **Stripe crash on startup** - App crashed if `STRIPE_SECRET_KEY` was missing; now lazy-loads gracefully
-- **Destructive shell scripts** - `apply_update.sh` and `fix_supabase.sh` overwrote working AI code with stubs
-
-### Efficiency Optimizations
-- **Shared Groq service** - Eliminated duplicate `groqChat()` code in estimate/diagnose routes
-- **Groq response caching** - Identical prompts are cached for 5 minutes to reduce API costs
-- **Real VIN decoding** - Extracts model year from VIN position 10, calls NHTSA API for full decode
-- **Improved PDF invoices** - Professional layout with branded header, itemized charges, styled footer
-- **Security headers** - Added X-Frame-Options, X-Content-Type-Options, X-XSS-Protection
-- **Request timeouts** - All routes have 30s timeout with graceful error handling
-- **Graceful shutdown** - Handles SIGTERM/SIGINT for clean server restarts
-- **Health check** - Returns status of DB, Stripe, and Groq configuration
-
----
-
-## License
-
-ISC - See LICENSE file
-
-Made for mobile mechanics everywhere
+1.  **Frontend Dashboard Integration:** Mapping the unified JSON outputs directly into clean, high-contrast, touch-friendly UI cards on the mobile screen for immediate technician view.
+2.  **Voice-to-Text Ingestion:** Integrating audio stream transcription so a field mechanic can dictate "pads are down to 2mm, rotor has a lip" directly into the phone microphone while under the wheel well, immediately trigger-firing the estimation pipeline.
+3.  **Stripe Commercial Checkout:** Activating the built-in Stripe payment gateway pathways (`/api/payments`) to allow mechanics to collect immediate client authorization deposits and process digital field invoices on-site.
+4.  **Diagnostic Parameter Isolation:** Fine-tuning the AI foreman's internal prompt parameters to hard-separate unrelated vehicle sub-systems (ensuring electrical engine misfires don't cross-contaminate mechanical brake pad friction wear reports).
+5.  **Multi-Shop Scaling:** Adapting the Supabase database tenant architecture to support multiple independent service trucks running off the same centralized engine layer.
