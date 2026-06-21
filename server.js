@@ -131,3 +131,7 @@ app.use('/api/fleet', fleetRouter);
 
 // Serve corporate frontend asset frames
 app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
+
+// 💳 SKSKFLEET Corporate Procurement Billing Matrix Gateway
+const paymentsRouter = require('./src/routes/payments');
+app.use('/api/payments', paymentsRouter);
