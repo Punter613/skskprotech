@@ -115,3 +115,8 @@ const gracefulShutdown = () => {
 
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
+
+// 🤖 Background Queue Worker Activation
+// This pulls the worker out of the breakroom and forces it to listen for active Bull queue jobs
+require('./src/workers/aiWorker');
+console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
