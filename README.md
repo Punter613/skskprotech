@@ -39,3 +39,17 @@ With the core structural pipes running wide open, SKSK ProTech is primed to scal
 * **Render Build Command Overhaul:** Swapped build string to execute Node installations before running the Rust compiler.
 * **Database Driver Alignment:** Migrated `src/db.js` from a raw PG pool to the official `@supabase/supabase-js` SDK client.
 * **Diagnostic Dashboard Deployed:** Launched the `index.html` dark-mode diagnostic cockpit with cache-proof polling loops.
+
+---
+
+## 🚚 Next Up on the Assembly Line: SKSKFLEET
+
+The foundational P613 retail pipeline is locked down, pressurized, and stable. The next production cycle introduces **SKSKFLEET**—a high-margin, multi-tenant B2B platform engineered for regional fleet managers, logistics networks, and commercial transit lines.
+
+### 🧱 Architectural Pillars (In the Pipe)
+* **Multi-Tenant Control Harness (`tenant_id`):** Segregates database infrastructure at the core level. One backend service network, multiple isolated front-end corporate spaces with role-based checkpoint permissions (`fleet_manager`, `mechanic`, `driver`).
+* **Active Operations Roster UI:** A clean, data-dense logistics HUD tracking fleet assets by Unit ID, VIN, and current mileage, with high-visibility vehicle state markers (`OK` / `Needs Service` / `Critical`).
+* **AI-Predictive Failure Analytics:** Extends the active multi-repair signal engine to calculate failure horizons. Cross-references vehicle model TSB histories, mileage milestones, and active fault codes to predict parts degradation windows before a truck drops a line on a delivery run.
+* **Bulk Aggregator Optimization:** Allows operators to select 5–50 fleet vehicles simultaneously to run full-stack parallel VIN decodes, manual scrapers, AI computations, and live supplier checks in a single batch.
+* **Fleet-Scale Parts Procurement:** Leverages the live `/api/parts-lookup` cache matrix to calculate high-volume parts runs (bulk filters, brake lines, ignition sets), instantly serving up the cheapest local pickup options versus online distributor lead times.
+* **White-Label Invoicing & Branding:** Dynamically serves distinct colorways, custom company logos, and custom layout parameters matched to the logged-in corporate domain.
