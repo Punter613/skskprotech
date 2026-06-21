@@ -40,7 +40,8 @@ app.use('/api/parts', partsRouter);
 // ─── NEW: Unified full-estimate pipeline lane ───
 const fullEstimateRouter = require('./src/routes/full-estimate');
 app.use('/api/full-estimate', fullEstimateRouter);
-
+const jobsRouter = require('./src/routes/jobs');
+app.use('/api/jobs', jobsRouter);
 app.use('/api/diagnose', diagnose);
 app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); 
 app.use('/api/invoice', invoice);
