@@ -1,25 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../pool');
+const db = require('../db'); // 🔌 Clean link directly to your unified Supabase manager
 
 router.get('/:id', async (req, res) => {
   try {
-    const jobId = req.params.id;
-    
-    const result = await pool.query(
-      'SELECT id, type, payload, status, result, created_at, finished_at FROM ai_jobs WHERE id = $1',
-      [jobId]
-    );
+    const id = req.params.id;
+    const job = await db.getJobById(id);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Job ID not found in database.' });
-    }
+    if (!job) return res.status(404).json({ error: 'job not found' });
 
-    // Returns the row directly to the frontend polling loop
-    res.json(result.rows[0]);
+    // Normalize response for your bulletproof client-side polling function
+    const response = {
+      id: job.id,
+      status: job.status || 'queued',
+      result: job.result || job.payload || null,
+      created_at: job.created_at,
+      finished_at: job.finished_at
+    };
+
+    return res.json(response);
   } catch (err) {
-    console.error('[Polling API Error]:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    console.error('jobs:get', err);
+    return res.status(500).json({ error: 'internal error' });
   }
 });
 
