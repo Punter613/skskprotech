@@ -7,8 +7,13 @@ const { groqChat } = require('../services/groq');
 
 function extractJSON(text) {
   if (!text) return null;
-  const clean = text.replace(/```json\s*/gi, '').replace(/
-```\s*/g, '').trim();
+  // Remove markdown code blocks safely
+  let clean = text;
+  clean = clean.replace(/```json/gi, '');
+  clean = clean.replace(/
+```/g, '');
+  clean = clean.trim();
+  
   const start = clean.indexOf('{');
   if (start === -1) return null;
   let depth = 0;
@@ -44,7 +49,7 @@ function safeEstimate(laborRate, partsCost, overrides = {}) {
   };
 }
 
-// Decode VIN directly via NHTSA
+// Decode VIN directly via NHTSA (no localhost self-call)
 async function decodeVinNhtsa(vin) {
   const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${vin}?format=json`);
   const data = await res.json();
@@ -59,7 +64,7 @@ async function decodeVinNhtsa(vin) {
   };
 }
 
-// Heuristic parts pricing 
+// Heuristic parts pricing (same logic as your parts.js)
 function getPartsEstimate(year, make, model, partType) {
   let basePrice = 50.00;
   const target = (partType || '').toLowerCase();
@@ -131,15 +136,15 @@ router.post('/', async (req, res) => {
   const logs = [];
 
   try {
-    // ─── STEP 1: VIN DECODE ───
+    // STEP 1: VIN DECODE
     logs.push('[1/5] Decoding VIN...');
     const vehicle = await decodeVinNhtsa(vin);
     if (!vehicle || !vehicle.make) {
-      return res.status(404).json({ success: false, error: 'VIN decode failed — no factory records found' });
+      return res.status(404).json({ success: false, error: 'VIN decode failed' });
     }
-    logs.push(`[1/5] ✓ ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.engine}`);
+    logs.push(`[1/5] OK ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.engine}`);
 
-    // ─── STEP 2: SCRAPE LEMON MANUALS ───
+    // STEP 2: SCRAPE LEMON MANUALS
     logs.push('[2/5] Scraping LEMON manuals...');
     let scrapeResult = null;
     let tsbs = [];
@@ -155,15 +160,15 @@ router.post('/', async (req, res) => {
                       item.title.includes('Diagnostic') ? 'Diagnostic' :
                       item.title.includes('Repair') ? 'Repair Procedure' : 'Manual'
           }));
-        logs.push(`[2/5] ✓ Found ${tsbs.length} manual pages`);
+        logs.push(`[2/5] OK Found ${tsbs.length} manual pages`);
       } else {
-        logs.push('[2/5] ⚠ No manual pages found');
+        logs.push('[2/5] WARN No manual pages found');
       }
     } catch (err) {
-      logs.push(`[2/5] ⚠ Scraper failed: ${err.message}`);
+      logs.push(`[2/5] WARN Scraper failed: ${err.message}`);
     }
 
-    // ─── STEP 3: AI ESTIMATE ───
+    // STEP 3: AI ESTIMATE
     logs.push('[3/5] Generating AI estimate...');
     const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim, vehicle.engine]
       .filter(Boolean).join(' ');
@@ -172,7 +177,7 @@ router.post('/', async (req, res) => {
       ? `\n\nRELEVANT FACTORY MANUAL SECTIONS:\n${tsbs.slice(0, 10).map(t => `- ${t.title} (${t.url})`).join('\n')}`
       : '';
 
-    const systemPrompt = `You are the expert estimation module of SKSK ProTech — a master automotive mechanic with 25 years of real shop experience.
+    const systemPrompt = `You are the expert estimation module of SKSK ProTech - a master automotive mechanic with 25 years of real shop experience.
 
 Output a single valid JSON object ONLY. No backticks, no markdown, no text before or after.
 {
@@ -217,11 +222,11 @@ Mileage: ${mileage.toLocaleString()}`;
       const aiText = groqRes?.choices?.[0]?.message?.content || '';
       estimate = extractJSON(aiText);
       if (!estimate) throw new Error('JSON extraction failed');
-      logs.push('[3/5] ✓ AI estimate generated');
+      logs.push('[3/5] OK AI estimate generated');
     } catch (aiErr) {
-      logs.push(`[3/5] ⚠ AI failed: ${aiErr.message} — using fallback`);
+      logs.push(`[3/5] WARN AI failed: ${aiErr.message} - using fallback`);
       estimate = safeEstimate(laborRateNum, partsCostNum, {
-        notes: 'AI estimation unavailable — manual inspection required'
+        notes: 'AI estimation unavailable - manual inspection required'
       });
     }
 
@@ -234,14 +239,14 @@ Mileage: ${mileage.toLocaleString()}`;
       estimate.priority = 'medium';
     }
 
-    // ─── STEP 4: PARTS SEARCH ───
+    // STEP 4: PARTS SEARCH
     logs.push('[4/5] Searching parts...');
     const parts = partType
       ? getPartsEstimate(vehicle.year, vehicle.make, vehicle.model, partType)
       : [];
-    logs.push(`[4/5] ✓ ${parts.length} parts tiers found`);
+    logs.push(`[4/5] OK ${parts.length} parts tiers found`);
 
-    // ─── STEP 5: REPAIR GUIDE ───
+    // STEP 5: REPAIR GUIDE
     logs.push('[5/5] Generating repair guide...');
     let guide = null;
     if (tsbs.length > 0 && estimate.repairs && estimate.repairs.length > 0) {
@@ -277,15 +282,15 @@ Use Markdown. Be direct and practical. Max 400 words.`;
         ], { max_tokens: 1000, temperature: 0.3 });
 
         guide = guideRes?.choices?.[0]?.message?.content || null;
-        logs.push('[5/5] ✓ Repair guide generated');
+        logs.push('[5/5] OK Repair guide generated');
       } catch (guideErr) {
-        logs.push(`[5/5] ⚠ Guide failed: ${guideErr.message}`);
+        logs.push(`[5/5] WARN Guide failed: ${guideErr.message}`);
       }
     } else {
-      logs.push('[5/5] ⚠ Skipped — no TSBs or repairs to guide');
+      logs.push('[5/5] SKIP No TSBs or repairs to guide');
     }
 
-    // ─── ASSEMBLE RESPONSE ───
+    // ASSEMBLE RESPONSE
     const duration = Date.now() - startTime;
 
     res.json({
