@@ -5,59 +5,7 @@ const { groqChat } = require('../services/groq');
 
 // ─── UTILS ───
 
-function extractJSON(text) {
-  if (!text) return null;
-  
-  let clean = text.trim();
-  
-  // Safe No-Regex Codeblock Stripper
-  if (clean.startsWith('```')) {
-    const lines = clean.split('\n');
-    if (lines[0].toLowerCase().includes('```json') || lines[0].trim() === '```') {
-      lines.shift();
-    }
-    if (lines[lines.length - 1].trim() === '```') {
-      lines.pop();
-    }
-    clean = lines.join('\n').trim();
-  }
-  
-  const start = clean.indexOf('{');
-  if (start === -1) return null;
-  let depth = 0;
-  for (let i = start; i < clean.length; i++) {
-    if (clean[i] === '{') depth++;
-    else if (clean[i] === '}') {
-      depth--;
-      if (depth === 0) {
-        try { return JSON.parse(clean.slice(start, i + 1)); }
-        catch { return null; }
-      }
-    }
-  }
-  return null;
-}
-
-function safeEstimate(laborRate, partsCost, overrides = {}) {
-  return {
-    priority: 'medium',
-    diagnosis: 'Manual inspection required',
-    estimatedHours: 1,
-    laborCost: laborRate,
-    partsCost: partsCost,
-    total: laborRate + partsCost,
-    repairs: ['Diagnostic inspection required'],
-    probability: [],
-    knownIssues: [],
-    repairSteps: [],
-    proTips: [],
-    additionalChecks: [],
-    notes: '',
-    ...overrides
-  };
-}
-
-// Decode VIN directly via NHTSA
+// Safely decodes VIN via NHTSA
 async function decodeVinNhtsa(vin) {
   try {
     const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${vin}?format=json`);
@@ -80,28 +28,14 @@ async function decodeVinNhtsa(vin) {
   }
 }
 
-// Heuristic parts pricing
-function getPartsEstimate(year, make, model, partType) {
-  let basePrice = 50.00;
-  const target = (partType || '').toLowerCase();
-  if (target.includes('pad')) basePrice = 35.00;
-  else if (target.includes('rotor')) basePrice = 65.00;
-  else if (target.includes('plug')) basePrice = 8.50;
-  else if (target.includes('oil')) basePrice = 28.00;
-  else if (target.includes('gasket')) basePrice = 22.00;
-  else if (target.includes('filter')) basePrice = 15.00;
-  else if (target.includes('belt')) basePrice = 35.00;
-  else if (target.includes('hose')) basePrice = 25.00;
-  else if (target.includes('bearing')) basePrice = 45.00;
-  else if (target.includes('pump')) basePrice = 55.00;
-  else if (target.includes('alternator')) basePrice = 85.00;
-  else if (target.includes('starter')) basePrice = 75.00;
-
+// Generates structural 3-Tier links using pricing calculated deterministically by the AI
+function buildCommercialMatrix(make, basePartPrice) {
+  const base = Number(basePartPrice) || 50.00;
   return [
     {
       tier: "Economy",
       brand: "Duralast / Everyday Aftermarket",
-      price: parseFloat((basePrice * 0.85).toFixed(2)),
+      price: parseFloat((base * 0.85).toFixed(2)),
       source: "Retail Center",
       availability: "In Stock (Local Store)",
       link: "https://www.autozone.com",
@@ -110,7 +44,7 @@ function getPartsEstimate(year, make, model, partType) {
     {
       tier: "OEM / Factory Spec",
       brand: `${make} Genuine Certified`,
-      price: parseFloat((basePrice * 1.40).toFixed(2)),
+      price: parseFloat((base * 1.40).toFixed(2)),
       source: "eBay Motors",
       availability: "Low Inventory",
       link: "https://www.ebay.com/b/Auto-Parts-Accessories/6028/bn_1853100",
@@ -119,7 +53,7 @@ function getPartsEstimate(year, make, model, partType) {
     {
       tier: "Premium Performance",
       brand: "Brembo / Bosch SevereDuty",
-      price: parseFloat((basePrice * 1.95).toFixed(2)),
+      price: parseFloat((base * 1.95).toFixed(2)),
       source: "Commercial Supply",
       availability: "In Stock (Regional Hub)",
       link: "https://www.napaauto.com",
@@ -128,7 +62,7 @@ function getPartsEstimate(year, make, model, partType) {
   ];
 }
 
-// ─── MAIN ENDPOINT ───
+// ─── UNIFIED ENGINE ENDPOINT ───
 router.post('/', async (req, res) => {
   const startTime = Date.now();
   const {
@@ -137,10 +71,8 @@ router.post('/', async (req, res) => {
     mechanicNotices = [],
     obdCodes = [],
     laborRate = 65,
-    partsCost = 0,
     partType = '',
-    mileage = 0,
-    customer = {}
+    mileage = 0
   } = req.body;
 
   if (!vin || vin.length !== 17) {
@@ -148,196 +80,154 @@ router.post('/', async (req, res) => {
   }
 
   const laborRateNum = Math.max(0, Number(laborRate));
-  const partsCostNum = Math.max(0, Number(partsCost));
   const logs = [];
 
   try {
-    // STEP 1: VIN DECODE
-    logs.push('[1/5] Decoding VIN...');
+    // STEP 1: FEDERAL VIN DECODE
+    logs.push('[1/3] Decoding VIN via NHTSA...');
     const vehicle = await decodeVinNhtsa(vin);
     if (!vehicle || !vehicle.make) {
       return res.status(404).json({ success: false, error: 'VIN decode failed' });
     }
-    logs.push(`[1/5] OK ${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.engine}`);
+    const vehicleStr = `${vehicle.year} ${vehicle.make} ${vehicle.model} ${vehicle.engine}`.trim();
+    logs.push(`[1/3] OK resolved to: ${vehicleStr}`);
 
-    // STEP 2: SCRAPE LEMON MANUALS
-    logs.push('[2/5] Scraping LEMON manuals...');
-    let scrapeResult = null;
+    // STEP 2: FACTORY MANUAL SCRAPE
+    logs.push('[2/3] Executing LEMON manuals crawler...');
     let tsbs = [];
     try {
-      scrapeResult = await scrapeLEMONManuals(vehicle);
+      const scrapeResult = await scrapeLEMONManuals(vehicle);
       if (scrapeResult && scrapeResult.items) {
         tsbs = scrapeResult.items
           .filter(item => item.title && item.url)
-          .map(item => ({
-            title: item.title,
-            url: item.url,
-            category: item.title.includes('Bulletin') ? 'TSB' :
-                      item.title.includes('Diagnostic') ? 'Diagnostic' :
-                      item.title.includes('Repair') ? 'Repair Procedure' : 'Manual'
-          }));
-        logs.push(`[2/5] OK Found ${tsbs.length} manual pages`);
-      } else {
-        logs.push('[2/5] WARN No manual pages found');
+          .map(item => ({ title: item.title, url: item.url }));
+        logs.push(`[2/3] OK Indexed ${tsbs.length} manual records`);
       }
     } catch (err) {
-      logs.push(`[2/5] WARN Scraper failed: ${err.message}`);
+      logs.push(`[2/3] WARN Crawler fallback active: ${err.message}`);
     }
 
-    // STEP 3: AI ESTIMATE
-    logs.push('[3/5] Generating AI estimate...');
-    const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim, vehicle.engine]
-      .filter(Boolean).join(' ');
+    // STEP 3: UNIFIED TOKENS INSULATION ENGINE
+    logs.push('[3/3] Committing Single-Shot Token Engine payload...');
+    
+    const manualContext = tsbs.length > 0
+      ? tsbs.slice(0, 5).map(t => `Manual: ${t.title} -> Reference: ${t.url}`).join('\n')
+      : 'No dynamic factory specs caught. Provide baseline standard procedures.';
 
-    const manualsContext = tsbs.length > 0
-      ? `\n\nRELEVANT FACTORY MANUAL SECTIONS:\n${tsbs.slice(0, 10).map(t => `- ${t.title} (${t.url})`).join('\n')}`
-      : '';
+    const systemPrompt = `You are the master automotive pipeline engine for SKSK ProTech. 
+    You must process diagnostic vectors into a perfectly structured JSON output matching the exact schema requested.
 
-    const systemPrompt = `You are the expert estimation module of SKSK ProTech - a master automotive mechanic with 25 years of real shop experience.
+    MANDATORY CRITICAL RULES:
+    1. DIAGNOSTIC PARAMETER ISOLATION: Keep vehicle sub-systems completely separated. Do not mix electrical failures with mechanical friction systems.
+    2. MATH ENFORCEMENT: "laborCost" must exactly equal "calculatedLaborHours" multiplied by ${laborRateNum}.
+    3. Output raw JSON object strings ONLY. No markdown formatting, no text padding.`;
 
-Output a single valid JSON object ONLY. No backticks, no markdown, no text before or after.
-{
-  "priority": "high",
-  "diagnosis": "string",
-  "estimatedHours": 2.5,
-  "laborCost": 162.50,
-  "partsCost": ${partsCostNum},
-  "total": 162.50,
-  "repairs": ["string"],
-  "probability": [{"cause": "string", "likelihood": 80}],
-  "knownIssues": ["string"],
-  "repairSteps": ["string"],
-  "proTips": ["string"],
-  "additionalChecks": ["string"],
-  "notes": "string"
-}
+    const userPrompt = `Vehicle Profile: ${vehicleStr}
+    OBD-II Codes: ${obdCodes.join(', ') || 'None'}
+    Customer Complaint: ${customerStates.join(', ') || 'None'}
+    Mechanic Observations: ${mechanicNotices.join(', ') || 'None'}
+    Current Mileage: ${mileage.toLocaleString()}
+    Target Component to Quote: "${partType || 'Diagnostic Scan Only'}"
+    
+    ${manualContext}`;
 
-RULES:
-- priority: exactly "high", "medium", or "low"
-- laborCost = estimatedHours x ${laborRateNum}
-- total = laborCost + partsCost
-- All array values must be strings
-- Output raw JSON only
-${manualsContext}`;
+    // Injecting JSON Schema layout directly into Groq options parsing layout
+    const schemaPayload = {
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "sksk_unified_pipeline",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              priority: { type: "string", enum: ["low", "medium", "high", "critical"] },
+              primaryDiagnosis: { type: "string" },
+              calculatedLaborHours: { type: "number" },
+              suggestedBasePartPrice: { type: "number" },
+              isolatedSubSystems: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    system: { type: "string", enum: ["Electrical", "Brake_Friction", "Powertrain_Mechanical", "Suspension_Steering", "HVAC", "Body_Trim"] },
+                    findings: { type: "string" }
+                  },
+                  required: ["system", "findings"],
+                  additionalProperties: false
+                }
+              },
+              shafferFieldGuide: {
+                type: "object",
+                properties: {
+                  requiredToolSizes: { type: "array", items: { type: "string" } },
+                  safetyProtocols: { type: "array", items: { type: "string" } },
+                  torqueSpecifications: { type: "string" },
+                  stepByStepInstructions: { type: "array", items: { type: "string" } }
+                },
+                required: ["requiredToolSizes", "safetyProtocols", "torqueSpecifications", "stepByStepInstructions"],
+                additionalProperties: false
+              }
+            },
+            required: ["priority", "primaryDiagnosis", "calculatedLaborHours", "suggestedBasePartPrice", "isolatedSubSystems", "shafferFieldGuide"],
+            additionalProperties: false
+          }
+        }
+      },
+      max_tokens: 2000,
+      temperature: 0.1
+    };
 
-    const userPrompt = `Vehicle: ${vehicleStr}
-VIN: ${vin}
-Shop Rate: $${laborRateNum}/hr
-OBD Codes: ${obdCodes.join(', ') || 'None'}
-Customer Reports: ${customerStates.join(', ') || 'N/A'}
-Mechanic Notices: ${mechanicNotices.join(', ') || 'N/A'}
-Mileage: ${mileage.toLocaleString()}`;
+    const groqRes = await groqChat([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ], schemaPayload);
 
-    let estimate = null;
-    try {
-      const groqRes = await groqChat([
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ], { max_tokens: 1400, temperature: 0.2 });
+    const rawResponseText = groqRes?.choices?.[0]?.message?.content || '{}';
+    const engineOutput = JSON.parse(rawResponseText);
 
-      const aiText = groqRes?.choices?.[0]?.message?.content || '';
-      estimate = extractJSON(aiText);
-      if (!estimate) throw new Error('JSON extraction failed');
-      logs.push('[3/5] OK AI estimate generated');
-    } catch (aiErr) {
-      logs.push(`[3/5] WARN AI failed: ${aiErr.message} - using fallback`);
-      estimate = safeEstimate(laborRateNum, partsCostNum, {
-        notes: 'AI estimation unavailable - manual inspection required'
-      });
-    }
+    // Compute deterministic math on the server
+    const totalLaborCost = parseFloat((engineOutput.calculatedLaborHours * laborRateNum).toFixed(2));
+    const dynamicBasePartsCost = engineOutput.suggestedBasePartPrice || 45.00;
 
-    // Normalize estimate math
-    estimate.estimatedHours = estimate.estimatedHours || 1;
-    estimate.laborCost = estimate.laborCost || (estimate.estimatedHours * laborRateNum);
-    estimate.partsCost = estimate.partsCost || partsCostNum;
-    estimate.total = estimate.total || (estimate.laborCost + estimate.partsCost);
-    if (!['high', 'medium', 'low'].includes(estimate.priority)) {
-      estimate.priority = 'medium';
-    }
+    // Compile parts matrix tiers on demand
+    const dynamicPartsMatrix = buildCommercialMatrix(vehicle.make, dynamicBasePartsCost);
+    const selectedTierCost = dynamicPartsMatrix[1].price;
 
-    // STEP 4: PARTS SEARCH
-    logs.push('[4/5] Searching parts...');
-    const parts = partType
-      ? getPartsEstimate(vehicle.year, vehicle.make, vehicle.model, partType)
-      : [];
-    logs.push(`[4/5] OK ${parts.length} parts tiers found`);
+    const pipelineDuration = Date.now() - startTime;
+    logs.push(`[3/3] OK Complete pipeline executed in ${pipelineDuration}ms`);
 
-    // STEP 5: REPAIR GUIDE
-    logs.push('[5/5] Generating repair guide...');
-    let guide = null;
-    if (tsbs.length > 0 && estimate.repairs && estimate.repairs.length > 0) {
-      try {
-        const repairJob = estimate.repairs[0];
-        const relevantManuals = tsbs.filter(t => {
-          const tl = t.title.toLowerCase();
-          return repairJob.toLowerCase().split(' ').some(w => w.length > 3 && tl.includes(w));
-        }).slice(0, 3);
-
-        const factoryContext = relevantManuals.length > 0
-          ? relevantManuals.map(m => `Manual Section: ${m.title}\nSource: ${m.url}`).join('\n\n')
-          : 'No specific manual page matched. Use standard factory specs.';
-
-        const guidePrompt = `You are an elite master field mechanic for SKSK ProTech.
-
-Vehicle: ${vehicleStr}
-Repair Job: ${repairJob}
-
-${factoryContext}
-
-Generate a concise, mobile-friendly step-by-step repair guide with:
-- REQUIRED TOOLS
-- SAFETY & PREPARATION
-- STEP-BY-STEP REPAIR
-- TORQUE SPECS & FLUIDS
-
-Use Markdown. Be direct and practical. Max 400 words.`;
-
-        const guideRes = await groqChat([
-          { role: 'system', content: 'You are a veteran mobile mechanic writing field repair guides for phone screens.' },
-          { role: 'user', content: guidePrompt }
-        ], { max_tokens: 1000, temperature: 0.3 });
-
-        guide = guideRes?.choices?.[0]?.message?.content || null;
-        logs.push('[5/5] OK Repair guide generated');
-      } catch (guideErr) {
-        logs.push(`[5/5] WARN Guide failed: ${guideErr.message}`);
-      }
-    } else {
-      logs.push('[5/5] SKIP No TSBs or repairs to guide');
-    }
-
-    // ASSEMBLE RESPONSE
-    const duration = Date.now() - startTime;
-
+    // FINAL UNIFIED PAYLOAD PACKAGING
     res.json({
       success: true,
-      duration_ms: duration,
+      duration_ms: pipelineDuration,
       vehicle,
       vin,
-      tsbs: tsbs.slice(0, 20),
-      tsb_count: tsbs.length,
+      tsbs: tsbs.slice(0, 15),
       estimate: {
-        ...estimate,
-        laborCost: estimate.laborCost,
-        total: estimate.total
+        priority: engineOutput.priority,
+        diagnosis: engineOutput.primaryDiagnosis,
+        estimatedHours: engineOutput.calculatedLaborHours,
+        laborCost: totalLaborCost,
+        partsCost: selectedTierCost,
+        total: parseFloat((totalLaborCost + selectedTierCost).toFixed(2)),
+        isolatedSubSystems: engineOutput.isolatedSubSystems
       },
-      parts,
-      guide,
+      parts: dynamicPartsMatrix,
+      shafferFieldGuide: engineOutput.shafferFieldGuide,
       meta: {
         labor_rate: laborRateNum,
-        part_type_searched: partType || null,
         mileage,
-        ai_used: estimate.diagnosis !== 'Manual inspection required',
         pipeline_logs: logs
       }
     });
 
   } catch (err) {
-    console.error('[FullEstimate] Pipeline crash:', err);
+    console.error('[Engine Pipeline Fatal Collapse]:', err);
     res.status(500).json({
       success: false,
-      error: 'Full estimate pipeline failed',
-      details: process.env.NODE_ENV === 'development' ? err.message : 'Internal error',
+      error: 'SKSK Core Pipeline Engine Exception Raised',
+      details: err.message,
       pipeline_logs: logs
     });
   }
