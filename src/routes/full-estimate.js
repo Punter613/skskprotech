@@ -38,7 +38,7 @@ function buildCommercialMatrix(make, basePartPrice) {
       price: parseFloat((base * 0.85).toFixed(2)),
       source: "Retail Center",
       availability: "In Stock (Local Store)",
-      link: "https://www.autozone.com",
+      link: "[https://www.autozone.com](https://www.autozone.com)",
       eta: "Immediate Pick-up"
     },
     {
@@ -47,7 +47,7 @@ function buildCommercialMatrix(make, basePartPrice) {
       price: parseFloat((base * 1.40).toFixed(2)),
       source: "eBay Motors",
       availability: "Low Inventory",
-      link: "https://www.ebay.com/b/Auto-Parts-Accessories/6028/bn_1853100",
+      link: "[https://www.ebay.com/b/Auto-Parts-Accessories/6028/bn_1853100](https://www.ebay.com/b/Auto-Parts-Accessories/6028/bn_1853100)",
       eta: "2-Day Express Shipping"
     },
     {
@@ -56,7 +56,7 @@ function buildCommercialMatrix(make, basePartPrice) {
       price: parseFloat((base * 1.95).toFixed(2)),
       source: "Commercial Supply",
       availability: "In Stock (Regional Hub)",
-      link: "https://www.napaauto.com",
+      link: "[https://www.napaauto.com](https://www.napaauto.com)",
       eta: "Same-Day Delivery"
     }
   ];
@@ -120,7 +120,7 @@ router.post('/', async (req, res) => {
     MANDATORY CRITICAL RULES:
     1. DIAGNOSTIC PARAMETER ISOLATION: Keep vehicle sub-systems completely separated. Do not mix electrical failures with mechanical friction systems.
     2. MATH ENFORCEMENT: "laborCost" must exactly equal "calculatedLaborHours" multiplied by ${laborRateNum}.
-    3. Output raw JSON object strings ONLY. No markdown formatting, no text padding.`;
+    3. Output raw JSON object strings ONLY. No markdown formatting, no text padding outside the JSON bracket.`;
 
     const userPrompt = `Vehicle Profile: ${vehicleStr}
     OBD-II Codes: ${obdCodes.join(', ') || 'None'}
@@ -131,7 +131,6 @@ router.post('/', async (req, res) => {
     
     ${manualContext}`;
 
-    // Injecting JSON Schema layout directly into Groq options parsing layout
     const schemaPayload = {
       response_format: {
         type: "json_schema",
@@ -183,7 +182,15 @@ router.post('/', async (req, res) => {
       { role: 'user', content: userPrompt }
     ], schemaPayload);
 
-    const rawResponseText = groqRes?.choices?.[0]?.message?.content || '{}';
+    let rawResponseText = groqRes?.choices?.[0]?.message?.content || '{}';
+    
+    // 🛡️ REFINED SELF-HEALING LAYER
+    if (rawResponseText.includes('```')) {
+      const lines = rawResponseText.split('\n');
+      const cleanLines = lines.filter(line => !line.trim().startsWith('```'));
+      rawResponseText = cleanLines.join('\n').trim();
+    }
+
     const engineOutput = JSON.parse(rawResponseText);
 
     // Compute deterministic math on the server
