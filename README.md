@@ -32,3 +32,10 @@ With the core structural pipes running wide open, SKSK ProTech is primed to scal
 3.  **Stripe Commercial Checkout:** Activating the built-in Stripe payment gateway pathways (`/api/payments`) to allow mechanics to collect immediate client authorization deposits and process digital field invoices on-site.
 4.  **Diagnostic Parameter Isolation:** Fine-tuning the AI foreman's internal prompt parameters to hard-separate unrelated vehicle sub-systems (ensuring electrical engine misfires don't cross-contaminate mechanical brake pad friction wear reports).
 5.  **Multi-Shop Scaling:** Adapting the Supabase database tenant architecture to support multiple independent service trucks running off the same centralized engine layer.
+
+## 🛠️ System Maintenance & Build Log
+
+### [2026-06-21] – P613 Pipeline Ignition & Optimization
+* **Render Build Command Overhaul:** Swapped build string to execute Node installations before running the Rust compiler.
+* **Database Driver Alignment:** Migrated `src/db.js` from a raw PG pool to the official `@supabase/supabase-js` SDK client.
+* **Diagnostic Dashboard Deployed:** Launched the `index.html` dark-mode diagnostic cockpit with cache-proof polling loops.
