@@ -120,3 +120,7 @@ process.on('SIGINT', gracefulShutdown);
 // This pulls the worker out of the breakroom and forces it to listen for active Bull queue jobs
 require('./src/workers/aiWorker');
 console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
+
+// 🔌 Live Procurement Parts Aggregator Lane
+const partsLookupRouter = require('./src/routes/partsLookup');
+app.use('/api/parts-lookup', partsLookupRouter);
