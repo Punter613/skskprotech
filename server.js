@@ -124,3 +124,10 @@ console.log('🤖 Background AI Worker summoned to the shop floor. Listening for
 // 🔌 Live Procurement Parts Aggregator Lane
 const partsLookupRouter = require('./src/routes/partsLookup');
 app.use('/api/parts-lookup', partsLookupRouter);
+
+// 🚚 SKSKFLEET Operations Infrastructure Lane
+const fleetRouter = require('./src/routes/fleet');
+app.use('/api/fleet', fleetRouter);
+
+// Serve corporate frontend asset frames
+app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
