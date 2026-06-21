@@ -1,4 +1,4 @@
-const pool = require('./pool');
+const pool = require('../pool');
 
 module.exports = {
   insertScrapeItem: async (item) => {
