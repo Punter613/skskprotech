@@ -7,13 +7,21 @@ const { groqChat } = require('../services/groq');
 
 function extractJSON(text) {
   if (!text) return null;
-  // Remove markdown code blocks safely
-  let clean = text;
-  clean = clean.replace(/```json/gi, '');
-  clean = clean.replace(/
-```/g, '');
-  clean = clean.trim();
-
+  
+  let clean = text.trim();
+  
+  // Safe No-Regex Codeblock Stripper
+  if (clean.startsWith('```')) {
+    const lines = clean.split('\n');
+    if (lines[0].toLowerCase().includes('```json') || lines[0].trim() === '```') {
+      lines.shift();
+    }
+    if (lines[lines.length - 1].trim() === '```') {
+      lines.pop();
+    }
+    clean = lines.join('\n').trim();
+  }
+  
   const start = clean.indexOf('{');
   if (start === -1) return null;
   let depth = 0;
@@ -49,7 +57,7 @@ function safeEstimate(laborRate, partsCost, overrides = {}) {
   };
 }
 
-// Decode VIN directly via NHTSA (safely wrapped to catch network drops)
+// Decode VIN directly via NHTSA
 async function decodeVinNhtsa(vin) {
   try {
     const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${vin}?format=json`);
@@ -72,7 +80,7 @@ async function decodeVinNhtsa(vin) {
   }
 }
 
-// Heuristic parts pricing (same logic as your parts.js)
+// Heuristic parts pricing
 function getPartsEstimate(year, make, model, partType) {
   let basePrice = 50.00;
   const target = (partType || '').toLowerCase();
