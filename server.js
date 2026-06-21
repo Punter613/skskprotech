@@ -13,7 +13,6 @@ const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
 
 const app = express();
 
-// ⚡ THE CORRECT TIMING: Parse the JSON payload BEFORE hitting the routes!
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -23,7 +22,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Security Headers Lane
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -32,12 +30,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// Route Mounts
+// Route Infrastructure
 const scrapeRouter = require('./src/routes/scrape');
 app.use('/api/scrape', scrapeRouter);
 
 const partsRouter = require('./src/routes/parts');
 app.use('/api/parts', partsRouter);
+
+// ─── NEW: Unified full-estimate pipeline lane ───
+const fullEstimateRouter = require('./src/routes/full-estimate');
+app.use('/api/full-estimate', fullEstimateRouter);
 
 app.use('/api/diagnose', diagnose);
 app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); 
