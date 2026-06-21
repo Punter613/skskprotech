@@ -13,7 +13,7 @@ function extractJSON(text) {
   clean = clean.replace(/
 ```/g, '');
   clean = clean.trim();
-  
+
   const start = clean.indexOf('{');
   if (start === -1) return null;
   let depth = 0;
@@ -49,19 +49,27 @@ function safeEstimate(laborRate, partsCost, overrides = {}) {
   };
 }
 
-// Decode VIN directly via NHTSA (no localhost self-call)
+// Decode VIN directly via NHTSA (safely wrapped to catch network drops)
 async function decodeVinNhtsa(vin) {
-  const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${vin}?format=json`);
-  const data = await res.json();
-  const v = data.Results?.[0];
-  if (!v || !v.Make) return null;
-  return {
-    year: v.ModelYear || '',
-    make: v.Make || '',
-    model: v.Model || '',
-    trim: v.Trim || '',
-    engine: v.DisplacementL ? `${v.DisplacementL}L` : (v.EngineModel || '')
-  };
+  try {
+    const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${vin}?format=json`);
+    if (!res.ok) return null;
+    
+    const data = await res.json();
+    const v = data.Results?.[0];
+    if (!v || !v.Make) return null;
+    
+    return {
+      year: v.ModelYear || '',
+      make: v.Make || '',
+      model: v.Model || '',
+      trim: v.Trim || '',
+      engine: v.DisplacementL ? `${v.DisplacementL}L` : (v.EngineModel || '')
+    };
+  } catch (err) {
+    console.error('[VIN Decode Fetch Error]:', err.message);
+    return null; 
+  }
 }
 
 // Heuristic parts pricing (same logic as your parts.js)
