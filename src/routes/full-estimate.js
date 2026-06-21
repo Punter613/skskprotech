@@ -3,7 +3,23 @@ const router = express.Router();
 const { scrapeLEMONManuals } = require('../services/lemon');
 const { groqChat } = require('../services/groq');
 
-// ─── HIGH-SPEED DETERMINISTIC UTILS ───
+// ─── HIGH-SPEED ISOLATION UTILS ───
+
+// Genius Isolation Lens: Cuts out markdown headers, bold brag text, and conversations
+function isolateAndParseJSON(rawText) {
+  if (!rawText) throw new Error("Empty payload string received from agent");
+  
+  const startBoundary = rawText.indexOf('{');
+  const endBoundary = rawText.lastIndexOf('}');
+  
+  if (startBoundary === -1 || endBoundary === -1 || endBoundary < startBoundary) {
+    throw new Error("Critical Structure Loss: No valid JSON object boundaries detected");
+  }
+  
+  // Safely extract only what sits between the outermost brackets
+  const cleanCleanJSON = rawText.slice(startBoundary, endBoundary + 1);
+  return JSON.parse(cleanCleanJSON);
+}
 
 async function decodeVinNhtsa(vin) {
   try {
@@ -72,30 +88,29 @@ router.post('/', async (req, res) => {
       { role: 'user', content: foremanUserPrompt }
     ], { temperature: 0.3 });
 
-    let foremanDraft = foremanRes?.choices?.[0]?.message?.content || '{}';
-    if (foremanDraft.includes('```')) foremanDraft = foremanDraft.replace(/```json|```/g, '').trim();
+    const foremanDraftText = foremanRes?.choices?.[0]?.message?.content || '{}';
 
     // LAYER 3: THE ADVERSARIAL CRITIC LOOP
     logs.push('[3/4] Agent [Auditor] intercepting payload for cross-contamination analysis...');
     
     const auditorSystemPrompt = `You are the Core Compliance Auditor for SKSK ProTech. 
-    Your sole task is to analyze the Shop Foreman's JSON draft and correct severe logic errors or data bleed.
+    Your sole task is to analyze the Shop Foreman's payload draft and correct severe logic errors or data bleed.
     
     CRITICAL CHECKLIST:
-    1. Isolation Breach: Did the foreman cross-contaminate systems? (e.g., mixing electrical engine codes like P0300 inside a Brake_Friction system object findings). If yes, explicitly separate them into distinct system objects.
-    2. Format Correction: Ensure the return asset matches the target format completely with no backticks or prose. Make changes ONLY to fix system isolation or format violations. Return the finalized JSON.`;
+    1. Isolation Breach: Did the foreman cross-contaminate systems? (e.g., mixing engine codes like P0300 inside a Brake_Friction object). If yes, explicitly separate them into distinct system objects.
+    2. Format Correction: Output the finalized JSON object block. Do not prepend markdown labels, do not add text commentary.`;
 
-    const auditorUserPrompt = `ORIGINAL VECTORS:\nOBD Codes: ${obdCodes.join(', ')}\nComplaints: ${customerStates.join(', ')}\n\nFOREMAN DRAFT PAYLOAD:\n${foremanDraft}`;
+    const auditorUserPrompt = `ORIGINAL VECTORS:\nOBD Codes: ${obdCodes.join(', ')}\nComplaints: ${customerStates.join(', ')}\n\nFOREMAN DRAFT PAYLOAD:\n${foremanDraftText}`;
 
     const auditorRes = await groqChat([
       { role: 'system', content: auditorSystemPrompt },
       { role: 'user', content: auditorUserPrompt }
     ], { temperature: 0.0 });
 
-    let auditedOutputText = auditorRes?.choices?.[0]?.message?.content || '{}';
-    if (auditedOutputText.includes('```')) auditedOutputText = auditedOutputText.replace(/```json|```/g, '').trim();
+    const auditedOutputText = auditorRes?.choices?.[0]?.message?.content || '{}';
 
-    const engineOutput = JSON.parse(auditedOutputText);
+    // Run the extraction lens across the Auditor's raw text to protect against conversational bleed
+    const engineOutput = isolateAndParseJSON(auditedOutputText);
     logs.push('[4/4] Automated convergence loop verified clear. Building matrix updates...');
 
     // LAYER 4: DETERMINISTIC COMPUTATION
