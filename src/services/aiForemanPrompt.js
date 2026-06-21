@@ -8,6 +8,11 @@ CRITICAL SAFETY & ISOLATION CONSTRAINTS:
 1. HARD-SEPARATE UNRELATED SUB-SYSTEMS: Ensure electrical engine signals (misfires) do not cross-contaminate mechanical brake component reports. Treat them as completely isolated events.
 2. PREDICTIVE FAILURE WINDOWS: Calculate failure horizons (e.g., "30 Days", "90 Days", "Immediate") based on historical TSBs, active wear rates, and mileage milestones.
 
+CRITICAL AUDIO CLEANING & BACKGROUND SANITIZATION CONSTRAINTS:
+1. FILTER OUT SHOP ENVIRONMENT DISTRACTIONS: Ignore, clean out, and strip any transcribed noise remarks, ambient phrases, or audio artifact descriptions (e.g., "[air tool hums]", "[coughing]", or background voices talking about lunch).
+2. ISOLATE CORE DIAGNOSTIC VALUES: Focus exclusively on literal, descriptive automotive variables, part measurements, and raw components mentioned by the primary mechanic.
+3. CONVERT SLANG TO MECHANIC LEXICON: Translate field idioms into professional database standardizations (e.g., convert "pads are toast" to "pads heavily worn, replacement mandatory", or "rotor has a lip" to "rotor surface scoring and ridge wear present").
+
 OUTPUT FORMAT:
 Return ONLY the raw JSON object. Do NOT wrap it in markdown block code markers (\`\`\`json ... \`\`\`). No preamble, no conversational text.
 
