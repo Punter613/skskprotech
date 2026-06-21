@@ -5,7 +5,7 @@ const path = require('path');
 const cors = require('cors');
 
 const diagnose = require('./src/routes/diagnose');
-const estimateHeuristic = require('./src/routes/estimate'); // Mapped to estimate engine logic
+const estimateHeuristic = require('./src/routes/estimate'); 
 const invoice = require('./src/routes/invoice');
 const oemRouter = require('./src/routes/oem');
 const verifyToken = require('./src/middleware/auth');
@@ -13,13 +13,9 @@ const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
 
 const app = express();
 
-// Scraper Route Mount
-const scrapeRouter = require('./src/routes/scrape');
-app.use('/api/scrape', scrapeRouter);
-
-// Live Parts Pricing Engine Lane
-const partsRouter = require('./src/routes/parts');
-app.use('/api/parts', partsRouter);
+// ⚡ THE CORRECT TIMING: Parse the JSON payload BEFORE hitting the routes!
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
@@ -27,9 +23,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
-
+// Security Headers Lane
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -38,9 +32,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// Production Spec Routing Lane Infrastructure
+// Route Mounts
+const scrapeRouter = require('./src/routes/scrape');
+app.use('/api/scrape', scrapeRouter);
+
+const partsRouter = require('./src/routes/parts');
+app.use('/api/parts', partsRouter);
+
 app.use('/api/diagnose', diagnose);
-app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); // Hardened via spec auth definitions
+app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); 
 app.use('/api/invoice', invoice);
 app.use('/api/translate', require('./src/routes/translate'));
 app.use(oemRouter);
