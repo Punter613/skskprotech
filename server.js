@@ -135,3 +135,8 @@ app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
 // 💳 SKSKFLEET Corporate Procurement Billing Matrix Gateway
 const paymentsRouter = require('./src/routes/payments');
 app.use('/api/payments', paymentsRouter);
+
+// 🚨 STRIPE WEBHOOK EVENT PROCESSING CORE
+// Mounted FIRST to intercept the incoming request stream before global JSON parsing transforms it
+const webhookRouter = require('./src/routes/webhooks');
+app.use('/api/payments', webhookRouter);
