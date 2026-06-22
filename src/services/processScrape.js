@@ -21,8 +21,18 @@ async function persistAndEnqueue(parsed, context) {
   const items = (parsed.items || []).map(r => normalizeItem(r, context));
 
   // Write crawled factory manual links directly to our audit tables
+  // Wrap in try/catch so missing tables don't break the estimate flow
   for (const it of items) {
-    await db.insertScrapeItem(it);
+    try {
+      await db.insertScrapeItem(it);
+    } catch (insertError) {
+      // If table doesn't exist, log but continue
+      if (insertError.message?.includes('table') && insertError.message?.includes('does not exist')) {
+        console.warn('[DB Scrape Insertion Failure]: Could not insert scrape_item (table missing). Continuing estimate flow.', insertError.message);
+      } else {
+        console.error('[DB Scrape Insertion Error]:', insertError.message);
+      }
+    }
   }
 
   // Pack our core database tracking ID inside the job description
@@ -39,8 +49,23 @@ async function persistAndEnqueue(parsed, context) {
   };
 
   // Log job to table and drop it directly down into the Bull Redis lane
-  await db.insertJob(jobPayload);
-  await queue.add('ai-jobs', jobPayload);
+  // Wrap in try/catch so missing ai_jobs table doesn't break the estimate flow
+  try {
+    await db.insertJob(jobPayload);
+  } catch (jobError) {
+    if (jobError.message?.includes('table') && jobError.message?.includes('does not exist')) {
+      console.warn('[DB Job Insertion Failure]: Could not insert ai_job (table missing). Continuing estimate flow.', jobError.message);
+    } else {
+      console.error('[DB Job Insertion Error]:', jobError.message);
+    }
+  }
+
+  // Still add to queue even if DB insert failed
+  try {
+    await queue.add('ai-jobs', jobPayload);
+  } catch (queueError) {
+    console.error('[Queue Add Error]:', queueError.message);
+  }
 
   return { jobId: jobPayload.id, count: items.length };
 }
