@@ -416,7 +416,7 @@
       setPipelineTag("Quick calculation", "running"); setDots({ scrape: false, ai: true, done: null });
       logStatus("Launching fast estimate compute...");
       try {
-        const res = await fetch(`${BACKEND_URL}/api/generate-estimate`, {
+        const res = await fetch(`${BACKEND_URL}/api/full-estimate`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(getCommonPayload())
         });
