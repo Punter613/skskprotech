@@ -2,7 +2,7 @@ async function groqChat(messages, options = {}) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error('GROQ_API_KEY missing');
 
-  const model = process.env.GROQ_MODEL || 'llama-3.1-70b-versatile';
+  const model = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
 
   const payload = {
     model,
