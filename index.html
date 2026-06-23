@@ -1,816 +1,1725 @@
-# <!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SKSK ProTech Estimate Console</title>
-  <style>
-    :root {
-      --bg: #070707;
-      --bg2: #111;
-      --card: #151515;
-      --card2: #0d0d0d;
-      --border: #2b2b2b;
-      --text: #f3f3f3;
-      --muted: #a7a7a7;
-      --accent: #e50914;
-      --accent2: #ff4b5c;
-      --success: #3ddc84;
-      --warning: #f4b400;
-      --danger: #ff6b6b;
-      --shadow: 0 18px 40px rgba(0,0,0,.45);
-      --radius: 14px;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      --sans: system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: var(--sans);
-      background: radial-gradient(circle at top, #171717 0%, #090909 55%, #000 100%);
-      color: var(--text);
-      min-height: 100vh;
-    }
-    .app {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 18px;
-    }
-    header {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .brand-mark {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #ff5757, var(--accent));
-      display: grid;
-      place-items: center;
-      font-weight: 900;
-      box-shadow: var(--shadow);
-      letter-spacing: .08em;
-    }
-    .brand h1 {
-      margin: 0;
-      font-size: 20px;
-      letter-spacing: .12em;
-    }
-    .brand p {
-      margin: 2px 0 0;
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .badge {
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .12em;
-      background: rgba(255,255,255,.02);
-    }
-    main {
-      display: grid;
-      grid-template-columns: 1.1fr 1fr;
-      gap: 16px;
-    }
-    @media (max-width: 980px) {
-      main { grid-template-columns: 1fr; }
-    }
-    .card {
-      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    .card-inner {
-      padding: 16px;
-      background: linear-gradient(180deg, rgba(255,255,255,.02), transparent);
-    }
-    h2, h3 {
-      margin: 0 0 10px;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-    }
-    h2 { font-size: 14px; }
-    h3 { font-size: 13px; color: #fff; }
-    .sub {
-      color: var(--muted);
-      font-size: 12px;
-      margin-bottom: 14px;
-      line-height: 1.5;
-    }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .grid-3 {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-    }
-    @media (max-width: 720px) {
-      .grid-2, .grid-3 { grid-template-columns: 1fr; }
-    }
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-bottom: 10px;
-    }
-    label {
-      font-size: 11px;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    input, textarea, select {
-      width: 100%;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: #080808;
-      color: var(--text);
-      padding: 10px 12px;
-      outline: none;
-      font-size: 13px;
-    }
-    textarea { min-height: 92px; resize: vertical; }
-    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
-    .btn-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 6px;
-    }
-    button {
-      border: 1px solid var(--border);
-      background: #161616;
-      color: var(--text);
-      padding: 10px 14px;
-      border-radius: 999px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      transition: .2s ease;
-    }
-    button:hover { border-color: var(--accent); }
-    .btn-primary {
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #fff;
-      border-color: transparent;
-    }
-    .btn-ghost { background: transparent; color: var(--muted); }
-    .btn-success {
-      background: rgba(61,220,132,.12);
-      border-color: rgba(61,220,132,.35);
-      color: var(--success);
-    }
-    .btn-warning {
-      background: rgba(244,180,0,.12);
-      border-color: rgba(244,180,0,.35);
-      color: var(--warning);
-    }
-    .pill-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .pill {
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: #101010;
-      color: var(--muted);
-      font-size: 11px;
-      padding: 6px 10px;
-      cursor: pointer;
-    }
-    .pill:hover { border-color: var(--accent); color: var(--text); }
-    .status-box {
-      border: 1px solid var(--border);
-      background: var(--card2);
-      border-radius: 12px;
-      padding: 12px;
-    }
-    .status-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--border);
-      display: inline-block;
-      margin-right: 6px;
-    }
-    .dot.active { background: var(--warning); box-shadow: 0 0 0 4px rgba(244,180,0,.15); }
-    .dot.success { background: var(--success); box-shadow: 0 0 0 4px rgba(61,220,132,.15); }
-    .dot.error { background: var(--danger); box-shadow: 0 0 0 4px rgba(255,107,107,.15); }
-    .log {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: #d7d7d7;
-      max-height: 170px;
-      overflow: auto;
-      border-top: 1px dashed var(--border);
-      padding-top: 10px;
-      line-height: 1.45;
-    }
-    .log-line { margin-bottom: 6px; }
-    .log-line span { color: var(--muted); }
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .chip {
-      background: #0b0b0b;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px;
-    }
-    .chip span:first-child {
-      display: block;
-      color: var(--muted);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: .12em;
-      margin-bottom: 4px;
-    }
-    .chip span:last-child {
-      font-weight: 700;
-      font-size: 15px;
-    }
-    .panel {
-      background: #090909;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-    .panel h4 {
-      margin: 0 0 8px;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .14em;
-      color: var(--muted);
-    }
-    .panel ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    .panel li {
-      margin-bottom: 8px;
-      font-size: 12px;
-      line-height: 1.45;
-    }
-    .mono { font-family: var(--mono); }
-    .muted { color: var(--muted); }
-    .small { font-size: 12px; line-height: 1.5; }
-    .parts-card {
-      background: #0a0a0a;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 10px;
-    }
-    .parts-card.best {
-      border-color: var(--success);
-      box-shadow: 0 0 0 1px rgba(61,220,132,.15), 0 0 16px rgba(61,220,132,.1);
-    }
-    .parts-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      font-size: 12px;
-      margin-bottom: 6px;
-    }
-    .parts-row span:first-child { color: var(--muted); }
-    .parts-order-btn {
-      width: 100%;
-      margin-top: 8px;
-      padding: 9px 10px;
-      border-radius: 10px;
-      background: #151515;
-      color: #fff;
-      border: 1px solid var(--border);
-    }
-    .parts-order-btn:hover {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-    .footer {
-      max-width: 1280px;
-      margin: 18px auto 0;
-      padding: 0 18px 22px;
-      color: var(--muted);
-      font-size: 11px;
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .link {
-      color: var(--accent2);
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .hidden { display: none !important; }
-    .error-text { color: var(--danger); font-size: 12px; margin-top: 6px; }
-  </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <link rel="manifest" href="/manifest.json">
+    <title>SKSK ProTech</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+        :root {
+            --bg: #07070b;
+            --panel: #0f0f16;
+            --panel-2: #16161f;
+            --accent: #e01020;
+            --accent-2: #ff3b30;
+            --accent-glow: rgba(224, 16, 32, 0.35);
+            --text: #f0f0f5;
+            --muted: #9090a8;
+            --border: rgba(255, 255, 255, 0.07);
+            --border-active: rgba(224, 16, 32, 0.5);
+            --shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+            --success: #00e676;
+            --success-dim: rgba(0, 230, 118, 0.12);
+            --danger: #ff5252;
+            --warning: #ffab40;
+            --radius: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 16px;
+            background-image:
+                radial-gradient(ellipse 80% 40% at 50% 0%, rgba(224, 16, 32, 0.18) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 30% at 80% 100%, rgba(100, 0, 200, 0.08) 0%, transparent 50%);
+        }
+
+        /* ── HEADER ── */
+        .header {
+            max-width: 780px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: rgba(15, 15, 22, 0.9);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+        }
+
+        .brand-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #e01020, #7f0010);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            box-shadow: 0 0 20px rgba(224, 16, 32, 0.4);
+        }
+
+        .brand-text h1 {
+            font-size: 1.4rem;
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+
+        .brand-text h1 span {
+            color: var(--accent-2);
+        }
+
+        .brand-text p {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        .header-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--success-dim);
+            border: 1px solid rgba(0, 230, 118, 0.25);
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--success);
+        }
+
+        .pulse {
+            width: 7px;
+            height: 7px;
+            background: var(--success);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(0.8);
+            }
+        }
+
+        /* ── SHELL ── */
+        .shell {
+            max-width: 780px;
+            margin: 0 auto;
+        }
+
+        /* ── TABS ── */
+        .tabs {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .tab {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px 8px;
+            background: var(--panel);
+            color: var(--muted);
+            font-weight: 700;
+            font-size: 0.82rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-height: 58px;
+        }
+
+        .tab .tab-icon {
+            font-size: 1.1rem;
+        }
+
+        .tab:hover {
+            border-color: var(--border-active);
+            color: var(--text);
+        }
+
+        .tab.active {
+            border-color: var(--border-active);
+            background: linear-gradient(135deg, rgba(224, 16, 32, 0.2), rgba(127, 0, 16, 0.15));
+            color: var(--text);
+            box-shadow: 0 0 20px rgba(224, 16, 32, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+        }
+
+        /* ── PANELS ── */
+        .panel {
+            display: none;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 16px;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(6px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .section-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--accent-2);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(224, 16, 32, 0.3), transparent);
+        }
+
+        /* ── VOICE BAR ── */
+        .voice-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(224, 16, 32, 0.06);
+            border: 1px solid rgba(224, 16, 32, 0.2);
+            border-radius: var(--radius);
+            padding: 12px 14px;
+            margin-bottom: 16px;
+        }
+
+        .voice-bar p {
+            font-size: 0.82rem;
+            color: var(--muted);
+            flex: 1;
+        }
+
+        .voice-bar strong {
+            color: var(--text);
+        }
+
+        .btn-voice {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(224, 16, 32, 0.4);
+            background: linear-gradient(135deg, rgba(224, 16, 32, 0.25), rgba(127, 0, 16, 0.2));
+            color: var(--text);
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .btn-voice:hover {
+            background: linear-gradient(135deg, rgba(224, 16, 32, 0.4), rgba(127, 0, 16, 0.3));
+        }
+
+        .btn-voice.recording {
+            background: linear-gradient(135deg, rgba(224, 16, 32, 0.6), rgba(200, 0, 10, 0.5));
+            animation: recordPulse 1s infinite;
+        }
+
+        @keyframes recordPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(224, 16, 32, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 0 8px rgba(224, 16, 32, 0);
+            }
+        }
+
+        /* ── VIN BAR ── */
+        .vin-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .vin-row .field {
+            flex: 1;
+        }
+
+        .btn-vin {
+            padding: 12px 14px;
+            border-radius: var(--radius);
+            border: 1px solid rgba(255, 171, 64, 0.35);
+            background: rgba(255, 171, 64, 0.08);
+            color: var(--warning);
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            height: 50px;
+        }
+
+        .btn-vin:hover {
+            background: rgba(255, 171, 64, 0.15);
+        }
+
+        /* ── TRANSLATE BAR ── */
+        .translate-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .translate-bar label {
+            margin: 0;
+            flex: 1;
+        }
+
+        .btn-translate {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(100, 180, 255, 0.3);
+            background: rgba(100, 180, 255, 0.08);
+            color: #64b4ff;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .btn-translate:hover {
+            background: rgba(100, 180, 255, 0.15);
+        }
+
+        /* ── FORM ELEMENTS ── */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .grid-1 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--muted);
+            letter-spacing: 0.02em;
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+            color: var(--text);
+            border-radius: var(--radius);
+            padding: 12px 14px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            border-color: var(--border-active);
+            box-shadow: 0 0 0 3px rgba(224, 16, 32, 0.12);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        input::placeholder,
+        textarea::placeholder {
+            color: rgba(144, 144, 168, 0.5);
+        }
+
+        /* ── DIVIDER ── */
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 16px 0;
+        }
+
+        /* ── BUTTONS ── */
+        .actions {
+            display: grid;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .actions-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 16px;
+        }
+
+        .btn {
+            appearance: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 18px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--panel-2);
+            min-height: 50px;
+            width: 100%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover:not(:disabled) {
+            border-color: var(--border-active);
+            background: rgba(224, 16, 32, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn.primary {
+            background: linear-gradient(135deg, #9b0010, #5a0008);
+            border-color: rgba(224, 16, 32, 0.5);
+            box-shadow: 0 4px 20px rgba(224, 16, 32, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            font-size: 1rem;
+            min-height: 54px;
+        }
+
+        .btn.primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #c0001a, #7f0010);
+            box-shadow: 0 6px 28px rgba(224, 16, 32, 0.4);
+        }
+
+        /* ── RESULT CARD ── */
+        .result-card {
+            margin-top: 16px;
+            border-radius: 20px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: none;
+        }
+
+        .result-card.visible {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .result-card.success {
+            border-color: rgba(0, 230, 118, 0.3);
+        }
+
+        .result-card.error {
+            border-color: rgba(255, 82, 82, 0.3);
+        }
+
+        .result-header {
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .result-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .result-badge {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+
+        .badge-high {
+            background: rgba(255, 82, 82, 0.15);
+            color: #ff5252;
+            border: 1px solid rgba(255, 82, 82, 0.3);
+        }
+
+        .badge-medium {
+            background: rgba(255, 171, 64, 0.15);
+            color: #ffab40;
+            border: 1px solid rgba(255, 171, 64, 0.3);
+        }
+
+        .badge-low {
+            background: rgba(0, 230, 118, 0.12);
+            color: #00e676;
+            border: 1px solid rgba(0, 230, 118, 0.25);
+        }
+
+        .badge-immediate {
+            background: rgba(255, 82, 82, 0.15);
+            color: #ff5252;
+            border: 1px solid rgba(255, 82, 82, 0.3);
+        }
+
+        .badge-soon {
+            background: rgba(255, 171, 64, 0.15);
+            color: #ffab40;
+            border: 1px solid rgba(255, 171, 64, 0.3);
+        }
+
+        .badge-monitor {
+            background: rgba(0, 230, 118, 0.12);
+            color: #00e676;
+            border: 1px solid rgba(0, 230, 118, 0.25);
+        }
+
+        .result-body {
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .result-section {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .result-section-title {
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--accent-2);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .result-section-title .icon {
+            font-size: 0.85rem;
+        }
+
+        .result-text {
+            font-size: 0.9rem;
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .result-muted {
+            font-size: 0.85rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .money-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .money-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+
+        .money-box .money-label {
+            font-size: 0.68rem;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .money-box .money-val {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--text);
+            margin-top: 2px;
+        }
+
+        .money-box.total {
+            border-color: rgba(0, 230, 118, 0.3);
+        }
+
+        .money-box.total .money-val {
+            color: var(--success);
+        }
+
+        .list-items {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .list-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.87rem;
+            color: var(--text);
+            line-height: 1.4;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            border: 1px solid transparent;
+        }
+
+        .list-item:hover {
+            border-color: var(--border);
+        }
+
+        .list-item .li-num {
+            color: var(--accent-2);
+            font-weight: 800;
+            min-width: 18px;
+            font-size: 0.8rem;
+        }
+
+        .list-item .li-icon {
+            min-width: 16px;
+        }
+
+        .prob-bar {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .prob-row {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .prob-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+        }
+
+        .prob-label span:first-child {
+            color: var(--text);
+        }
+
+        .prob-label span:last-child {
+            color: var(--accent-2);
+            font-weight: 700;
+        }
+
+        .prob-track {
+            height: 5px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .prob-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-2));
+            transition: width 0.8s ease;
+        }
+
+        .code-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .code-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            padding: 8px 10px;
+            background: rgba(255, 171, 64, 0.05);
+            border: 1px solid rgba(255, 171, 64, 0.15);
+            border-radius: 10px;
+        }
+
+        .code-tag {
+            font-size: 0.8rem;
+            font-weight: 800;
+            color: var(--warning);
+            min-width: 55px;
+        }
+
+        .code-desc {
+            font-size: 0.82rem;
+            color: var(--text);
+            line-height: 1.4;
+        }
+
+        .safety-banner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: rgba(255, 82, 82, 0.08);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #ff5252;
+        }
+
+        .status-simple {
+            margin-top: 14px;
+            padding: 14px 16px;
+            border-radius: var(--radius);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.88rem;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+        }
+
+        .status-simple.success {
+            border-color: rgba(0, 230, 118, 0.35);
+            color: var(--success);
+        }
+
+        .status-simple.error {
+            border-color: rgba(255, 82, 82, 0.35);
+            color: var(--danger);
+        }
+
+        /* ── FOOTER ── */
+        .footer {
+            max-width: 780px;
+            margin: 16px auto 0;
+            text-align: center;
+            font-size: 0.75rem;
+            color: rgba(144, 144, 168, 0.5);
+            padding-bottom: 8px;
+        }
+
+        /* ── SPINNER ── */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+
+        .btn.loading .spinner {
+            display: block;
+        }
+
+        .btn.loading .btn-label {
+            display: none;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ── MOBILE ── */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .tabs {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .grid,
+            .grid-3,
+            .money-row {
+                grid-template-columns: 1fr;
+            }
+
+            .actions-row {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                padding: 12px 14px;
+            }
+        }
+    </style>
 </head>
+
 <body>
-  <div class="app">
-    <header>
-      <div class="brand">
-        <div class="brand-mark">SK</div>
-        <div>
-          <h1>SKSK PROTECH</h1>
-          <p>Backend-matched estimate console</p>
+
+    <header class="header">
+        <div class="brand-wrap">
+            <div class="brand-icon">🔧</div>
+            <div class="brand-text">
+                <h1>SKSK <span>ProTech</span></h1>
+                <p>Mobile Mechanic AI</p>
+            </div>
         </div>
-      </div>
-      <div class="badge">v4.1 compatible frontend</div>
+        <div class="header-badge">
+            <div class="pulse"></div>
+            AI LIVE
+        </div>
     </header>
 
-    <main>
-      <section class="card">
-        <div class="card-inner">
-          <h2>Estimate Intake</h2>
-          <p class="sub">Enter the vehicle, symptoms, and diagnostic notes. This UI sends JSON payloads that match the backend estimator contract.</p>
+    <div class="shell">
 
-          <div class="grid-2">
-            <div class="field">
-              <label for="customerName">Customer name</label>
-              <input id="customerName" placeholder="Jane Doe" />
-            </div>
-            <div class="field">
-              <label for="customerPhone">Customer phone</label>
-              <input id="customerPhone" placeholder="3305550123" />
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="customerEmail">Customer email</label>
-              <input id="customerEmail" type="email" placeholder="jane@email.com" />
-            </div>
-            <div class="field">
-              <label for="accessCode">Access code</label>
-              <input id="accessCode" placeholder="PRO12345" />
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="vehicleText">Vehicle text</label>
-              <input id="vehicleText" placeholder="2016 Honda Accord 2.4L" />
-            </div>
-            <div class="field">
-              <label for="vin">VIN</label>
-              <input id="vin" class="mono" placeholder="1HGCR2F3XGA012345" />
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="keyword">Keyword / complaint</label>
-              <input id="keyword" placeholder="brakes, misfire, no start" />
-            </div>
-            <div class="field">
-              <label for="laborRate">Labor rate</label>
-              <input id="laborRate" type="number" min="0" step="1" placeholder="65" />
-            </div>
-          </div>
-
-          <div class="field">
-            <label for="description">Description</label>
-            <textarea id="description" placeholder="Customer reports the engine shakes at idle, check engine light on, and rough start on cold mornings."></textarea>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="obdCodes">OBD codes</label>
-              <input id="obdCodes" class="mono" placeholder="P0300, P0171" />
-            </div>
-            <div class="field">
-              <label for="exclusions">Exclusions</label>
-              <input id="exclusions" placeholder="brake pads, rotor, battery" />
-            </div>
-          </div>
-
-          <div class="grid-2">
-            <div class="field">
-              <label for="customerStates">Customer states</label>
-              <textarea id="customerStates" placeholder="Rough idle&#10;Loss of power&#10;Check engine light"></textarea>
-            </div>
-            <div class="field">
-              <label for="mechanicFindings">Mechanic findings</label>
-              <textarea id="mechanicFindings" placeholder="Intake leak smoke test positive&#10;Spark plug 3 fouled"></textarea>
-            </div>
-          </div>
-
-          <div class="field">
-            <label for="otherExclusions">Other exclusions</label>
-            <textarea id="otherExclusions" placeholder="Any work already completed or not to recommend"></textarea>
-          </div>
-
-          <div class="btn-row">
-            <button class="btn-primary" id="btnGenerate">Generate Estimate</button>
-            <button class="btn-success" id="btnVin">VIN Lookup</button>
-            <button class="btn-warning" id="btnAccess">Validate Access</button>
-            <button class="btn-ghost" id="btnCustomers">Load Customers</button>
-            <button class="btn-ghost" id="btnJobs">Load Jobs</button>
-            <button class="btn-ghost" id="btnClear">Clear Log</button>
-          </div>
-
-          <div class="pill-row">
-            <button class="pill" data-rate="45">Rate 45</button>
-            <button class="pill" data-rate="65">Rate 65</button>
-            <button class="pill" data-rate="90">Rate 90</button>
-            <button class="pill" data-complaint="brakes">Brakes</button>
-            <button class="pill" data-complaint="misfire">Misfire</button>
-            <button class="pill" data-complaint="no start">No Start</button>
-            <button class="pill" data-complaint="wheel bearing">Wheel Bearing</button>
-          </div>
-
-          <div id="inputError" class="error-text hidden"></div>
+        <div class="tabs">
+            <button class="tab active" data-tab="estimateTab">
+                <span class="tab-icon">📋</span>Estimate
+            </button>
+            <button class="tab" data-tab="diagnoseTab">
+                <span class="tab-icon">🔍</span>Diagnose
+            </button>
+            <button class="tab" data-tab="invoiceTab">
+                <span class="tab-icon">🧾</span>Invoice
+            </button>
+            <button class="tab" data-tab="shareTab">
+                <span class="tab-icon">📤</span>Share
+            </button>
         </div>
-      </section>
 
-      <section class="card">
-        <div class="card-inner">
-          <div class="status-box">
-            <div class="status-row">
-              <div><span id="dotMain" class="dot"></span><span id="pipelineLabel">Idle</span></div>
-              <div class="mono" id="jobToken">No job</div>
+        <section class="panel active" id="estimateTab">
+
+            <div class="voice-bar">
+                <span style="font-size:1.2rem">🎙️</span>
+                <p><strong>Voice Mode</strong> — speak symptoms, auto-fills the form</p>
+                <button class="btn-voice" id="btnVoiceEstimate">
+                    <span>🎤</span> Speak
+                </button>
             </div>
-            <div class="status-row">
-              <div>Estimate flow: intake → backend → result</div>
-              <div class="mono" id="clockNow"></div>
+
+            <div class="section-title">Customer Info</div>
+            <div class="grid" style="margin-bottom:12px">
+                <div class="field">
+                    <label>Customer Name</label>
+                    <input id="customerName" type="text" placeholder="John Doe">
+                </div>
+                <div class="field">
+                    <label>Phone</label>
+                    <input id="customerPhone" type="tel" placeholder="555-0123">
+                </div>
+                <div class="field">
+                    <label>Email</label>
+                    <input id="customerEmail" type="email" placeholder="john@example.com">
+                </div>
+                <div class="field">
+                    <label>Labor Rate ($/hr)</label>
+                    <input id="laborRate" type="number" value="65" min="0">
+                </div>
             </div>
-            <div class="log" id="statusLog"></div>
-          </div>
 
-          <div class="summary" style="margin-top:12px;">
-            <div class="chip"><span>Labor</span><span id="sumLabor">$0.00</span></div>
-            <div class="chip"><span>Parts</span><span id="sumParts">$0.00</span></div>
-            <div class="chip"><span>Total</span><span id="sumTotal">$0.00</span></div>
-          </div>
+            <div class="section-title">Vehicle</div>
 
-          <div class="panel">
-            <h4>Estimate Output</h4>
-            <ul id="estimateList"></ul>
-          </div>
-
-          <div class="panel">
-            <h4>Parts</h4>
-            <ul id="partsList"></ul>
-          </div>
-
-          <div class="panel">
-            <h4>Notes</h4>
-            <div id="notesText" class="small muted">No estimate yet.</div>
-          </div>
-
-          <div class="panel">
-            <h4>Live Parts Availability</h4>
-            <div id="partsLookupContainer" class="small muted">Run an estimate to see part cards here.</div>
-          </div>
-
-          <div class="panel">
-            <h4>Admin / Payments</h4>
-            <div class="btn-row">
-              <button class="btn-ghost" id="btnProMonthly">Pro Monthly</button>
-              <button class="btn-ghost" id="btnProYearly">Pro Yearly</button>
+            <div class="vin-row" style="margin-bottom:12px">
+                <div class="field">
+                    <label>VIN (paste to auto-fill vehicle info)</label>
+                    <input id="vin" type="text" placeholder="17-char VIN" maxlength="17">
+                </div>
+                <button class="btn-vin" id="btnDecodeVin">🔍 Decode</button>
             </div>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
 
-  <div class="footer">
-    <div>Frontend matched to SKSK ProTech backend routes and JSON payloads.</div>
-    <div><a class="link" href="https://cash.app/$SKSKProTech" target="_blank" rel="noreferrer">Tip jar</a></div>
-  </div>
+            <div class="grid-3" style="margin-bottom:12px">
+                <div class="field">
+                    <label>Year</label>
+                    <input id="vehicleYear" type="text" placeholder="2008">
+                </div>
+                <div class="field">
+                    <label>Make</label>
+                    <input id="vehicleMake" type="text" placeholder="Ford">
+                </div>
+                <div class="field">
+                    <label>Model</label>
+                    <input id="vehicleModel" type="text" placeholder="F150">
+                </div>
+            </div>
 
-  <script>
-    const BACKEND_URL = location.hostname === 'localhost' ? 'http://localhost:4000' : 'https://p613-backend.onrender.com';
+            <div class="grid" style="margin-bottom:12px">
+                <div class="field">
+                    <label>Trim / Engine</label>
+                    <input id="vehicleTrim" type="text" placeholder="XLT 5.4L">
+                </div>
+                <div class="field">
+                    <label>Parts Cost ($)</label>
+                    <input id="partsCost" type="number" value="80" min="0">
+                </div>
+            </div>
 
-    const $ = (id) => document.getElementById(id);
+            <div class="section-title">Symptoms</div>
 
-    const state = {
-      polling: null,
-      jobId: null
-    };
+            <div class="grid-1">
+                <div class="field">
+                    <div class="translate-bar">
+                        <label>Customer States (what they told you)</label>
+                        <button class="btn-translate" id="btnTranslate">🔄 Translate to Tech</button>
+                    </div>
+                    <textarea id="customerStates" placeholder="Engine knocking, makes a clunky noise when I turn..."></textarea>
+                </div>
+                <div class="field">
+                    <label>Mechanic Notices</label>
+                    <textarea id="mechanicNotices" placeholder="Spark plugs fouled, rough idle at 600rpm..."></textarea>
+                </div>
+                <div class="field">
+                    <label>OBD Codes (comma separated)</label>
+                    <input id="obdCodes" type="text" placeholder="P0300, P0171">
+                </div>
+            </div>
 
-    const el = {
-      log: $('statusLog'),
-      dot: $('dotMain'),
-      label: $('pipelineLabel'),
-      jobToken: $('jobToken'),
-      inputError: $('inputError'),
-      estimateList: $('estimateList'),
-      partsList: $('partsList'),
-      notesText: $('notesText'),
-      partsLookupContainer: $('partsLookupContainer'),
-      sumLabor: $('sumLabor'),
-      sumParts: $('sumParts'),
-      sumTotal: $('sumTotal'),
-      clockNow: $('clockNow')
-    };
+            <div class="actions">
+                <button class="btn primary" id="btnEstimate">
+                    <div class="spinner"></div>
+                    <span class="btn-label">⚡ Generate Estimate</span>
+                </button>
+            </div>
 
-    function nowTime() {
-      return new Date().toLocaleTimeString();
-    }
+            <div class="result-card" id="estimateResult"></div>
+        </section>
 
-    function setStatus(text, kind='idle') {
-      el.label.textContent = text;
-      el.dot.className = 'dot';
-      if (kind === 'active') el.dot.classList.add('active');
-      if (kind === 'success') el.dot.classList.add('success');
-      if (kind === 'error') el.dot.classList.add('error');
-    }
+        <section class="panel" id="diagnoseTab">
 
-    function log(msg) {
-      const line = document.createElement('div');
-      line.className = 'log-line';
-      line.innerHTML = `<span>[${nowTime()}]</span> ${msg}`;
-      el.log.prepend(line);
-    }
+            <div class="voice-bar">
+                <span style="font-size:1.2rem">🎙️</span>
+                <p><strong>Voice Mode</strong> — describe what you're seeing</p>
+                <button class="btn-voice" id="btnVoiceDiagnose">
+                    <span>🎤</span> Speak
+                </button>
+            </div>
 
-    function money(n) {
-      const num = Number(n || 0);
-      return num.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-    }
+            <div class="section-title">Vehicle & Codes</div>
 
-    function clearOutput() {
-      el.estimateList.innerHTML = '';
-      el.partsList.innerHTML = '';
-      el.notesText.textContent = 'No estimate yet.';
-      el.partsLookupContainer.textContent = 'Run an estimate to see part cards here.';
-      el.sumLabor.textContent = money(0);
-      el.sumParts.textContent = money(0);
-      el.sumTotal.textContent = money(0);
-    }
+            <div class="vin-row" style="margin-bottom:12px">
+                <div class="field">
+                    <label>VIN</label>
+                    <input id="diagVin" type="text" placeholder="Optional — paste to auto-decode" maxlength="17">
+                </div>
+                <button class="btn-vin" id="btnDecodeVinDiag">🔍 Decode</button>
+            </div>
 
-    function buildCommonPayload() {
-      return {
-        customer: {
-          name: $('customerName').value.trim() || null,
-          phone: $('customerPhone').value.trim() || null,
-          email: $('customerEmail').value.trim() || null
-        },
-        vehicle: $('vehicleText').value.trim() || null,
-        vin: $('vin').value.trim() || null,
-        keyword: $('keyword').value.trim() || null,
-        description: $('description').value.trim() || null,
-        obdCodes: $('obdCodes').value.split(',').map(s => s.trim()).filter(Boolean),
-        customerStates: $('customerStates').value.split('
-').map(s => s.trim()).filter(Boolean),
-        mechanicNotices: $('mechanicFindings').value.split('
-').map(s => s.trim()).filter(Boolean),
-        exclusions: $('exclusions').value.split(',').map(s => s.trim()).filter(Boolean),
-        otherExclusions: $('otherExclusions').value.trim() || '',
-        laborRate: Number($('laborRate').value || 0)
-      };
-    }
+            <div class="grid" style="margin-bottom:12px">
+                <div class="field">
+                    <label>Mileage</label>
+                    <input id="diagMileage" type="number" placeholder="150000">
+                </div>
+                <div class="field">
+                    <label>OBD Codes (comma separated)</label>
+                    <input id="diagCodes" type="text" placeholder="P0300, P0171">
+                </div>
+            </div>
 
-    function renderEstimate(est) {
-      clearOutput();
-      if (!est) return;
+            <div class="section-title">Observations</div>
 
-      const laborHours = Number(est.laborHours || est.laborhours || 0);
-      const laborRate = Number(est.laborRate || est.laborrate || $('laborRate').value || 0);
-      const laborCost = Number(est.laborCost || (laborHours * laborRate) || 0);
-      const parts = est.activeParts || est.parts || [];
-      const partsCost = Number(est.partsCost || parts.reduce((sum, p) => sum + Number(p.cost || p.price || 0), 0));
-      const total = Number(est.subtotal || (laborCost + partsCost));
-      el.sumLabor.textContent = money(laborCost);
-      el.sumParts.textContent = money(partsCost);
-      el.sumTotal.textContent = money(total);
+            <div class="grid-1">
+                <div class="field">
+                    <div class="translate-bar">
+                        <label>Symptoms</label>
+                        <button class="btn-translate" id="btnTranslateDiag">🔄 Translate</button>
+                    </div>
+                    <textarea id="diagSymptoms" placeholder="Noise when turning, hard start, check engine light..."></textarea>
+                </div>
+                <div class="field">
+                    <label>Tech Notes</label>
+                    <textarea id="diagNotes" placeholder="Battery tested weak, alternator charging at 13.2V..."></textarea>
+                </div>
+            </div>
 
-      const steps = est.workSteps || est.steps || [];
-      steps.forEach((step, i) => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span class="mono">Step ${i + 1}:</span> ${step}`;
-        el.estimateList.appendChild(li);
-      });
+            <div class="actions">
+                <button class="btn primary" id="btnDiagnose">
+                    <div class="spinner"></div>
+                    <span class="btn-label">🔍 Run AI Diagnosis</span>
+                </button>
+            </div>
 
-      if (!steps.length && est.shortDescription) {
-        const li = document.createElement('li');
-        li.textContent = est.shortDescription;
-        el.estimateList.appendChild(li);
-      }
+            <div class="result-card" id="diagnoseResult"></div>
+        </section>
 
-      const partsList = est.activeParts || est.parts || [];
-      partsList.forEach((p) => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span class="mono">${p.name || p.part || 'Part'}</span> — ${money(p.cost || p.price || p.unitprice || 0)}`;
-        el.partsList.appendChild(li);
-      });
+        <section class="panel" id="invoiceTab">
+            <div class="section-title">Invoice Details</div>
 
-      el.notesText.textContent = est.notes || 'No notes returned.';
+            <div class="grid">
+                <div class="field">
+                    <label>Customer Name</label>
+                    <input id="invoiceCustomer" type="text" placeholder="John Doe">
+                </div>
+                <div class="field">
+                    <label>Invoice Number</label>
+                    <input id="invoiceNumber" type="text" placeholder="Auto-generated">
+                </div>
+                <div class="field">
+                    <label>Invoice Total ($)</label>
+                    <input id="invoiceTotal" type="number" value="200" min="0">
+                </div>
+            </div>
 
-      if (est.excludedParts && est.excludedParts.length) {
-        const excluded = document.createElement('div');
-        excluded.style.marginTop = '10px';
-        excluded.innerHTML = `<strong>Excluded:</strong> ${est.excludedParts.map(p => p.name || p.part || 'item').join(', ')}`;
-        el.notesText.appendChild(excluded);
-      }
+            <div class="field" style="margin-top:12px">
+                <label>Notes</label>
+                <textarea id="invoiceNotes" placeholder="Parts included, labor covered, warranty info..."></textarea>
+            </div>
 
-      const activeParts = est.activeParts || est.parts || [];
-      if (activeParts.length) lookupParts(activeParts);
-    }
+            <div class="actions-row">
+                <button class="btn primary" id="btnInvoice">
+                    <div class="spinner"></div>
+                    <span class="btn-label">🧾 Download PDF</span>
+                </button>
+            </div>
 
-    async function api(path, method='GET', body=null) {
-      const options = { method, headers: { 'Content-Type': 'application/json' } };
-      if (body) options.body = JSON.stringify(body);
-      const res = await fetch(BACKEND_URL + path, options);
-      const text = await res.text();
-      let data;
-      try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
-      if (!res.ok) throw new Error(data.error || data.message || `HTTP ${res.status}`);
-      return data;
-    }
+            <div class="status-simple" id="invoiceStatus">Ready to generate.</div>
+        </section>
 
-    async function lookupParts(parts) {
-      el.partsLookupContainer.innerHTML = '';
-      for (const part of parts.slice(0, 6)) {
-        const wrap = document.createElement('div');
-        wrap.className = 'parts-card';
-        wrap.innerHTML = `
-          <div class="parts-row"><span>Part</span><span class="mono">${part.name || 'Part'}</span></div>
-          <div class="parts-row"><span>Target</span><span>${money(part.cost || part.price || 0)}</span></div>
-          <div class="parts-row"><span>Status</span><span class="muted">Querying backend</span></div>
-        `;
-        el.partsLookupContainer.appendChild(wrap);
+        <section class="panel" id="shareTab">
+            <div class="section-title">Share SKSK ProTech</div>
 
-        try {
-          const data = await api('/api/parts-lookup', 'POST', {
-            part_number: part.partNumber || part.partnumber || null,
-            name: part.name || null,
-            vehicle: $('vehicleText').value.trim() || null,
-            vin: $('vin').value.trim() || null
-          });
+            <div class="field">
+                <label>Share Message</label>
+                <textarea id="shareText">🔧 SKSK ProTech — AI-powered mobile mechanic tool. Instant estimates, diagnostics, and invoices.</textarea>
+            </div>
 
-          const best = (data.local || []).concat(data.online || []);
-          const bestOne = best.sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0];
+            <div class="actions">
+                <button class="btn primary" id="btnShare">
+                    <span class="btn-label">📤 Share App</span>
+                </button>
+            </div>
 
-          wrap.innerHTML = `
-            <div class="parts-row"><span>Part</span><span class="mono">${part.name || 'Part'}</span></div>
-            <div class="parts-row"><span>Best Price</span><span>${bestOne ? money(bestOne.price) : 'N/A'}</span></div>
-            <div class="parts-row"><span>Source</span><span>${bestOne ? (bestOne.source || 'Vendor') : 'No match'}</span></div>
-          `;
+            <div class="status-simple" id="shareStatus">Ready.</div>
+        </section>
 
-          if (bestOne && bestOne.order_url) {
-            const btn = document.createElement('button');
-            btn.className = 'parts-order-btn';
-            btn.textContent = 'Open Vendor';
-            btn.onclick = () => window.open(bestOne.order_url, '_blank', 'noreferrer');
-            wrap.appendChild(btn);
-          }
+    </div>
 
-          if (bestOne && Number(bestOne.price || 0) <= Number(part.cost || part.price || 0)) {
-            wrap.classList.add('best');
-          }
-        } catch (err) {
-          wrap.innerHTML = `
-            <div class="parts-row"><span>Part</span><span class="mono">${part.name || 'Part'}</span></div>
-            <div class="parts-row"><span>Status</span><span class="error-text">Lookup failed</span></div>
-          `;
+    <div class="footer">SKSK ProTech &nbsp;·&nbsp; Professional. Sharp. Built to move fast.</div>
+
+    <script>
+        const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://p613-backend.onrender.com';
+
+        // ── UTILITIES ──
+        function splitList(v) {
+            return (v || '').split(',').map(s => s.trim()).filter(Boolean);
         }
-      }
-    }
 
-    async function generateEstimate() {
-      const payload = buildCommonPayload();
-      if (!payload.keyword && !payload.vin && !payload.description) {
-        $('inputError').textContent = 'Add a keyword, VIN, or description.';
-        $('inputError').classList.remove('hidden');
-        return;
-      }
-      $('inputError').classList.add('hidden');
-      setStatus('Generating estimate', 'active');
-      log('Submitting estimate request to backend...');
+        function splitLines(v) {
+            return (v || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        }
 
-      try {
-        const data = await api('/api/generate-estimate', 'POST', payload);
-        log('Estimate returned successfully.');
-        setStatus('Estimate ready', 'success');
-        $('jobToken').textContent = data.savedJob?.id ? `Job ${data.savedJob.id}` : 'Estimate received';
-        renderEstimate(data.estimate || data);
-      } catch (err) {
-        setStatus('Estimate failed', 'error');
-        log(`Compute failure: ${err.message}`);
-      }
-    }
+        async function fetchWithTimeout(url, opts = {}, ms = 20000) {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), ms);
+            try {
+                return await fetch(url, {
+                    ...opts,
+                    signal: ctrl.signal
+                });
+            } finally {
+                clearTimeout(t);
+            }
+        }
 
-    async function validateAccess() {
-      const accessCode = $('accessCode').value.trim();
-      if (!accessCode) return log('Access code required.');
-      try {
-        const data = await api('/api/validate-access', 'POST', { accessCode });
-        log(data.valid ? `Access valid: ${data.tier || 'unknown'}` : `Access invalid: ${data.error || 'unknown'}`);
-      } catch (err) {
-        log(`Access validation failed: ${err.message}`);
-      }
-    }
+        async function readBody(res) {
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                return {
+                    error: text || `HTTP ${res.status}`
+                };
+            }
+        }
 
-    async function vinLookup() {
-      const vin = $('vin').value.trim();
-      if (!vin) return log('VIN required.');
-      try {
-        const data = await api(`/api/vin-lookup/${encodeURIComponent(vin)}`);
-        log(`VIN lookup: ${data.displayString || data.year || 'Success'}`);
-      } catch (err) {
-        log(`VIN lookup failed: ${err.message}`);
-      }
-    }
+        function setLoading(btn, on) {
+            if (on) btn.classList.add('loading');
+            else btn.classList.remove('loading');
+            btn.disabled = on;
+        }
 
-    async function loadCustomers() {
-      try {
-        const data = await api('/api/customers');
-        log(`Loaded customers: ${(data.customers || []).length || 0}`);
-      } catch (err) {
-        log(`Customers failed: ${err.message}`);
-      }
-    }
+        // ── FORM SAVE/RESTORE ──
+        const formFields = ['customerName', 'customerPhone', 'customerEmail', 'vehicleYear', 'vehicleMake', 'vehicleModel', 'vehicleTrim', 'laborRate', 'partsCost', 'vin', 'customerStates', 'mechanicNotices', 'obdCodes'];
 
-    async function loadJobs() {
-      try {
-        const data = await api('/api/jobs');
-        log(`Loaded jobs: ${(data.data || data.jobs || []).length || 0}`);
-      } catch (err) {
-        log(`Jobs failed: ${err.message}`);
-      }
-    }
+        function saveForm() {
+            const d = {};
+            formFields.forEach(k => {
+                const el = document.getElementById(k);
+                if (el) d[k] = el.value;
+            });
+            localStorage.setItem('sksk_form', JSON.stringify(d));
+        }
 
-    async function startCheckout(plan) {
-      try {
-        const data = await api('/api/create-checkout-session', 'POST', {
-          plan,
-          customerEmail: $('customerEmail').value.trim() || null,
-          customerName: $('customerName').value.trim() || null
+        function restoreForm() {
+            try {
+                const d = JSON.parse(localStorage.getItem('sksk_form') || '{}');
+                Object.keys(d).forEach(k => {
+                    const el = document.getElementById(k);
+                    if (el) el.value = d[k];
+                });
+            } catch {}
+        }
+
+        document.querySelectorAll('input,textarea').forEach(el => el.addEventListener('input', saveForm));
+
+        // ── TABS ──
+        document.querySelectorAll('.tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById(btn.dataset.tab).classList.add('active');
+            });
         });
-        if (data.url) window.open(data.url, '_blank', 'noreferrer');
-        log(`Checkout created for ${plan}.`);
-      } catch (err) {
-        log(`Checkout failed: ${err.message}`);
-      }
-    }
 
-    $('btnGenerate').addEventListener('click', generateEstimate);
-    $('btnVin').addEventListener('click', vinLookup);
-    $('btnAccess').addEventListener('click', validateAccess);
-    $('btnCustomers').addEventListener('click', loadCustomers);
-    $('btnJobs').addEventListener('click', loadJobs);
-    $('btnClear').addEventListener('click', () => { el.log.innerHTML = ''; clearOutput(); });
+        // ── VOICE MODE ──
+        function startVoice(targetFields, btnEl) {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) {
+                alert('Voice not supported on this browser. Try Chrome.');
+                return;
+            }
+            const rec = new SR();
+            rec.lang = 'en-US';
+            rec.interimResults = false;
+            rec.maxAlternatives = 1;
+            btnEl.classList.add('recording');
+            btnEl.innerHTML = '<span>⏹</span> Stop';
+            rec.start();
+            rec.onresult = (e) => {
+                const transcript = e.results[0][0].transcript;
+                const target = document.getElementById(targetFields[0]);
+                if (target) target.value = (target.value ? target.value + ' ' : '') + transcript;
+                saveForm();
+            };
+            rec.onerror = () => {
+                btnEl.classList.remove('recording');
+                btnEl.innerHTML = '<span>🎤</span> Speak';
+            };
+            rec.onend = () => {
+                btnEl.classList.remove('recording');
+                btnEl.innerHTML = '<span>🎤</span> Speak';
+            };
+        }
 
-    $('btnProMonthly').addEventListener('click', () => startCheckout('promonthly'));
-    $('btnProYearly').addEventListener('click', () => startCheckout('proyearly'));
+        document.getElementById('btnVoiceEstimate').addEventListener('click', function() {
+            startVoice(['customerStates'], this);
+        });
 
-    document.querySelectorAll('.pill[data-rate]').forEach(btn => {
-      btn.addEventListener('click', () => $('laborRate').value = btn.dataset.rate);
-    });
+        document.getElementById('btnVoiceDiagnose').addEventListener('click', function() {
+            startVoice(['diagSymptoms'], this);
+        });
 
-    document.querySelectorAll('.pill[data-complaint]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const val = btn.dataset.complaint;
-        $('keyword').value = val;
-        $('description').value = `Customer reports ${val}.`;
-      });
-    });
+        // ── VIN DECODE (NHTSA free API) ──
+        async function decodeVin(vin, yearEl, makeEl, modelEl, trimEl) {
+            if (!vin || vin.length !== 17) {
+                alert('Enter a valid 17-character VIN first.');
+                return;
+            }
+            try {
+                const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`);
+                const data = await res.json();
+                const r = data.Results?.[0];
+                if (!r) throw new Error('No results');
+                if (yearEl) document.getElementById(yearEl).value = r.ModelYear || '';
+                if (makeEl) document.getElementById(makeEl).value = r.Make || '';
+                if (modelEl) document.getElementById(modelEl).value = r.Model || '';
+                if (trimEl) document.getElementById(trimEl).value = [r.Trim, r.EngineCylinders ? r.EngineCylinders + 'cyl' : '', r.DisplacementL ? r.DisplacementL + 'L' : ''].filter(Boolean).join(' ');
 
-    setInterval(() => {
-      el.clockNow.textContent = nowTime();
-    }, 1000);
-    el.clockNow.textContent = nowTime();
+                // Check for recalls
+                const recallRes = await fetch(`https://api.nhtsa.gov/recalls/recallsByVehicle?make=${encodeURIComponent(r.Make)}&model=${encodeURIComponent(r.Model)}&modelYear=${r.ModelYear}`);
+                const recallData = await recallRes.json();
+                const recallCount = recallData.Count || 0;
 
-    setStatus('Idle');
-    clearOutput();
-    log('Frontend ready.');
-  </script>
+                saveForm();
+                alert(`✅ VIN Decoded!\n${r.ModelYear} ${r.Make} ${r.Model}\n\n⚠️ Open Recalls: ${recallCount}${recallCount > 0 ? '\nCheck NHTSA.gov for details!' : ''}`);
+            } catch (e) {
+                alert('VIN decode failed — check the VIN and try again.');
+            }
+        }
+
+        document.getElementById('btnDecodeVin').addEventListener('click', () => {
+            decodeVin(document.getElementById('vin').value.trim(), 'vehicleYear', 'vehicleMake', 'vehicleModel', 'vehicleTrim');
+        });
+
+        document.getElementById('btnDecodeVinDiag').addEventListener('click', () => {
+            decodeVin(document.getElementById('diagVin').value.trim(), null, null, null, null);
+        });
+
+        // ── CUSTOMER TRANSLATOR ──
+        async function translateCustomerSpeak(textareaId, btnEl) {
+            const el = document.getElementById(textareaId);
+            const raw = el.value.trim();
+            if (!raw) {
+                alert('Type what the customer said first.');
+                return;
+            }
+            const orig = btnEl.textContent;
+            btnEl.textContent = '⏳ Translating...';
+            btnEl.disabled = true;
+            try {
+                const res = await fetchWithTimeout(`${API_BASE}/api/translate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: raw
+                    })
+                });
+                const data = await readBody(res);
+                if (data.translated) el.value = data.translated;
+                saveForm();
+            } catch (e) {
+                // Fallback: do it client-side with a note
+                el.value = `[CUSTOMER SAID]: ${raw}\n[TECH NOTE]: Needs inspection to confirm`;
+            } finally {
+                btnEl.textContent = orig;
+                btnEl.disabled = false;
+            }
+        }
+
+        document.getElementById('btnTranslate').addEventListener('click', function() {
+            translateCustomerSpeak('customerStates', this);
+        });
+
+        document.getElementById('btnTranslateDiag').addEventListener('click', function() {
+            translateCustomerSpeak('diagSymptoms', this);
+        });
+
+        // ── RENDER ESTIMATE RESULT ──
+        function renderEstimate(est) {
+            const card = document.getElementById('estimateResult');
+            const priority = (est.priority || 'medium').toLowerCase();
+            const badgeClass = `badge-${priority}`;
+
+            card.className = 'result-card visible success';
+            card.innerHTML = `
+        <div class="result-header">
+          <div class="result-header-left">✅ Estimate Ready</div>
+          <span class="result-badge ${badgeClass}">${priority.toUpperCase()} PRIORITY</span>
+        </div>
+        <div class="result-body">
+
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🩺</span> Diagnosis</div>
+            <div class="result-text">${est.diagnosis||'N/A'}</div>
+          </div>
+
+          <div class="money-row">
+            <div class="money-box">
+              <div class="money-label">LABOR</div>
+              <div class="money-val">$${est.laborCost||0}</div>
+            </div>
+            <div class="money-box">
+              <div class="money-label">PARTS</div>
+              <div class="money-val">$${est.partsCost||0}</div>
+            </div>
+            <div class="money-box total">
+              <div class="money-label">TOTAL</div>
+              <div class="money-val">$${est.total||0}</div>
+            </div>
+          </div>
+
+          ${est.repairs?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🔩</span> Repairs Needed</div>
+            <div class="list-items">
+              ${est.repairs.map((r,i)=>`<div class="list-item"><span class="li-num">${i+1}</span>${r}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${est.probability?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">📊</span> Probability Breakdown</div>
+            <div class="prob-bar">
+              ${est.probability.map(p=>`
+                <div class="prob-row">
+                  <div class="prob-label"><span>${p.cause}</span><span>${p.likelihood}%</span></div>
+                  <div class="prob-track"><div class="prob-fill" style="width:${p.likelihood}%"></div></div>
+                </div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${est.knownIssues?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">⚠️</span> Known Issues — Watch For These</div>
+            <div class="list-items">
+              ${est.knownIssues.map((x,i)=>`<div class="list-item"><span class="li-num">${i+1}</span>${x}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${est.repairSteps?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🛠️</span> Repair Procedure</div>
+            <div class="list-items">
+              ${est.repairSteps.map((s,i)=>`<div class="list-item"><span class="li-num">${i+1}</span>${s}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${est.proTips?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">⚡</span> Pro Tips</div>
+            <div class="list-items">
+              ${est.proTips.map(t=>`<div class="list-item"><span class="li-icon">⚡</span>${t}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${est.additionalChecks?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🔎</span> While You're In There</div>
+            <div class="list-items">
+              ${est.additionalChecks.map(c=>`<div class="list-item"><span class="li-icon">→</span>${c}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${est.notes ? `<div class="result-muted">📝 ${est.notes}</div>` : ''}
+        </div>`;
+        }
+
+        // ── RENDER DIAGNOSE RESULT ──
+        function renderDiagnose(r) {
+            const card = document.getElementById('diagnoseResult');
+            const urgency = (r.urgency || 'soon').toLowerCase();
+            card.className = 'result-card visible success';
+            card.innerHTML = `
+        <div class="result-header">
+          <div class="result-header-left">🔍 Diagnosis Complete</div>
+          <span class="result-badge badge-${urgency}">${urgency.toUpperCase()}</span>
+        </div>
+        <div class="result-body">
+
+          ${r.safetyRisk ? `<div class="safety-banner">⚠️ SAFETY RISK — Do not drive until repaired</div>` : ''}
+
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🎯</span> Primary Cause</div>
+            <div class="result-text">${r.primaryCause||'N/A'}</div>
+          </div>
+
+          ${r.secondaryCauses?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🔀</span> Other Possibilities</div>
+            <div class="list-items">
+              ${r.secondaryCauses.map(c=>`<div class="list-item"><span class="li-icon">•</span>${c}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${Object.keys(r.codeExplanations||{}).length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🔢</span> Code Breakdown</div>
+            <div class="code-grid">
+              ${Object.entries(r.codeExplanations).map(([k,v])=>`
+                <div class="code-row">
+                  <span class="code-tag">${k}</span>
+                  <span class="code-desc">${v}</span>
+                </div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${r.probability?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">📊</span> Probability Breakdown</div>
+            <div class="prob-bar">
+              ${r.probability.map(p=>`
+                <div class="prob-row">
+                  <div class="prob-label"><span>${p.cause}</span><span>${p.likelihood}%</span></div>
+                  <div class="prob-track"><div class="prob-fill" style="width:${p.likelihood}%"></div></div>
+                </div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${r.knownIssues?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">⚠️</span> Known Issues — Watch For</div>
+            <div class="list-items">
+              ${r.knownIssues.map((x,i)=>`<div class="list-item"><span class="li-num">${i+1}</span>${x}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${r.repairSteps?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🛠️</span> Repair Procedure</div>
+            <div class="list-items">
+              ${r.repairSteps.map((s,i)=>`<div class="list-item"><span class="li-num">${i+1}</span>${s}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${r.proTips?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">⚡</span> Pro Tips</div>
+            <div class="list-items">
+              ${r.proTips.map(t=>`<div class="list-item"><span class="li-icon">⚡</span>${t}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${r.recommendedTests?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🧪</span> Confirm With These Tests</div>
+            <div class="list-items">
+              ${r.recommendedTests.map(t=>`<div class="list-item"><span class="li-icon">→</span>${t}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${r.additionalChecks?.length ? `
+          <div class="result-section">
+            <div class="result-section-title"><span class="icon">🔎</span> While You're In There</div>
+            <div class="list-items">
+              ${r.additionalChecks.map(c=>`<div class="list-item"><span class="li-icon">→</span>${c}</div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          <div class="result-muted">⏱ Est. repair time: ${r.estimatedRepairTime||'N/A'}${r.notes ? `&nbsp;&nbsp;|&nbsp;&nbsp;📝 ${r.notes}` : ''}</div>
+        </div>`;
+        }
+
+        // ── ESTIMATE ──
+        document.getElementById('btnEstimate').addEventListener('click', async () => {
+            const btn = document.getElementById('btnEstimate');
+            setLoading(btn, true);
+            const card = document.getElementById('estimateResult');
+            card.className = 'result-card';
+            try {
+                const payload = {
+                    customer: {
+                        name: document.getElementById('customerName').value.trim(),
+                        phone: document.getElementById('customerPhone').value.trim(),
+                        email: document.getElementById('customerEmail').value.trim()
+                    },
+                    vehicle: {
+                        year: parseInt(document.getElementById('vehicleYear').value.trim(), 10) || 2008,
+                        make: document.getElementById('vehicleMake').value.trim(),
+                        model: document.getElementById('vehicleModel').value.trim(),
+                        trim: document.getElementById('vehicleTrim').value.trim()
+                    },
+                    obdCodes: splitList(document.getElementById('obdCodes').value),
+                    customerStates: splitLines(document.getElementById('customerStates').value),
+                    mechanicNotices: splitLines(document.getElementById('mechanicNotices').value),
+                    laborRate: Number(document.getElementById('laborRate').value || 0),
+                    partsCost: Number(document.getElementById('partsCost').value || 0),
+                    vin: document.getElementById('vin').value.trim()
+                };
+
+                const res = await fetchWithTimeout(`${API_BASE}/api/estimateHeuristic`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await readBody(res);
+                if (!res.ok) throw new Error(data.error || `Estimate failed (${res.status})`);
+                renderEstimate(data.estimate || {});
+                card.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest'
+                });
+            } catch (err) {
+                card.className = 'result-card visible error';
+                card.innerHTML = `<div class="result-header"><div class="result-header-left">❌ Error</div></div><div class="result-body"><div class="result-text">${err.message||'Estimate failed'}</div></div>`;
+            } finally {
+                setLoading(btn, false);
+            }
+        });
+
+        // ── DIAGNOSE ──
+        document.getElementById('btnDiagnose').addEventListener('click', async () => {
+            const btn = document.getElementById('btnDiagnose');
+            setLoading(btn, true);
+            const card = document.getElementById('diagnoseResult');
+            card.className = 'result-card';
+            try {
+                const payload = {
+                    vin: document.getElementById('diagVin').value.trim(),
+                    mileage: Number(document.getElementById('diagMileage').value || 0),
+                    symptoms: splitLines(document.getElementById('diagSymptoms').value),
+                    codes: splitList(document.getElementById('diagCodes').value),
+                    notes: splitLines(document.getElementById('diagNotes').value)
+                };
+
+                const res = await fetchWithTimeout(`${API_BASE}/api/diagnose`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await readBody(res);
+                if (!res.ok) throw new Error(data.error || `Diagnosis failed (${res.status})`);
+                renderDiagnose(data.result || {});
+                card.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest'
+                });
+            } catch (err) {
+                card.className = 'result-card visible error';
+                card.innerHTML = `<div class="result-header"><div class="result-header-left">❌ Error</div></div><div class="result-body"><div class="result-text">${err.message||'Diagnosis failed'}</div></div>`;
+            } finally {
+                setLoading(btn, false);
+            }
+        });
+
+        // ── INVOICE ──
+        document.getElementById('btnInvoice').addEventListener('click', async () => {
+            const btn = document.getElementById('btnInvoice');
+            const status = document.getElementById('invoiceStatus');
+            setLoading(btn, true);
+            status.className = 'status-simple';
+            status.textContent = 'Generating PDF...';
+            try {
+                const payload = {
+                    total: Number(document.getElementById('invoiceTotal').value || 0),
+                    invoiceNumber: document.getElementById('invoiceNumber').value.trim(),
+                    customer: {
+                        name: document.getElementById('invoiceCustomer').value.trim()
+                    },
+                    notes: document.getElementById('invoiceNotes').value.trim()
+                };
+                const res = await fetchWithTimeout(`${API_BASE}/api/invoice`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/pdf',
+                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) {
+                    const d = await readBody(res);
+                    throw new Error(d.error || `Invoice failed (${res.status})`);
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `invoice-${Date.now()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                status.className = 'status-simple success';
+                status.textContent = '✅ Invoice downloaded!';
+            } catch (err) {
+                status.className = 'status-simple error';
+                status.textContent = err.message || 'Invoice failed';
+            } finally {
+                setLoading(btn, false);
+            }
+        });
+
+        // ── SHARE ──
+        document.getElementById('btnShare').addEventListener('click', async () => {
+            const text = document.getElementById('shareText').value.trim();
+            const status = document.getElementById('shareStatus');
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'SKSK ProTech',
+                        text,
+                        url: location.href
+                    });
+                    status.className = 'status-simple success';
+                    status.textContent = 'Shared!';
+                } catch {
+                    status.className = 'status-simple error';
+                    status.textContent = 'Share canceled.';
+                }
+            } else {
+                try {
+                    await navigator.clipboard.writeText(`${text} ${location.href}`);
+                    status.className = 'status-simple success';
+                    status.textContent = 'Copied to clipboard!';
+                } catch {
+                    status.className = 'status-simple error';
+                    status.textContent = 'Sharing not supported on this device.';
+                }
+            }
+        });
+
+        // ── SERVICE WORKER ──
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        }
+
+
+        // --- Advanced Sharing & PDF Operations ---
+        async function triggerPdfDownload(estimateData) {
+            try {
+                setStatus('Generating PDF...', 'success');
+                const response = await fetch('/api/invoice', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
+                    },
+                    body: JSON.stringify(estimateData)
+                });
+
+                if (!response.ok) throw new Error('Backend failed to stream PDF');
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Estimate_${estimateData.vehicle?.make || 'Vehicle'}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setStatus('PDF Downloaded.', 'success');
+            } catch (err) {
+                console.error(err);
+                setStatus('PDF download failed.', 'error');
+            }
+        }
+
+        function shareViaSMS(customerPhone, estimateSummary) {
+            if (!customerPhone) {
+                setStatus('Missing customer phone number.', 'error');
+                return;
+            }
+            const messageText = encodeURIComponent(`SKSK ProTech Estimate Summary:\n\n${estimateSummary}`);
+            window.location.href = `sms:${customerPhone}?body=${messageText}`;
+        }
+
+        function shareViaEmail(customerEmail, vehicleInfo, estimateSummary) {
+            if (!customerEmail) {
+                setStatus('Missing customer email address.', 'error');
+                return;
+            }
+            const subject = encodeURIComponent(`Repair Estimate: ${vehicleInfo}`);
+            const body = encodeURIComponent(`Hi, here is your requested vehicle estimate:\n\n${estimateSummary}`);
+            window.location.href = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
+        }
+
+
+        // --- Hooking Up Advanced UI Share Actions ---
+        function gatherCurrentEstimatePayload() {
+            return {
+                customer: {
+                    name: document.getElementById('customerName')?.value || 'Valued Customer',
+                    phone: document.getElementById('customerPhone')?.value || '',
+                    email: document.getElementById('customerEmail')?.value || ''
+                },
+                vehicle: {
+                    year: parseInt(document.getElementById('vehicleYear')?.value, 10) || 2008,
+                    make: document.getElementById('vehicleMake')?.value || '',
+                    model: document.getElementById('vehicleModel')?.value || '',
+                    trim: document.getElementById('vehicleTrim')?.value || 'Standard'
+                },
+                estimateText: document.getElementById('outputDisplay')?.innerText || 'No active diagnostics generated yet.',
+                totalAmount: document.getElementById('estimatedTotal')?.innerText || '0.00',
+                obdCodes: document.getElementById('obdCodes')?.value ? document.getElementById('obdCodes').value.split(',').map(c => c.trim()) : [],
+                customerStates: document.getElementById('customerComplaints')?.value ? [document.getElementById('customerComplaints').value] : [],
+                mechanicNotices: document.getElementById('mechanicNotes')?.value ? [document.getElementById('mechanicNotes').value] : [],
+                mileage: parseInt(document.getElementById('vehicleMileage')?.value, 10) || 0
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('btnPrintPdf')?.addEventListener('click', () => {
+                const payload = gatherCurrentEstimatePayload();
+                triggerPdfDownload(payload);
+            });
+
+            document.getElementById('btnSendSms')?.addEventListener('click', () => {
+                const payload = gatherCurrentEstimatePayload();
+                const summary = `Total Due: ${payload.totalAmount}\n\n${payload.estimateText}`;
+                shareViaSMS(payload.customer.phone, summary);
+            });
+
+            document.getElementById('btnSendEmail')?.addEventListener('click', () => {
+                const payload = gatherCurrentEstimatePayload();
+                const vInfo = `${payload.vehicle.year} ${payload.vehicle.make} ${payload.vehicle.model}`;
+                const summary = `Total Due: ${payload.totalAmount}\n\n${payload.estimateText}`;
+                shareViaEmail(payload.customer.email, vInfo, summary);
+            });
+        });
+
+        restoreForm();
+    </script>
 </body>
+
 </html>
+
+
