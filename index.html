@@ -401,13 +401,21 @@
 
     function getCommonPayload() {
       return {
-        customer: { name: $("customerName").value.trim() || null, phone: $("customerPhone").value.trim() || null },
-        vehicle: { text: $("vehicleText").value.trim() || null, vin: $("vin").value.trim() || null },
+        customer: {
+          name: $("customerName").value.trim() || null,
+          phone: $("customerPhone").value.trim() || null
+        },
+        vehicle: {
+          text: $("vehicleText").value.trim() || null,
+          vin: $("vin").value.trim() || null
+        },
         keyword: $("keyword").value.trim() || null,
-        labor_rate: Number($("laborRate").value || 0),
-        obd_codes: $("obdCodes").value.trim(),
-        customer_states: $("customerStates").value.trim(),
-        mechanic_findings: $("mechanicFindings").value.trim()
+        laborRate: Number($("laborRate").value || 0),
+        obdCodes: $("obdCodes").value.split(",").map(s => s.trim()).filter(Boolean),
+        customerStates: $("customerStates").value.split("").map(s => s.trim()).filter(Boolean),
+        mechanicNotices: $("mechanicFindings").value.split("").map(s => s.trim()).filter(Boolean),
+        exclusions: [],
+        otherExclusions: ""
       };
     }
 
@@ -416,7 +424,7 @@
       setPipelineTag("Quick calculation", "running"); setDots({ scrape: false, ai: true, done: null });
       logStatus("Launching fast estimate compute...");
       try {
-        const res = await fetch(`${BACKEND_URL}/api/full-estimate`, {
+        const res = await fetch(`${BACKEND_URL}/api/generate-estimate`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(getCommonPayload())
         });
@@ -436,7 +444,7 @@
       logStatus("Initializing asynchronous crawler pipeline...");
       try {
         const payload = getCommonPayload();
-        const scrapeRes = await fetch(`${BACKEND_URL}/api/scrape`, {
+        const scrapeRes = await fetch(`${BACKEND_URL}/api/generate-estimate`, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ keyword: payload.keyword, vin: payload.vehicle.vin, fitment: { text: payload.vehicle.text } })
         });
