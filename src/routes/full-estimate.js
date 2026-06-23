@@ -40,13 +40,7 @@ function validateRequestBody(body) {
 function buildSystemPrompt(laborRate, partsCost, history, manualsContext) {
   const historyList = uniqueStrings(history);
   const historyStr = historyList.length > 0
-    ? `
-
-FAILED REPAIR HISTORY:
-${historyList.map(h => `- ${h}`).join('
-')}
-
-CRITICAL RULE: Never suggest any item from FAILED REPAIR HISTORY. Assign 0% likelihood to those components and exclude them from diagnosis.`
+    ? `FAILED REPAIR HISTORY:${historyList.map(h => `- ${h}`).join('')}CRITICAL RULE: Never suggest any item from FAILED REPAIR HISTORY. Assign 0% likelihood to those components and exclude them from diagnosis.`
     : '';
 
   return `You are a deterministic automotive diagnostic engine.
@@ -213,11 +207,7 @@ router.post('/', async (req, res) => {
       .join(' ');
 
     const manualsContext = tsbs.length > 0
-      ? `
-
-RELEVANT FACTORY MANUAL SECTIONS:
-${tsbs.slice(0, 10).map(t => `- ${t.title} (${t.url})`).join('
-')}`
+      ? `RELEVANT FACTORY MANUAL SECTIONS:${tsbs.slice(0, 10).map(t => `- ${t.title} (${t.url})`).join('')}`
       : '';
 
     const systemPrompt = buildSystemPrompt(laborRateNum, partsCostNum, cleanHistory, manualsContext);
@@ -292,10 +282,7 @@ ${cleanHistory.length ? `Previously Replaced (Failed to Fix): ${cleanHistory.joi
         }).slice(0, 3);
 
         const factoryContext = relevantManuals.length > 0
-          ? relevantManuals.map(m => `Manual Section: ${m.title}
-Source: ${m.url}`).join('
-
-')
+          ? relevantManuals.map(m => `Manual Section: ${m.title}Source: ${m.url}`).join('')
           : 'No specific manual page matched. Use standard factory specs.';
 
         const guidePrompt = `You are an elite master field mechanic.
