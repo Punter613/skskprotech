@@ -136,6 +136,7 @@ function getPartsEstimate(year, make, model, partType) {
 }
 
 router.post('/', async (req, res) => {
+  console.log('FULL ESTIMATE BODY:', req.body);
   const startTime = Date.now();
   const validationError = validateRequestBody(req.body);
 
