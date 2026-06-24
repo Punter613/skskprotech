@@ -12,7 +12,8 @@
     "ship": "node scripts/ship.js",
     "gen:types": "openapi-typescript openapi.yaml -o src/types/api.d.ts",
     "gen": "npm run gen:types",
-    "test:ts": "tsc --noEmit"
+    "test:ts": "tsc --noEmit",
+    "test:random": "node scripts/generate_random_test.js"
   },
   "keywords": [
     "auto",

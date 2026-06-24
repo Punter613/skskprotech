@@ -6,6 +6,7 @@ const { groqChat } = require('../services/groq');
 const { decodeVinNhtsa } = require('../services/vin');
 const { extractJSON, uniqueStrings, clampNumber } = require('../services/estimateHelpers');
 const { sanitizeEstimate, safeEstimate } = require('../services/estimateSanitizer');
+const { findKnowledgeProcedure } = require('../services/procedure_lookup');
 
 function validateRequestBody(body) {
   const allowed = new Set([
@@ -21,18 +22,26 @@ function validateRequestBody(body) {
     'history'
   ]);
 
-  for (const key of Object.keys(body || {})) {
+  if (!body || typeof body !== 'object') return 'Request body must be an object';
+
+  for (const key of Object.keys(body)) {
     if (!allowed.has(key)) {
       return `Unexpected field: ${key}`;
     }
   }
 
-  if (!body || typeof body !== 'object') return 'Request body must be an object';
+  // VIN Hardening: Must be 17 chars and alphanumeric
   if (!body.vin || String(body.vin).trim().length !== 17) return 'Valid 17-character VIN required';
+  if (!/^[A-HJ-NPR-Z0-9]{17}$/i.test(body.vin)) return 'VIN contains invalid characters (I, O, Q are not allowed)';
+
   if (body.customerStates && !Array.isArray(body.customerStates)) return 'customerStates must be an array';
   if (body.mechanicNotices && !Array.isArray(body.mechanicNotices)) return 'mechanicNotices must be an array';
   if (body.obdCodes && !Array.isArray(body.obdCodes)) return 'obdCodes must be an array';
   if (body.history && !Array.isArray(body.history)) return 'history must be an array';
+
+  // Deep array validation
+  if (body.customerStates && body.customerStates.some(s => typeof s !== 'string')) return 'All customerStates must be strings';
+  if (body.obdCodes && body.obdCodes.some(c => typeof c !== 'string')) return 'All obdCodes must be strings';
 
   return null;
 }
@@ -208,7 +217,7 @@ router.post('/', async (req, res) => {
       .join(' ');
 
     const manualsContext = tsbs.length > 0
-      ? `RELEVANT FACTORY MANUAL SECTIONS:${tsbs.slice(0, 10).map(t => `- ${t.title} (${t.url})`).join('')}`
+      ? `RELEVANT FACTORY MANUAL SECTIONS:${tsbs.slice(0, 10).map(t => `- ${t.title} (\n${t.url})`).join('')}`
       : '';
 
     const systemPrompt = buildSystemPrompt(laborRateNum, partsCostNum, cleanHistory, manualsContext);
@@ -274,16 +283,23 @@ ${cleanHistory.length ? `Previously Replaced (Failed to Fix): ${cleanHistory.joi
     logs.push('[5/5] Generating repair guide...');
     let guide = null;
 
-    if (tsbs.length > 0 && estimate.repairs?.length > 0) {
+    if (estimate.repairs?.length > 0) {
       try {
         const repairJob = estimate.repairs[0];
+
+        // 🏁 KNOWLEDGE INJECTION: Check internal library first
+        const internalProcedure = findKnowledgeProcedure(vehicle, repairJob);
+        const internalContext = internalProcedure
+          ? `KNOWLEDGE BASE OVERRIDE: Use this verified field protocol: ${JSON.stringify(internalProcedure)}`
+          : '';
+
         const relevantManuals = tsbs.filter(t => {
           const tl = t.title.toLowerCase();
           return repairJob.toLowerCase().split(' ').some(w => w.length > 3 && tl.includes(w));
         }).slice(0, 3);
 
         const factoryContext = relevantManuals.length > 0
-          ? relevantManuals.map(m => `Manual Section: ${m.title}Source: ${m.url}`).join('')
+          ? relevantManuals.map(m => `Manual Section: ${m.title} Source: ${m.url}`).join('')
           : 'No specific manual page matched. Use standard factory specs.';
 
         const guidePrompt = `You are an elite master field mechanic.
@@ -291,6 +307,7 @@ ${cleanHistory.length ? `Previously Replaced (Failed to Fix): ${cleanHistory.joi
 Vehicle: ${vehicleStr}
 Repair Job: ${repairJob}
 
+${internalContext}
 ${factoryContext}
 
 Generate a concise, mobile-friendly step-by-step repair guide with:
@@ -318,7 +335,7 @@ Use Markdown. Be direct and practical. Max 400 words.`;
         logs.push(`[5/5] WARN Guide failed: ${guideErr.message}`);
       }
     } else {
-      logs.push('[5/5] SKIP No TSBs or repairs to guide');
+      logs.push('[5/5] SKIP No repairs to guide');
     }
 
     const duration = Date.now() - startTime;

@@ -53,3 +53,16 @@ The foundational P613 retail pipeline is locked down, pressurized, and stable. T
 * **Bulk Aggregator Optimization:** Allows operators to select 5–50 fleet vehicles simultaneously to run full-stack parallel VIN decodes, manual scrapers, AI computations, and live supplier checks in a single batch.
 * **Fleet-Scale Parts Procurement:** Leverages the live `/api/parts-lookup` cache matrix to calculate high-volume parts runs (bulk filters, brake lines, ignition sets), instantly serving up the cheapest local pickup options versus online distributor lead times.
 * **White-Label Invoicing & Branding:** Dynamically serves distinct colorways, custom company logos, and custom layout parameters matched to the logged-in corporate domain.
+
+---
+
+## 🧪 Testing & Hardening
+
+The repository now includes an automated randomization test suite to stress-test the estimation pipeline:
+
+```bash
+# Run a single randomized diagnostic simulation
+node scripts/generate_random_test.js
+```
+
+This script simulates various vehicle footprints, symptoms, and OBD-II codes to ensure the AI Foreman and Part Cost engines respond correctly under varying conditions.
