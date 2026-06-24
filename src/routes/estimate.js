@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { runDiagnosticPipeline } = require('../services/pipeline.engine');
-const { scrapeLEMONManuals } = require("../services/lemon");
 const { groqChat } = require('../services/groq');
 
 // Bracket-depth extraction logic to handle loose markdown text boundaries safely
 function extractJSON(text) {
   if (!text) return null;
-  text = text.replace(/```jsons*/gi, '').replace(/```s*/g, '');
+  text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
   const start = text.indexOf('{');
   if (start === -1) return null;
   let depth = 0;
@@ -65,6 +64,7 @@ router.post('/', async (req, res) => {
     let rustBeltMultiplier = 1.0;
 
     try {
+      // Map incoming arrays to expected compiler structure fields cleanly
       pipelineResults = runDiagnosticPipeline({
         vehicle,
         vin,
@@ -72,7 +72,7 @@ router.post('/', async (req, res) => {
         codes: obdCodes,
         mileage,
         laborRate: laborRateNum
-      }, { log: () => {}, logs: [] });
+      }, { log: () => {} }); // Trace stub to suppress console noise in estimation passes
 
       if (pipelineResults.profile && pipelineResults.profile.rustMultiplier > 1.0) {
         rustBeltMultiplier = pipelineResults.profile.rustMultiplier;
@@ -81,55 +81,14 @@ router.post('/', async (req, res) => {
       console.warn('[Estimate Engine] Pipeline background pass skipped:', pipelineErr.message);
     }
 
-    // Decode VIN to get vehicle info
-    let vehicleInfo = vehicle;
-    if (vin && (!vehicleInfo.make || !vehicleInfo.model)) {
-      try {
-        const decodeResponse = await fetch(`http://localhost:${process.env.PORT || 3000}/api/estimateHeuristic/decode`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vin })
-        });
-        if (decodeResponse.ok) {
-          vehicleInfo = await decodeResponse.json();
-        }
-      } catch (err) {
-        console.warn('[VIN Decode] Failed:', err.message);
-      }
-    }
-
-    // Try to scrape LEMON manuals
-    let manuals = null;
-    let appliedRustPenalty = rustBeltMultiplier > 1.0;
-    
-    if (vin && vehicleInfo.make && vehicleInfo.model) {
-      try {
-        manuals = await scrapeLEMONManuals(vehicleInfo);
-        if (manuals && manuals.length > 0) {
-          appliedRustPenalty = true;
-          console.log(`✅ [LEMON Scraper] Found ${manuals.length} manual pages`);
-        }
-      } catch (scraperErr) {
-        console.warn('[LEMON Scraper] Failed:', scraperErr.message);
-      }
-    }
-
-    const vehicleStr = [vehicleInfo.year, vehicleInfo.make, vehicleInfo.model, vehicleInfo.trim, (vehicleInfo.engine || vehicleInfo.motorSize || "")].filter(Boolean).join(" ") || "Unknown Vehicle";
-
-    // Add manuals to prompt if available
-    let manualsContext = '';
-    if (manuals && manuals.length > 0) {
-      manualsContext = `
-
-LEMON MANUALS RELEVANT TO THIS REPAIR:
-${JSON.stringify(manuals.slice(0, 20), null, 2)}
-
-Use these manual pages to find exact repair procedures, torque specs, and diagrams.`;
-    }
+    // FIX: Dynamically construct the vehicle identity string from ACTUAL real-time request parameters
+    const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim]
+      .filter(Boolean).join(' ') || 'Unknown Vehicle';
 
     const systemPrompt = `You are the expert estimation module of SKSK ProTech — a master automotive mechanic with 25 years of real shop experience.
 
 Output a single valid JSON object ONLY. No backticks, no markdown, no text before or after.
+
 {
   "priority": "high",
   "diagnosis": "string",
@@ -151,8 +110,7 @@ RULES:
 - laborCost = estimatedHours x ${laborRateNum} x ${rustBeltMultiplier}
 - total = laborCost + partsCost
 - All array values must be strings
-- Output raw JSON only
-${manualsContext}`;
+- Output raw JSON only`;
 
     const userPrompt = `Vehicle: ${vehicleStr}
 VIN: ${vin || 'N/A'}
@@ -181,11 +139,6 @@ Mechanic Notices: ${mechanicNotices.join(', ') || 'N/A'}`;
       finalEstimate.priority = 'medium';
     }
 
-    // Add manuals to estimate if available
-    if (manuals && manuals.length > 0) {
-      finalEstimate.manuals = manuals;
-    }
-
     try {
       const db = require('../services/db');
       if (db) await db.from('estimates').insert({
@@ -196,43 +149,13 @@ Mechanic Notices: ${mechanicNotices.join(', ') || 'N/A'}`;
 
     res.json({
       success: true,
-      appliedRustPenalty: appliedRustPenalty,
+      appliedRustPenalty: rustBeltMultiplier > 1.0,
       estimate: finalEstimate
     });
 
   } catch (err) {
     console.error('[Estimate System Fault]:', err.message);
     res.status(500).json({ success: false, error: 'Estimate generation failed completely.', details: err.message });
-  }
-});
-
-// Factory VIN decoder
-router.post("/decode", async (req, res) => {
-  const vin = String(req.body.vin || "").toUpperCase().trim();
-
-  if (!vin || vin.length !== 17) {
-    return res.status(400).json({ error: "Valid 17-character VIN required" });
-  }
-
-  try {
-    const response = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValuesExtended/${vin}?format=json`);
-    const data = await response.json();
-    const vehicle = data.Results?.[0];
-
-    if (!vehicle || !vehicle.Make) {
-      return res.status(404).json({ error: "No factory records found for this VIN layout" });
-    }
-
-    return res.json({
-      year: vehicle.ModelYear || "",
-      make: vehicle.Make || "",
-      model: vehicle.Model || "",
-      trim: vehicle.Trim || "",
-      engine: vehicle.DisplacementL ? `${vehicle.DisplacementL}L` : ""
-    });
-  } catch (err) {
-    console.error("❌ [VIN Decoder Error]:", err.message);
-    return res.status(502).json({ error: "Failed to communicate with federal decoding infrastructure" });
   }
 });
 
