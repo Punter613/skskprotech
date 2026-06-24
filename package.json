@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "npm run install-rust && node scripts/build_router_v9.js && npm run build-rust",
+    "build": "npm run install-rust && node scripts/build_router_v11.js && npm run build-rust",
     "install-rust": "if ! command -v cargo 2>/dev/null; then echo Installing Rust... && curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y; fi && export PATH=$HOME/.cargo/bin:$PATH",
     "build-rust": "export PATH=$HOME/.cargo/bin:$PATH && if command -v cargo 2>/dev/null; then cd tools/lemon_scraper && cargo build --release; else echo Cargo not found; fi",
     "ship": "node scripts/ship.js",
