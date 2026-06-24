@@ -48,6 +48,11 @@ app.use('/api/invoice', invoice);
 app.use('/api/translate', require('./src/routes/translate'));
 app.use(oemRouter);
 
+// 🚨 STRIPE WEBHOOK EVENT PROCESSING CORE
+// Mounted BEFORE global JSON parsing for payments to preserve raw body
+const webhookRouter = require('./src/routes/webhooks');
+app.use('/api/payments', webhookRouter);
+
 if (process.env.STRIPE_SECRET_KEY) {
   try {
     const payments = require('./src/routes/payments');
@@ -68,8 +73,8 @@ app.use(express.static(path.join(__dirname)));
 app.get('/health', async (req, res) => {
   const health = { ok: true, timestamp: new Date().toISOString() };
   try {
-    const db = require('./src/services/db');
-    health.db = db ? 'connected' : 'not configured';
+    const db = require('./src/db');
+    health.db = db.supabase ? 'connected' : 'not configured';
   } catch {
     health.db = 'error';
   }
@@ -117,7 +122,6 @@ process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 
 // 🤖 Background Queue Worker Activation
-// This pulls the worker out of the breakroom and forces it to listen for active Bull queue jobs
 require('./src/workers/aiWorker');
 console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
 
@@ -131,12 +135,3 @@ app.use('/api/fleet', fleetRouter);
 
 // Serve corporate frontend asset frames
 app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
-
-// 💳 SKSKFLEET Corporate Procurement Billing Matrix Gateway
-const paymentsRouter = require('./src/routes/payments');
-app.use('/api/payments', paymentsRouter);
-
-// 🚨 STRIPE WEBHOOK EVENT PROCESSING CORE
-// Mounted FIRST to intercept the incoming request stream before global JSON parsing transforms it
-const webhookRouter = require('./src/routes/webhooks');
-app.use('/api/payments', webhookRouter);
