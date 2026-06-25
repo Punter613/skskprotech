@@ -9,14 +9,21 @@ async function translateSymptom(text) {
     return { translated: text, keywords: [] };
   }
 
-  const prompt = `You are an expert automotive technician. A customer described their car problem in plain everyday language. Translate it into precise technical mechanic language that a shop tech would write on a repair order.
+  const prompt = `You are an expert automotive technician.
+Translate the customer's plain-language complaint into a concise mechanic-style symptom description for a repair order.
+
+Rules:
+- Preserve the customer's meaning.
+- Do not diagnose the cause.
+- Do not add certainty or repair recommendations.
+- Output only JSON.
 
 Customer said: "${text}"
 
 Respond with JSON ONLY:
 {
-  "translated": "technical mechanic description of the same symptom",
-  "keywords": ["technical term 1", "technical term 2"]
+  "translated": "concise mechanic-style symptom description",
+  "keywords": ["short technical keyword 1", "short technical keyword 2"]
 }`;
 
   try {
