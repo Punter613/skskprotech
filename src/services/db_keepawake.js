@@ -3,7 +3,7 @@ const supabase = require('./db');
 /**
  * Throws a lightweight query at Supabase to force the container to stay active.
  */
-async function pokeSupabase() {
+async function sendCaffeineShot() {
   if (!supabase) {
     console.log('[Keep-Awake] Supabase client not configured. Skipping poke.');
     return;
@@ -13,11 +13,8 @@ async function pokeSupabase() {
     console.log('[Keep-Awake] Sending caffeine shot to Supabase...');
     const startTime = Date.now();
 
-    const { data, error } = await supabase
-      .from('_status_check_fallback')
-      .select('*')
-      .limit(1)
-      .maybeSingle();
+    // Querying the database version via RPC 
+    const { data, error } = await supabase.rpc('version');
 
     if (error) throw error;
 
@@ -29,15 +26,12 @@ async function pokeSupabase() {
 }
 
 /**
- * Starts an automated interval loop to kick the database every 45 minutes
+ * Starts an automated interval loop to kick the database every 45 minutes.
  */
 function startKeepAwakeLoop() {
-  if (!supabase) return;
-
-  const FORTY_FIVE_MINUTES = 2700000;
-
-  setTimeout(pokeSupabase, 5000);
-  setInterval(pokeSupabase, FORTY_FIVE_MINUTES);
+  const intervalMs = 45 * 60 * 1000; // 45 minutes
+  setInterval(sendCaffeineShot, intervalMs);
+  console.log(`[Keep-Awake] Loop armed. Interval set to fire every 45 minutes.`);
 }
 
-module.exports = { startKeepAwakeLoop, pokeSupabase };
+module.exports = { startKeepAwakeLoop, sendCaffeineShot };
