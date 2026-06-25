@@ -1,3 +1,8 @@
+/**
+ * SKSK ProTech Groq AI Communication Layer
+ * Handles strict-boundary API dispatching for deterministic translations and estimations.
+ */
+
 async function groqChat(messages, options = {}) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
