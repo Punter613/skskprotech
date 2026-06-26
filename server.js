@@ -5,17 +5,15 @@ if (process.env.NODE_ENV !== 'production') {
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+
 const diagnose = require('./src/routes/diagnose');
-const estimateHeuristic = require('./src/routes/estimate'); 
+const estimateHeuristic = require('./src/routes/estimate');
 const invoice = require('./src/routes/invoice');
 const oemRouter = require('./src/routes/oem');
 const authenticateHeuristic = require('./src/middleware/authenticateHeuristic');
 const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
 
 const app = express();
-
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
 
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
@@ -31,35 +29,27 @@ app.use((req, res, next) => {
   next();
 });
 
-// Route Infrastructure
-const scrapeRouter = require('./src/routes/scrape');
-app.use('/api/scrape', scrapeRouter);
+app.use('/api/payments', require('./src/routes/webhooks'));
 
-const partsRouter = require('./src/routes/parts');
-app.use('/api/parts', partsRouter);
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// ─── NEW: Unified full-estimate pipeline lane ───
-const fullEstimateRouter = require('./src/routes/full-estimate');
-const buyerRouter = require('./src/routes/buyer');
-app.use('/api/full-estimate', fullEstimateRouter);
-app.use('/api/buyer', buyerRouter);
-const jobsRouter = require('./src/routes/jobs');
-app.use('/api/jobs', jobsRouter);
+app.use('/api/scrape', require('./src/routes/scrape'));
+app.use('/api/parts', require('./src/routes/parts'));
+app.use('/api/full-estimate', require('./src/routes/full-estimate'));
+app.use('/api/buyer', require('./src/routes/buyer'));
+app.use('/api/jobs', require('./src/routes/jobs'));
 app.use('/api/diagnose', diagnose);
-app.use('/api/estimateHeuristic', authenticateHeuristic, estimateHeuristic); 
+app.use('/api/estimateHeuristic', authenticateHeuristic, estimateHeuristic);
 app.use('/api/invoice', invoice);
 app.use('/api/translate', require('./src/routes/translate'));
+app.use('/api/parts-lookup', require('./src/routes/partsLookup'));
+app.use('/api/fleet', require('./src/routes/fleet'));
 app.use(oemRouter);
-
-// 🚨 STRIPE WEBHOOK EVENT PROCESSING CORE
-// Mounted BEFORE global JSON parsing for payments to preserve raw body
-const webhookRouter = require('./src/routes/webhooks');
-app.use('/api/payments', webhookRouter);
 
 if (process.env.STRIPE_SECRET_KEY) {
   try {
-    const payments = require('./src/routes/payments');
-    app.use('/api/payments', payments);
+    app.use('/api/payments', require('./src/routes/payments'));
     console.log('[Payments] Stripe payments loaded');
   } catch (err) {
     console.warn('[Payments] Failed to load:', err.message);
@@ -70,6 +60,10 @@ if (process.env.STRIPE_SECRET_KEY) {
     res.status(503).json({ success: false, error: 'Payments not configured' });
   });
 }
+
+app.use('/fleet', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'fleet.html'));
+});
 
 app.use(express.static(path.join(__dirname)));
 
@@ -86,6 +80,10 @@ app.get('/health', async (req, res) => {
   res.json(health);
 });
 
+app.use((req, res) => {
+  res.status(404).json({ success: false, error: 'Not found' });
+});
+
 app.use((err, req, res, next) => {
   console.error('[Error]', err.stack || err.message || err);
   const isDev = process.env.NODE_ENV === 'development';
@@ -100,11 +98,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.use((req, res) => {
-  res.status(404).json({ success: false, error: 'Not found' });
-});
-
 startKeepAwakeLoop();
+
+require('./src/workers/aiWorker');
+console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
 
 const port = process.env.PORT || 3000;
 const server = app.listen(port, () => {
@@ -123,18 +120,3 @@ const gracefulShutdown = () => {
 
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
-
-// 🤖 Background Queue Worker Activation
-require('./src/workers/aiWorker');
-console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
-
-// 🔌 Live Procurement Parts Aggregator Lane
-const partsLookupRouter = require('./src/routes/partsLookup');
-app.use('/api/parts-lookup', partsLookupRouter);
-
-// 🚚 SKSKFLEET Operations Infrastructure Lane
-const fleetRouter = require('./src/routes/fleet');
-app.use('/api/fleet', fleetRouter);
-
-// Serve corporate frontend asset frames
-app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
