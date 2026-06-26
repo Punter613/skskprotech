@@ -1,0 +1,12 @@
+{
+  "name": "sksk",
+  "version": "1.0.0",
+  "description": "SKSK multi-tier shop floor management suite",
+  "main": "index.js",
+  "scripts": {
+    "start": "cd backend && npm start"
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
