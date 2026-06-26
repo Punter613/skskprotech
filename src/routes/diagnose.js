@@ -124,9 +124,9 @@ router.post('/', async (req, res) => {
     if (platformHits && platformHits.length > 0) {
       const hit = platformHits[0];
       const procedureSpecs = getLocalProcedure(hit.linkProtocol);
-
+      
       executionTrace.log('LOCAL_MATCH', `Deterministic hit: ${hit.patternName}`);
-
+      
       // Clean as you go: Filter array to strip out nulls or undefined values instantly
       const rawTips = procedureSpecs && procedureSpecs.criticalSpecs ? [
         procedureSpecs.criticalSpecs.torqueSequence,
@@ -136,7 +136,7 @@ router.post('/', async (req, res) => {
       if (cleanTips.length === 0) {
         cleanTips.push("Always verify clearance specifications against factory block data prior to teardown.");
       }
-
+      
       const localResult = safeResult({
         urgency: 'immediate',
         safetyRisk: true,
@@ -148,7 +148,7 @@ router.post('/', async (req, res) => {
         repairSteps: procedureSpecs ? procedureSpecs.clearanceSteps : [],
         proTips: cleanTips
       });
-
+      
       return res.json({ success: true, result: localResult, traceLog: { traceId: executionTrace.traceId, logs: executionTrace.logs } });
     }
 
