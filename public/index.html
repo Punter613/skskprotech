@@ -124,7 +124,8 @@
       <label>OBD-II Fault Codes</label>
       <input type="text" id="obdCodes" value="P0303" placeholder="e.g., P0300, P0171">
     </div>
-    <button id="btnDiagnose">Run Local Diagnostics</button>
+    <button id="btn-generate-estimate" class="btn-primary">Generate Estimate</button>
+  <button id="btn-reset-session" class="btn-secondary">New Vehicle / Clear Session</button>
   </div>
 
   <div id="resultsPanel" class="card hidden">
@@ -199,4 +200,5 @@
     });
   </script>
 </body>
+<script src="js/sksk-frontend.js"></script>
 </html>
