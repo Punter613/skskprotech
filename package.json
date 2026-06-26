@@ -33,6 +33,8 @@
     "pdfkit": "^0.19.1"
   },
   "devDependencies": {
-    "@stoplight/spectral-cli": "^6.16.0"
+    "@stoplight/spectral-cli": "^6.16.0",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3"
   }
 }
