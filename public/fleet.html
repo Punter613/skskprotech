@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SKSKFLEET — Operations Control Center</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --bg: #030303;
+      --card: #0a0a0a;
+      --accent: #0052cc; /* Corporate Blue Theme override */
+      --text: #f5f5f5;
+      --muted: #666;
+      --border: #1f1f1f;
+      --success: #3ddc84;
+      --warning: #ffb020;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 24px; }
+    .layout { display: grid; grid-template-columns: 240px 1fr; gap: 24px; max-width: 1400px; margin: 0 auto; }
+    aside { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; height: fit-content; }
+    h1 { font-size: 18px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 20px; color: var(--accent); }
+    nav ul { list-style: none; }
+    nav li { padding: 10px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; font-size: 13px; color: #aaa; }
+    nav li.active { background: #111; color: #fff; border-left: 3px solid var(--accent); }
+    main { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
+    .hud { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-box { background: #000; border: 1px solid var(--border); padding: 16px; border-radius: 6px; }
+    .stat-box span { font-size: 11px; text-transform: uppercase; color: var(--muted); }
+    .stat-box h3 { font-size: 22px; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; margin-top: 12px; }
+    th { padding: 12px 8px; color: var(--muted); border-bottom: 1px solid var(--border); text-transform: uppercase; font-size: 11px; }
+    td { padding: 12px 8px; border-bottom: 1px solid #111; }
+    .badge { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+    .badge--ok { background: rgba(61, 220, 132, 0.1); color: var(--success); }
+    .badge--warn { background: rgba(255, 176, 32, 0.1); color: var(--warning); }
+    .btn-action { background: var(--accent); color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .btn-action:hover { filter: brightness(1.1); }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <h1>🚚 SKSKFLEET</h1>
+      <nav>
+        <ul>
+          <li class="active">📋 Active Roster</li>
+          <li>📅 Preventive Planner</li>
+          <li>⚡ Bulk Optimization</li>
+          <li>⚙️ White-Label System</li>
+        </ul>
+      </nav>
+    </aside>
+
+    <main>
+      <div class="hud">
+        <div class="stat-box"><span>Total Fleet Units</span><h3>42 Vans</h3></div>
+        <div class="stat-box"><span>Pending AI Alerts</span><h3 style="color:var(--warning)">3 Units</h3></div>
+        <div class="stat-box"><span>Procurement Savings</span><h3 style="color:var(--success)">$1,420.00</h3></div>
+      </div>
+
+      <h2>Operational Fleet Inventory</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Unit ID</th>
+            <th>Specifications</th>
+            <th>Current Mileage</th>
+            <th>Condition State</th>
+            <th>AI Failure Forecast</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>TRUCK-08</strong></td>
+            <td>2015 Chevrolet Express 3500 4.8L</td>
+            <td>184,210 mi</td>
+            <td><span class="badge badge--warn">Needs Service</span></td>
+            <td style="color:#ff4b5c">⚠️ Water Pump Defect (900 mi window)</td>
+            <td><button class="btn-action">Run Procurement Audit</button></td>
+          </tr>
+          <tr>
+            <td><strong>VAN-12</strong></td>
+            <td>2018 Ford Transit-250 3.5L EcoBoost</td>
+            <td>64,150 mi</td>
+            <td><span class="badge badge--ok">Healthy</span></td>
+            <td class="muted">No upcoming anomalies logged.</td>
+            <td><button class="btn-action">Run Procurement Audit</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </div>
+</body>
+</html>
