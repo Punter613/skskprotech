@@ -1,9 +1,10 @@
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-
 const diagnose = require('./src/routes/diagnose');
 const estimateHeuristic = require('./src/routes/estimate'); 
 const invoice = require('./src/routes/invoice');
