@@ -1,0 +1,33 @@
+name: SKSK ProTech Integration Pipeline
+
+on:
+  push:
+    branches: [ main, chore/improve-writing ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js Runtime
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install Project Dependencies
+      run: npm ci || npm install
+
+    - name: Hardened OpenAPI Contract Lint
+      run: npx spectral lint openapi.yaml --ruleset .spectral.yaml --format pretty
+
+    - name: Automatic Type Generation Line
+      run: npm run gen
+
+    - name: Strict TypeScript Tolerance Check
+      run: npm run test:ts
