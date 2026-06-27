@@ -1,3 +1,6 @@
+const { buildSystemPrompt, buildUserMessage } = require('./services/groqPrompt');
+const { lookupParts } = require('./services/partsLookup');
+const { buildInvoice } = require('./services/invoiceBuilder');
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
 }
