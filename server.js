@@ -53,85 +53,32 @@ app.use('/api/invoice', invoice);
 app.use('/api/scrape', scrapeRouter);
 app.use('/api/parts', partsRouter);
 app.use('/api/full-estimate', fullEstimateRouter);
-app.use('/api/jobs', jobsRouter);
-app.use('/api/translate', require('./src/routes/translate'));
+app.use('/api/jobs', verifyToken, jobsRouter);
 app.use('/api/parts-lookup', partsLookupRouter);
-app.use('/api/fleet', fleetRouter);
-app.use(oemRouter);
+app.use('/api/fleet', verifyToken, fleetRouter);
+app.use('/api/oem', oemRouter);
 
-// 5. DYNAMIC PAYMENTS GATEWAY CONFIGURATION
-if (process.env.STRIPE_SECRET_KEY) {
-  try {
-    const payments = require('./src/routes/payments');
-    app.use('/api/payments', payments);
-    console.log('[Payments] Stripe payments loaded');
-  } catch (err) {
-    console.warn('[Payments] Failed to load:', err.message);
-  }
-} else {
-  console.log('[Payments] STRIPE_SECRET_KEY not set - payments disabled');
-  app.use('/api/payments', (req, res) => {
-    res.status(503).json({ success: false, error: 'Payments not configured' });
-  });
-}
-
-// 6. STATIC ASSETS & SITE INFRASTRUCTURE
-app.use(express.static(path.join(__dirname)));
-app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
-
-// 7. SYSTEM HEALTH CHECK
-app.get('/health', async (req, res) => {
-  const health = { ok: true, timestamp: new Date().toISOString() };
-  try {
-    const db = require('./src/services/db');
-    health.db = db ? 'connected' : 'not configured';
-  } catch {
-    health.db = 'error';
-  }
-  health.stripe = process.env.STRIPE_SECRET_KEY ? 'configured' : 'not configured';
-  health.groq = process.env.GROQ_API_KEY ? 'configured' : 'not configured';
-  res.json(health);
+// 5. CATCH-ALL FOR UNHANDLED ROUTES (404)
+app.use((req, res, next) => {
+  res.status(404).json({ error: 'Resource Not Found' });
 });
 
-// 8. CATCH-ALL 404 ROUTE (MUST BE PLACED AFTER ALL VALID ROUTE DEFINITIONS)
-app.use((req, res) => {
-  res.status(404).json({ success: false, error: 'Not found' });
-});
-
-// 9. CENTRALIZED ERROR HANDLING MIDDLEWARE
+// 6. GLOBAL ERROR HANDLING MIDDLEWARE
 app.use((err, req, res, next) => {
-  console.error('[Error]', err.stack || err.message || err);
-  const isDev = process.env.NODE_ENV === 'development';
-  const message = isDev
-    ? (err.message || 'Server error')
-    : (err.statusCode ? err.message : 'Internal server error');
-
-  res.status(err.statusCode || 500).json({
-    success: false,
-    error: message,
-    ...(isDev && { stack: err.stack })
-  });
+  console.error('Unhandled Server Error:', err.stack);
+  res.status(500).json({ error: 'Internal Server Error' });
 });
 
-// 10. BACKGROUND WORKERS & PROCESS LIFECYCLE MANAGEMENT
-startKeepAwakeLoop();
-require('./src/workers/aiWorker');
-console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
+// 7. INITIALIZE SERVICES & LISTEN
+const PORT = process.env.PORT || 5000;
 
-const port = process.env.PORT || 3000;
-const server = app.listen(port, () => {
-  console.log(`[Server] SKSK ProTech running on port ${port}`);
-  console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`[Server] Health check: http://localhost:${port}/health`);
+app.listen(PORT, () => {
+  console.log(`Server is processing requests on port ${PORT}`);
+  
+  // Safeguard database connections or spin up continuous loops
+  try {
+    startKeepAwakeLoop();
+  } catch (error) {
+    console.error('Failed to initiate keep awake sequence:', error.message);
+  }
 });
-
-const gracefulShutdown = () => {
-  console.log('[Server] Graceful shutdown triggered, draining connections...');
-  server.close(() => {
-    console.log('[Server] Process clean terminate complete.');
-    process.exit(0);
-  });
-};
-
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
