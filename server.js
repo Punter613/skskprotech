@@ -37,7 +37,7 @@ app.use((req, res, next) => {
 app.use('/api/diagnose', diagnose);
 app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); // Hardened via spec auth definitions
 app.use('/api/invoice', invoice);
-=======
+
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
