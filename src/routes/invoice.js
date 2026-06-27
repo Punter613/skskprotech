@@ -1,150 +1,142 @@
-const express = require('express');
-const router = express.Router();
-const PDFDocument = require('pdfkit');
+// services/invoiceBuilder.js
+// SKSK ProTech - Hardened Invoice Engine (v1)
 
-/**
- * POST /api/invoice
- * Generates an automated PDF invoice using global sanitized input filters.
- */
-router.post('/', require('../middleware/clean.input'), async (req, res) => {
-  try {
-    const {
-      vehicle = {},
-      vin,
-      mileage = 0,
-      obdCodes = [],
-      symptoms = [],
-      laborRate = 0,
-      parts = [],
-      partsCost = 0,
-      customer = {}
-    } = req.sanitized || {};
+function buildInvoice({
+  estimateData = {},
+  partsData = [],
+  customerInfo = {},
+  vehicleInfo = {},
+  laborRate = 65
+}) {
+  const now = new Date();
 
-    const estimatedHours = Math.max(0, Number(req.body.estimatedHours) || 1.5);
-    const numericLaborRate = Number(laborRate) || 0;
-    const numericPartsCost = Number(partsCost) || 0;
-    const calculatedLabor = numericLaborRate * estimatedHours;
-    const finalInvoiceTotal = calculatedLabor + numericPartsCost;
+  const invoiceNumber =
+    `SKSK-${now.getTime()}-${Math.floor(Math.random() * 100000)}`;
 
-    const vYear = vehicle.year || '2008';
-    const vMake = vehicle.make || 'KIA';
-    const vModel = vehicle.model || 'Sorento';
-    const vTrim = vehicle.trim || '';
-    const vVin = vin || 'N/A';
-    const vMileage = Number(mileage) || 0;
+  // ─────────────────────────────────────────────
+  // SAFE DEFAULTS (prevents AI/API crashes)
+  // ─────────────────────────────────────────────
+  estimateData.parts = estimateData.parts || [];
+  estimateData.repairs = estimateData.repairs || [];
 
-    const doc = new PDFDocument({ size: 'LETTER', margin: 50 });
+  // ─────────────────────────────────────────────
+  // LABOR LINES
+  // ─────────────────────────────────────────────
+  const laborLines = estimateData.repairs.map((repair, i) => {
+    const hours = repair.laborHours || 0;
+    const rate = laborRate;
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="Invoice_${String(vMake).replace(/s+/g, '_')}.pdf"`
-    );
-    doc.pipe(res);
+    return {
+      lineNumber: i + 1,
+      type: "LABOR",
+      description: repair.title || "Repair Work",
+      detail: repair.description || "",
+      hours,
+      rate,
+      amount: repair.laborCost ?? parseFloat((hours * rate).toFixed(2))
+    };
+  });
 
-    // Header
-    doc.fillColor('#c1121f').fontSize(26).font('Helvetica-Bold').text('SKSK ProTech', { align: 'left' });
-    doc.fillColor('#666666').fontSize(9).font('Helvetica').text('Professional Mobile Diagnostics & Heavy Repair', { align: 'left' });
+  // ─────────────────────────────────────────────
+  // PARTS LINES
+  // ─────────────────────────────────────────────
+  const partsLines = estimateData.parts.map((part, i) => {
+    const match = partsData.find(p => {
+      const a = (p.partType || "").toLowerCase();
+      const b = (part.name || "").toLowerCase();
+      return a.includes(b) || b.includes(a);
+    });
 
-    doc.fillColor('#000000').fontSize(16).font('Helvetica-Bold').text('WORK ORDER / INVOICE', 350, 50, { align: 'right', width: 210 });
-    doc.fillColor('#333333').fontSize(9).font('Helvetica').text(`Date: ${new Date().toLocaleDateString()}`, 350, 70, { align: 'right', width: 210 });
-    doc.text('Status: Balance Due', 350, 82, { align: 'right', width: 210 });
+    const oemTier = match?.tiers?.find(t => t.tier === "OEM");
 
-    doc.moveDown(3);
-    const startY = Math.max(doc.y, 110);
+    const unitPrice =
+      oemTier?.price ??
+      part.estimatedCost?.oem ??
+      part.estimatedCost?.economy ??
+      0;
 
-    // Client and vehicle block
-    doc.fillColor('#101015').fontSize(11).font('Helvetica-Bold').text('BILL TO:', 50, startY);
-    doc.fillColor('#000000').fontSize(10).font('Helvetica');
-    doc.text(`Name:  ${customer.name || 'Valued Client'}`, 50, startY + 16);
-    doc.text(`Phone: ${customer.phone || 'N/A'}`, 50, startY + 28);
+    const safePrice = Number(unitPrice || 0);
+    const qty = part.quantity || 1;
 
-    doc.fillColor('#101015').fontSize(11).font('Helvetica-Bold').text('VEHICLE & FLEET SPECS:', 320, startY);
-    doc.fillColor('#000000').fontSize(10).font('Helvetica');
-    doc.text(`Year/Make/Model: ${vYear} ${vMake} ${vModel} ${vTrim ? `(${vTrim})` : ''}`, 320, startY + 16);
-    doc.text(`VIN Array Target: ${vVin}`, 320, startY + 28);
-    doc.text(`Odometer Log: ${Number(vMileage).toLocaleString()} Miles`, 320, startY + 40);
+    return {
+      lineNumber: laborLines.length + i + 1,
+      type: "PARTS",
+      description: part.name || "Part",
+      oemPartNumber: part.oemPartNumber || null,
+      quantity: qty,
+      unitPrice: parseFloat(safePrice.toFixed(2)),
+      amount: parseFloat((safePrice * qty).toFixed(2)),
+      source: match ? "Live Data" : "Estimated",
+      link: oemTier?.link || null
+    };
+  });
 
-    doc.moveDown(4);
-    let tableY = Math.max(doc.y, startY + 70);
+  // ─────────────────────────────────────────────
+  // TOTALS
+  // ─────────────────────────────────────────────
+  const laborTotal = laborLines.reduce((s, l) => s + l.amount, 0);
+  const partsTotal = partsLines.reduce((s, p) => s + p.amount, 0);
 
-    // Table header
-    doc.rect(50, tableY, 512, 20).fill('#101015');
-    doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold');
-    doc.text('DESCRIPTION / LINE ITEM SERVICES', 60, tableY + 6);
-    doc.text('TOTAL PRICE', 480, tableY + 6, { align: 'right', width: 70 });
+  const subtotal = laborTotal + partsTotal;
 
-    let currentY = tableY + 20;
-    doc.fillColor('#000000').font('Helvetica').fontSize(10);
+  const taxRate = 0.075;
+  const taxableAmount = partsTotal;
 
-    // Labor line
-    doc.rect(50, currentY, 512, 24).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-    doc.text(
-      `Automotive Field Labor Services (${estimatedHours.toFixed(1)} Hours @ $${numericLaborRate.toFixed(2)}/hr)`,
-      60,
-      currentY + 7
-    );
-    doc.text(`$${calculatedLabor.toFixed(2)}`, 480, currentY + 7, { align: 'right', width: 70 });
-    currentY += 24;
+  const taxAmount = parseFloat((taxableAmount * taxRate).toFixed(2));
+  const total = parseFloat((subtotal + taxAmount).toFixed(2));
 
-    // Parts lines
-    if (Array.isArray(parts) && parts.length > 0) {
-      parts.forEach(part => {
-        doc.rect(50, currentY, 512, 24).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-        doc.text(`Part: ${part.name || 'Component Replacement Hardware'}`, 60, currentY + 7);
-        doc.text(`$${Number(part.cost || 0).toFixed(2)}`, 480, currentY + 7, { align: 'right', width: 70 });
-        currentY += 24;
-      });
-    } else if (numericPartsCost > 0) {
-      doc.rect(50, currentY, 512, 24).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-      doc.text('Automotive Replacement Hardware Components Package', 60, currentY + 7);
-      doc.text(`$${numericPartsCost.toFixed(2)}`, 480, currentY + 7, { align: 'right', width: 70 });
-      currentY += 24;
-    }
+  // ─────────────────────────────────────────────
+  // FINAL INVOICE
+  // ─────────────────────────────────────────────
+  return {
+    invoiceNumber,
+    status: "ESTIMATE",
+    createdAt: now.toISOString(),
+    dueDate: new Date(now.getTime() + 30 * 86400000).toISOString(),
 
-    // Symptoms / codes line
-    if (Array.isArray(symptoms) && symptoms.length > 0) {
-      doc.rect(50, currentY, 512, 24).strokeColor('#e0e0e0').lineWidth(0.5).stroke();
-      const codeText = Array.isArray(obdCodes) && obdCodes.length ? ` [${obdCodes.join(', ')}]` : '';
-      doc.text(
-        `Diagnostic Profiles Evaluated: ${symptoms.slice(0, 3).join(', ')}${codeText}`,
-        60,
-        currentY + 7,
-        { width: 400, lineBreak: false }
-      );
-      doc.text('$0.00', 480, currentY + 7, { align: 'right', width: 70 });
-      currentY += 24;
-    }
+    customer: {
+      name: customerInfo.name || "Customer",
+      phone: customerInfo.phone || "",
+      email: customerInfo.email || ""
+    },
 
-    currentY += 15;
+    vehicle: {
+      year: vehicleInfo.year || "",
+      make: vehicleInfo.make || "",
+      model: vehicleInfo.model || "",
+      trim: vehicleInfo.trim || "",
+      vin: vehicleInfo.vin || ""
+    },
 
-    // Total block
-    doc.rect(330, currentY, 232, 45).fill('#101015');
-    doc.fillColor('#ffffff').fontSize(13).font('Helvetica-Bold');
-    doc.text('TOTAL AMOUNT DUE:', 340, currentY + 16, { align: 'left' });
-    doc.text(`$${finalInvoiceTotal.toFixed(2)}`, 480, currentY + 16, { align: 'right', width: 70 });
+    diagnosis: {
+      primary: estimateData?.diagnosis?.primary || "",
+      priority: estimateData?.diagnosis?.priority || "MEDIUM",
+      probability: estimateData?.diagnosis?.probability || 0
+    },
 
-    // Footer
-    doc.fillColor('#777777').fontSize(8).font('Helvetica-Oblique');
-    doc.text(
-      'Thank you for choosing SKSK ProTech. All mobile service operations carry a baseline field validation guarantee. Terms: Balance due upon vehicle completion.',
-      50,
-      700,
-      { align: 'center', width: 512 }
-    );
+    lineItems: [...laborLines, ...partsLines],
 
-    doc.end();
-    console.log(`[Invoice] Hardened PDF Generated for ${customer.name || 'Client'} - Total: $${finalInvoiceTotal.toFixed(2)}`);
-  } catch (err) {
-    console.error('[Invoice Error] PDF generation aborted:', err.message || err);
-    if (!res.headersSent) {
-      res.status(500).json({
-        success: false,
-        error: 'Failed to stitch together PDF artifact.',
-        details: err.message
-      });
-    }
-  }
-});
+    totals: {
+      laborTotal: parseFloat(laborTotal.toFixed(2)),
+      partsTotal: parseFloat(partsTotal.toFixed(2)),
+      subtotal: parseFloat(subtotal.toFixed(2)),
+      taxRate,
+      taxAmount,
+      total,
+      laborHours: estimateData?.totals?.laborHours || 0
+    },
 
-module.exports = router;
+    notes: {
+      knownIssues: estimateData?.knownIssues || [],
+      whileYoureInThere: estimateData?.whileYoureInThere || [],
+      proTips: estimateData?.proTips || []
+    },
+
+    repairProcedure: estimateData?.repairProcedure || [],
+
+    footer:
+      "This is an estimate. Final cost may change based on inspection, labor, or parts availability."
+  };
+}
+
+module.exports = { buildInvoice };
