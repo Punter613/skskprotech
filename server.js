@@ -1,55 +1,5 @@
-const { buildSystemPrompt, buildUserMessage } = require('./services/groqPrompt');
-const { lookupParts } = require('./services/partsLookup');
-const { buildInvoice } = require('./services/invoiceBuilder');
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
-
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
-
-const diagnose = require('./src/routes/diagnose');
-const estimateHeuristic = require('./src/routes/estimate');
-const invoice = require('./src/routes/invoice');
-const oemRouter = require('./src/routes/oem');
-const authenticateHeuristic = require('./src/middleware/authenticateHeuristic');
-const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
-
-const app = express();
-
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
-
-app.use('/api/payments', require('./src/routes/webhooks'));
-
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
-
-app.use('/api/scrape', require('./src/routes/scrape'));
-app.use('/api/parts', require('./src/routes/parts'));
+app.use('/api/parts', require('./src/routes/parts'));          
 app.use('/api/full-estimate', require('./src/routes/full-estimate'));
-app.use('/api/buyer', require('./src/routes/buyer'));
-app.use('/api/jobs', require('./src/routes/jobs'));
-app.use('/api/diagnose', diagnose);
-app.use('/api/estimateHeuristic', authenticateHeuristic, estimateHeuristic);
-app.use('/api/invoice', invoice);
-app.use('/api/translate', require('./src/routes/translate'));
-app.use('/api/parts-lookup', require('./src/routes/partsLookup'));
-app.use('/api/fleet', require('./src/routes/fleet'));
-app.use(oemRouter);
-
 if (process.env.STRIPE_SECRET_KEY) {
   try {
     app.use('/api/payments', require('./src/routes/payments'));
