@@ -1,6 +1,4 @@
-// =================================================================
-// PRODUCTION ROUTING LANES (Clean, inline, and isolated)
-// =================================================================
+// CORE ROUTES
 app.use('/api/scrape', require('./src/routes/scrape'));
 app.use('/api/parts', require('./src/routes/parts'));
 app.use('/api/full-estimate', require('./src/routes/full-estimate'));
@@ -11,17 +9,13 @@ app.use('/api/invoice', require('./src/routes/invoice'));
 app.use('/api/translate', require('./src/routes/translate'));
 app.use('/api/parts-lookup', require('./src/routes/partsLookup'));
 app.use('/api/fleet', require('./src/routes/fleet'));
-app.use('/api/oem', require('./src/routes/oem')); // 💡 Explicit path added safely
+app.use('/api/oem', require('./src/routes/oem'));
 
-// Handle the heuristic route safely by requiring its middleware directly
-const authMiddleware = require('./src/middleware/authenticateHeuristic');
-if (typeof authMiddleware === 'function') {
-  app.use('/api/estimateHeuristic', authMiddleware, require('./src/routes/estimate'));
-} else {
-  // Destructuring fallback if you exported it as an object { authenticateHeuristic }
-  const { authenticateHeuristic } = require('./src/middleware/authenticateHeuristic');
-  app.use('/api/estimateHeuristic', authenticateHeuristic, require('./src/routes/estimate'));
-}
+// ESTIMATE HEURISTIC (AUTHED)
+const authenticateHeuristic = require('./src/middleware/authenticateHeuristic');
+const estimateRoute = require('./src/routes/estimate');
+
+app.use('/api/estimateHeuristic', authenticateHeuristic, estimateRoute);
 
 // 2. 🚨 STRIPE WEBHOOK EVENT PROCESSING CORE (CRITICAL PLACEMENT)
 // This must be placed BEFORE global body parsers to preserve the raw request stream
