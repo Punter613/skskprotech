@@ -3,7 +3,6 @@ const router = express.Router();
 const { runDiagnosticPipeline } = require('../services/pipeline.engine');
 const { groqChat } = require('../services/groq');
 
-// Bracket-depth extraction logic to handle loose markdown text boundaries safely
 function extractJSON(text) {
   if (!text) return null;
   text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
@@ -23,12 +22,46 @@ function extractJSON(text) {
   return null;
 }
 
+function normalizeVehicle(vehicle = {}) {
+  const year = Number(vehicle.year);
+  const make = String(vehicle.make || '').trim();
+  const model = String(vehicle.model || '').trim();
+  const trim = String(vehicle.trim || '').trim();
+
+  if (!Number.isInteger(year) || year < 1981 || year > 2035) return null;
+  if (!make || !model) return null;
+
+  return { year, make, model, trim };
+}
+
+function validateVin(vin = '') {
+  vin = String(vin).trim().toUpperCase();
+  if (vin.length !== 17) return { ok: false, reason: 'VIN must be 17 characters' };
+  if (/[IOQ]/.test(vin)) return { ok: false, reason: 'VIN cannot contain I, O, or Q' };
+
+  const map = { A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8, J:1, K:2, L:3, M:4, N:5, P:7, R:9, S:2, T:3, U:4, V:5, W:6, X:7, Y:8, Z:9 };
+  const weights = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+  let sum = 0;
+
+  for (let i = 0; i < 17; i++) {
+    const ch = vin[i];
+    const val = /\d/.test(ch) ? Number(ch) : map[ch];
+    if (val == null) return { ok: false, reason: 'VIN has invalid characters' };
+    sum += val * weights[i];
+  }
+
+  const check = sum % 11 === 10 ? 'X' : String(sum % 11);
+  if (vin[8] !== check) return { ok: false, reason: 'VIN check digit failed' };
+
+  return { ok: true, vin };
+}
+
 function safeEstimate(laborRate, partsCost, overrides = {}) {
   return {
     priority: 'medium',
     diagnosis: 'Manual inspection required',
     laborCost: laborRate,
-    partsCost: partsCost,
+    partsCost,
     total: laborRate + partsCost,
     repairs: ['Diagnostic inspection required'],
     probability: [],
@@ -44,76 +77,55 @@ function safeEstimate(laborRate, partsCost, overrides = {}) {
 
 router.post('/', async (req, res) => {
   try {
-    const {
-      vehicle = {},
-      obdCodes = [],
-      customerStates = [],
-      mechanicNotices = [],
-      laborRate = 65,
-      partsCost = 0,
-      mileage = 0,
-      vin = '',
-      customer = {}
-    } = req.body;
+    const incoming = req.body?.incomingPayload || req.body || {};
 
-    const laborRateNum = Math.max(0, Number(laborRate));
-    const partsCostNum = Math.max(0, Number(partsCost));
+    const vehicle = normalizeVehicle(incoming.vehicle);
+    const vinCheck = validateVin(incoming.vin || '');
 
-    // Run the hardened production compiler pipeline pass (Graceful Fallback)
+    if (!vehicle || !vinCheck.ok) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing or invalid vehicle data',
+        details: {
+          vehicle: !vehicle ? 'Vehicle year/make/model invalid or incomplete' : 'ok',
+          vin: vinCheck.ok ? 'ok' : vinCheck.reason
+        }
+      });
+    }
+
+    const obdCodes = Array.isArray(incoming.obdCodes) ? incoming.obdCodes : [];
+    const customerStates = Array.isArray(incoming.customerStates) ? incoming.customerStates : [];
+    const mechanicNotices = Array.isArray(incoming.mechanicNotices) ? incoming.mechanicNotices : [];
+    const laborRateNum = Math.max(0, Number(incoming.laborRate ?? 65));
+    const partsCostNum = Math.max(0, Number(incoming.partsCost ?? 0));
+    const mileage = Math.max(0, Number(incoming.mileage ?? 0));
+    const customer = incoming.customer || {};
+
     let pipelineResults = {};
     let rustBeltMultiplier = 1.0;
 
     try {
-      // Map incoming arrays to expected compiler structure fields cleanly
       pipelineResults = runDiagnosticPipeline({
         vehicle,
-        vin,
+        vin: vinCheck.vin,
         symptoms: [...customerStates, ...mechanicNotices],
         codes: obdCodes,
         mileage,
         laborRate: laborRateNum
-      }, { log: () => {} }); // Trace stub to suppress console noise in estimation passes
+      }, { log: () => {} });
 
-      if (pipelineResults.profile && pipelineResults.profile.rustMultiplier > 1.0) {
+      if (pipelineResults?.profile?.rustMultiplier > 1.0) {
         rustBeltMultiplier = pipelineResults.profile.rustMultiplier;
       }
     } catch (pipelineErr) {
       console.warn('[Estimate Engine] Pipeline background pass skipped:', pipelineErr.message);
     }
 
-    // FIX: Dynamically construct the vehicle identity string from ACTUAL real-time request parameters
-    const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim]
-      .filter(Boolean).join(' ') || 'Unknown Vehicle';
-
-    const systemPrompt = `You are the expert estimation module of SKSK ProTech — a master automotive mechanic with 25 years of real shop experience.
-
-Output a single valid JSON object ONLY. No backticks, no markdown, no text before or after.
-
-{
-  "priority": "high",
-  "diagnosis": "string",
-  "estimatedHours": 2.5,
-  "laborCost": 162.50,
-  "partsCost": ${partsCostNum},
-  "total": 242.50,
-  "repairs": ["string"],
-  "probability": [{"cause": "string", "likelihood": 80}],
-  "knownIssues": ["string"],
-  "repairSteps": ["string"],
-  "proTips": ["string"],
-  "additionalChecks": ["string"],
-  "notes": "string"
-}
-
-RULES:
-- priority: exactly "high", "medium", or "low"
-- laborCost = estimatedHours x ${laborRateNum} x ${rustBeltMultiplier}
-- total = laborCost + partsCost
-- All array values must be strings
-- Output raw JSON only`;
+    const vehicleStr = [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(' ');
+    const systemPrompt = `You are the expert estimation module of SKSK ProTech. Output a single valid JSON object only.`;
 
     const userPrompt = `Vehicle: ${vehicleStr}
-VIN: ${vin || 'N/A'}
+VIN: ${vinCheck.vin}
 Shop Rate: $${laborRateNum}/hr | Parts Budget: $${partsCostNum} | Rust Multiplier: ${rustBeltMultiplier}x
 OBD Codes: ${obdCodes.join(', ') || 'None'}
 Customer Reports: ${customerStates.join(', ') || 'N/A'}
@@ -125,15 +137,21 @@ Mechanic Notices: ${mechanicNotices.join(', ') || 'N/A'}`;
     ], { max_tokens: 1400, temperature: 0.2 });
 
     const aiText = typeof groqRes === 'string' ? groqRes : (groqRes?.choices?.[0]?.message?.content || '');
-    if (!aiText) throw new Error('Groq returned empty response strings');
-
     let parsed = extractJSON(aiText);
+
     if (!parsed) {
-      console.warn('[Estimate Engine] JSON extract failed. Falling back.');
-      parsed = safeEstimate(laborRateNum, partsCostNum, { notes: 'AI parse failed — output falling back to safety defaults.' });
+      parsed = safeEstimate(laborRateNum, partsCostNum, { notes: 'AI parse failed — safety fallback used.' });
     }
 
-    const finalEstimate = { ...safeEstimate(laborRateNum, partsCostNum), ...parsed };
+    const estimatedHours = Math.max(0, Number(parsed.estimatedHours ?? 1));
+    const finalEstimate = {
+      ...safeEstimate(laborRateNum, partsCostNum),
+      ...parsed,
+      estimatedHours,
+      laborCost: Number((estimatedHours * laborRateNum * rustBeltMultiplier).toFixed(2)),
+      partsCost: partsCostNum
+    };
+    finalEstimate.total = Number((finalEstimate.laborCost + finalEstimate.partsCost).toFixed(2));
 
     if (!['high', 'medium', 'low'].includes(finalEstimate.priority)) {
       finalEstimate.priority = 'medium';
@@ -141,21 +159,28 @@ Mechanic Notices: ${mechanicNotices.join(', ') || 'N/A'}`;
 
     try {
       const db = require('../services/db');
-      if (db) await db.from('estimates').insert({
-        total: finalEstimate.total,
-        details: { ...finalEstimate, customer, vehicle }
-      });
-    } catch (e) { /* DB target optional */ }
+      if (db) {
+        await db.from('estimates').insert({
+          total: finalEstimate.total,
+          details: { ...finalEstimate, customer, vehicle, vin: vinCheck.vin }
+        });
+      }
+    } catch {}
 
     res.json({
       success: true,
       appliedRustPenalty: rustBeltMultiplier > 1.0,
+      vehicle,
+      vin: vinCheck.vin,
       estimate: finalEstimate
     });
-
   } catch (err) {
     console.error('[Estimate System Fault]:', err.message);
-    res.status(500).json({ success: false, error: 'Estimate generation failed completely.', details: err.message });
+    res.status(500).json({
+      success: false,
+      error: 'Estimate generation failed completely.',
+      details: err.message
+    });
   }
 });
 
