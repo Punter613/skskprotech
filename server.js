@@ -4,65 +4,62 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 
-const diagnose = require('./src/routes/diagnose');
-const estimateHeuristic = require('./src/routes/estimate'); 
-const invoice = require('./src/routes/invoice');
-const oemRouter = require('./src/routes/oem');
-const verifyToken = require('./src/middleware/auth');
+// Service Initializations
 const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
 
 const app = express();
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
-
+// 1. GLOBAL CORS & SECURITY CONFIGURATION
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// 2. 🚨 STRIPE WEBHOOK EVENT PROCESSING CORE (CRITICAL PLACEMENT)
+// This must be placed BEFORE global body parsers to preserve the raw request stream
+const webhookRouter = require('./src/routes/webhooks');
+app.use('/api/webhooks', webhookRouter); 
+
+// 3. GLOBAL BODY PARSERS (For all other standard routes)
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
-
-// Production Spec Routing Lane Infrastructure
-app.use('/api/diagnose', diagnose);
-app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); // Hardened via spec auth definitions
-app.use('/api/invoice', invoice);
-
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
-
-// Route Infrastructure
+// 4. ROUTE INFRASTRUCTURE & DEPENDENCIES
+const diagnose = require('./src/routes/diagnose');
+const estimateHeuristic = require('./src/routes/estimate'); 
+const invoice = require('./src/routes/invoice');
+const oemRouter = require('./src/routes/oem');
 const scrapeRouter = require('./src/routes/scrape');
-app.use('/api/scrape', scrapeRouter);
-
 const partsRouter = require('./src/routes/parts');
-app.use('/api/parts', partsRouter);
-
-// ─── NEW: Unified full-estimate pipeline lane ───
 const fullEstimateRouter = require('./src/routes/full-estimate');
-app.use('/api/full-estimate', fullEstimateRouter);
 const jobsRouter = require('./src/routes/jobs');
-app.use('/api/jobs', jobsRouter);
+const partsLookupRouter = require('./src/routes/partsLookup');
+const fleetRouter = require('./src/routes/fleet');
+const verifyToken = require('./src/middleware/auth');
+
+// Production Spec Routing Lanes
 app.use('/api/diagnose', diagnose);
-app.use('/src/api/invoice', invoice);
+app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic);
+app.use('/api/invoice', invoice);
+app.use('/api/scrape', scrapeRouter);
+app.use('/api/parts', partsRouter);
+app.use('/api/full-estimate', fullEstimateRouter);
+app.use('/api/jobs', jobsRouter);
 app.use('/api/translate', require('./src/routes/translate'));
+app.use('/api/parts-lookup', partsLookupRouter);
+app.use('/api/fleet', fleetRouter);
 app.use(oemRouter);
 
+// 5. DYNAMIC PAYMENTS GATEWAY CONFIGURATION
 if (process.env.STRIPE_SECRET_KEY) {
   try {
     const payments = require('./src/routes/payments');
@@ -78,8 +75,11 @@ if (process.env.STRIPE_SECRET_KEY) {
   });
 }
 
+// 6. STATIC ASSETS & SITE INFRASTRUCTURE
 app.use(express.static(path.join(__dirname)));
+app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
 
+// 7. SYSTEM HEALTH CHECK
 app.get('/health', async (req, res) => {
   const health = { ok: true, timestamp: new Date().toISOString() };
   try {
@@ -93,6 +93,12 @@ app.get('/health', async (req, res) => {
   res.json(health);
 });
 
+// 8. CATCH-ALL 404 ROUTE (MUST BE PLACED AFTER ALL VALID ROUTE DEFINITIONS)
+app.use((req, res) => {
+  res.status(404).json({ success: false, error: 'Not found' });
+});
+
+// 9. CENTRALIZED ERROR HANDLING MIDDLEWARE
 app.use((err, req, res, next) => {
   console.error('[Error]', err.stack || err.message || err);
   const isDev = process.env.NODE_ENV === 'development';
@@ -107,11 +113,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.use((req, res) => {
-  res.status(404).json({ success: false, error: 'Not found' });
-});
-
+// 10. BACKGROUND WORKERS & PROCESS LIFECYCLE MANAGEMENT
 startKeepAwakeLoop();
+require('./src/workers/aiWorker');
+console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
 
 const port = process.env.PORT || 3000;
 const server = app.listen(port, () => {
@@ -130,28 +135,3 @@ const gracefulShutdown = () => {
 
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
-
-// 🤖 Background Queue Worker Activation
-// This pulls the worker out of the breakroom and forces it to listen for active Bull queue jobs
-require('./src/workers/aiWorker');
-console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
-
-// 🔌 Live Procurement Parts Aggregator Lane
-const partsLookupRouter = require('./src/routes/partsLookup');
-app.use('/api/parts-lookup', partsLookupRouter);
-
-// 🚚 SKSKFLEET Operations Infrastructure Lane
-const fleetRouter = require('./src/routes/fleet');
-app.use('/api/fleet', fleetRouter);
-
-// Serve corporate frontend asset frames
-app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
-
-// 💳 SKSKFLEET Corporate Procurement Billing Matrix Gateway
-const paymentsRouter = require('./src/routes/payments');
-app.use('/api/payments', paymentsRouter);
-
-// 🚨 STRIPE WEBHOOK EVENT PROCESSING CORE
-// Mounted FIRST to intercept the incoming request stream before global JSON parsing transforms it
-const webhookRouter = require('./src/routes/webhooks');
-app.use('/api/payments', webhookRouter);
