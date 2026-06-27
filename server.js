@@ -1,3 +1,9 @@
+const express = require('express');
+const app = express();
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // CORE ROUTES
 app.use('/api/scrape', require('./src/routes/scrape'));
 app.use('/api/parts', require('./src/routes/parts'));
