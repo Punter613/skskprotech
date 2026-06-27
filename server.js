@@ -1,28 +1,27 @@
-require('dotenv').config();
+// =================================================================
+// PRODUCTION ROUTING LANES (Clean, inline, and isolated)
+// =================================================================
+app.use('/api/scrape', require('./src/routes/scrape'));
+app.use('/api/parts', require('./src/routes/parts'));
+app.use('/api/full-estimate', require('./src/routes/full-estimate'));
+app.use('/api/buyer', require('./src/routes/buyer'));
+app.use('/api/jobs', require('./src/routes/jobs'));
+app.use('/api/diagnose', require('./src/routes/diagnose'));
+app.use('/api/invoice', require('./src/routes/invoice'));
+app.use('/api/translate', require('./src/routes/translate'));
+app.use('/api/parts-lookup', require('./src/routes/partsLookup'));
+app.use('/api/fleet', require('./src/routes/fleet'));
+app.use('/api/oem', require('./src/routes/oem')); // 💡 Explicit path added safely
 
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
-
-// Service Initializations
-const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
-
-const app = express();
-
-// 1. GLOBAL CORS & SECURITY CONFIGURATION
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
+// Handle the heuristic route safely by requiring its middleware directly
+const authMiddleware = require('./src/middleware/authenticateHeuristic');
+if (typeof authMiddleware === 'function') {
+  app.use('/api/estimateHeuristic', authMiddleware, require('./src/routes/estimate'));
+} else {
+  // Destructuring fallback if you exported it as an object { authenticateHeuristic }
+  const { authenticateHeuristic } = require('./src/middleware/authenticateHeuristic');
+  app.use('/api/estimateHeuristic', authenticateHeuristic, require('./src/routes/estimate'));
+}
 
 // 2. 🚨 STRIPE WEBHOOK EVENT PROCESSING CORE (CRITICAL PLACEMENT)
 // This must be placed BEFORE global body parsers to preserve the raw request stream
