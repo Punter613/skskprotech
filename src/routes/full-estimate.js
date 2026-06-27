@@ -229,155 +229,60 @@ OBD Codes: ${obdCodes.join(', ') || 'None'}
 Customer Reports: ${customerStates.join(', ') || 'N/A'}
 Mechanic Notices: ${mechanicNotices.join(', ') || 'N/A'}
 Mileage: ${Number(mileage || 0).toLocaleString()}
-${cleanHistory.length ? `Previously Replaced (Failed to Fix): ${cleanHistory.join(', ')}` : ''}`;
+${cleanHistory.length ? `Previous Failures: ${cleanHistory.join(', ')}` : ''}`;
 
-    let estimate;
-    let aiUsed = true;
+    const aiResponse = await groqChat(systemPrompt, userPrompt);
+    const rawJson = extractJSON(aiResponse);
+    
+    if (!rawJson) {
+      throw new Error('AI engine failed to yield structured JSON payload');
+    }
 
+    logs.push('[4/5] Processing pricing tiers and knowledge lookups...');
+    const processedEstimate = sanitizeEstimate(rawJson, laborRateNum, partsCostNum);
+    
+    // Inject marketplace tier estimations if a partType context exists
+    const partsMarketplace = getPartsEstimate(vehicle.year, vehicle.make, vehicle.model, partType || processedEstimate.diagnosis);
+
+    // Look up static service procedures if matching entries exist
+    let localProcedure = null;
     try {
-      const groqRes = await groqChat(
-        [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        {
-          max_tokens: 1800,
-          temperature: 0.15,
-          response_format: { type: 'json_object' }
-        }
-      );
-
-      const aiText = groqRes?.choices?.[0]?.message?.content || '';
-      const parsed = extractJSON(aiText);
-      const sanitized = sanitizeEstimate(parsed, cleanHistory);
-
-      if (!sanitized) throw new Error('AI output failed deterministic sanitization');
-      estimate = sanitized;
-      estimate.source = 'ai';
-
-      logs.push('[3/5] OK AI estimate generated and sanitized');
-    } catch (aiErr) {
-      logs.push(`[3/5] WARN AI failed: ${aiErr.message}`);
-      estimate = safeEstimate(laborRateNum, partsCostNum, {
-        source: 'fallback',
-        notes: 'AI estimation unavailable or rejected by deterministic gating',
-        excludedComponents: cleanHistory,
-        deductiveReasoning: 'AI parsing or sanitization failed; history items remain excluded; manual inspection required.'
-      });
-      aiUsed = false;
+      localProcedure = await findKnowledgeProcedure(vehicle.make, processedEstimate.diagnosis || partType);
+    } catch (err) {
+      console.warn('Procedure metadata lookup skipped:', err.message);
     }
 
-    estimate.estimatedHours = Number(estimate.estimatedHours || 1);
-    estimate.laborCost = Number.isFinite(Number(estimate.laborCost))
-      ? Number(estimate.laborCost)
-      : parseFloat((estimate.estimatedHours * laborRateNum).toFixed(2));
-    estimate.partsCost = Number.isFinite(Number(estimate.partsCost)) ? Number(estimate.partsCost) : partsCostNum;
-    estimate.total = Number.isFinite(Number(estimate.total))
-      ? Number(estimate.total)
-      : parseFloat((estimate.laborCost + estimate.partsCost).toFixed(2));
-
-    logs.push('[4/5] Searching parts...');
-    const parts = partType ? getPartsEstimate(vehicle.year, vehicle.make, vehicle.model, partType) : [];
-    logs.push(`[4/5] OK ${parts.length} parts tiers found`);
-
-    logs.push('[5/5] Generating repair guide...');
-    let guide = null;
-
-    if (estimate.repairs?.length > 0) {
-      try {
-        const repairJob = estimate.repairs[0];
-
-        // 🏁 KNOWLEDGE INJECTION: Check internal library first
-        const internalProcedure = findKnowledgeProcedure(vehicle, repairJob);
-        const internalContext = internalProcedure
-          ? `KNOWLEDGE BASE OVERRIDE: Use this verified field protocol: ${JSON.stringify(internalProcedure)}`
-          : '';
-
-        const relevantManuals = tsbs.filter(t => {
-          const tl = t.title.toLowerCase();
-          return repairJob.toLowerCase().split(' ').some(w => w.length > 3 && tl.includes(w));
-        }).slice(0, 3);
-
-        const factoryContext = relevantManuals.length > 0
-          ? relevantManuals.map(m => `Manual Section: ${m.title} Source: ${m.url}`).join('')
-          : 'No specific manual page matched. Use standard factory specs.';
-
-        const guidePrompt = `You are an elite master field mechanic.
-
-Vehicle: ${vehicleStr}
-Repair Job: ${repairJob}
-
-${internalContext}
-${factoryContext}
-
-Generate a concise, mobile-friendly step-by-step repair guide with:
-- REQUIRED TOOLS
-- SAFETY & PREPARATION
-- STEP-BY-STEP REPAIR
-- TORQUE SPECS & FLUIDS
-
-Use Markdown. Be direct and practical. Max 400 words.`;
-
-        const guideRes = await groqChat(
-          [
-            { role: 'system', content: 'You are a veteran mobile mechanic writing field repair guides for phone screens.' },
-            { role: 'user', content: guidePrompt }
-          ],
-          {
-            max_tokens: 1000,
-            temperature: 0.3
-          }
-        );
-
-        guide = guideRes?.choices?.[0]?.message?.content || null;
-        logs.push('[5/5] OK Repair guide generated');
-      } catch (guideErr) {
-        logs.push(`[5/5] WARN Guide failed: ${guideErr.message}`);
-      }
-    } else {
-      logs.push('[5/5] SKIP No repairs to guide');
-    }
-
-    const duration = Date.now() - startTime;
+    logs.push('[5/5] Packaging complete package.');
+    const durationMs = Date.now() - startTime;
 
     return res.json({
       success: true,
-      duration_ms: duration,
-      vehicle,
-      vin,
-      tsbs: tsbs.slice(0, 20),
-      tsb_count: tsbs.length,
-      estimate: {
-        ...estimate,
-        excludedComponents: cleanHistory,
-        recommendedInspection: Array.isArray(estimate.recommendedInspection)
-          ? estimate.recommendedInspection
-          : ['Visual inspection', 'Component measurement']
+      metadata: {
+        vin,
+        vehicle: {
+          year: vehicle.year,
+          make: vehicle.make,
+          model: vehicle.model,
+          engine: vehicle.engine,
+          trim: vehicle.trim || 'Base'
+        },
+        durationMs,
+        logs
       },
-      parts,
-      guide,
-      meta: {
-        labor_rate: laborRateNum,
-        part_type_searched: partType || null,
-        mileage: Number(mileage || 0),
-        ai_used: aiUsed,
-        history_injected: cleanHistory.length > 0,
-        history_count: cleanHistory.length,
-        pipeline_logs: logs,
-        customer
-      }
+      estimate: processedEstimate,
+      partsMarketplace,
+      factoryProcedures: localProcedure ? [localProcedure] : [],
+      manualReferences: tsbs
     });
-  } catch (err) {
-    console.error('[FullEstimate] Pipeline crash:', err);
+
+  } catch (error) {
+    console.error('[Full Estimate Route Exception]', error);
     return res.status(500).json({
       success: false,
-      error: 'Full estimate pipeline failed',
-      details: process.env.NODE_ENV === 'development' ? err.message : 'Internal error',
-      deductiveReasoning: 'Pipeline exception - deterministic analysis aborted',
-      excludedComponents: cleanHistory,
-      pipeline_logs: logs
+      error: 'The diagnostic processing pipeline crashed unexpected.',
+      message: error.message,
+      logs
     });
   }
 });
 
-module.exports = router;
