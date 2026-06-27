@@ -1,7 +1,7 @@
-app.use('/api/parts', require('./src/routes/parts'));          
-app.use('/api/full-estimate', require('./src/routes/full-estimate'));
 if (process.env.STRIPE_SECRET_KEY) {
   try {
+    app.use('/api/parts', require('./src/routes/parts'));          
+    app.use('/api/full-estimate', require('./src/routes/full-estimate'));
     app.use('/api/payments', require('./src/routes/payments'));
     console.log('[Payments] Stripe payments loaded');
   } catch (err) {
