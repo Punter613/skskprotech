@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { buildSystemPrompt, buildUserMessage } = require('./services/groqPrompt');
+const { lookupParts } = require('./services/partsLookup');
+const { buildInvoice } = require('./services/invoiceBuilder');
 const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
