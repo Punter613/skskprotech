@@ -1,181 +1,12 @@
 const express = require('express');
 const router = express.Router();
 
-const { scrapeLEMONManuals } = require('../services/lemon');
-const { groqChat } = require('../services/groq');
-const { decodeVinNhtsa } = require('../services/vin');
-const { extractJSON, uniqueStrings, clampNumber } = require('../services/estimateHelpers');
-const { sanitizeEstimate, safeEstimate } = require('../services/estimateSanitizer');
-const { findKnowledgeProcedure } = require('../services/procedure_lookup');
-
-function validateRequestBody(body) {
-  const allowed = new Set([
-    'vin',
-    'customerStates',
-    'mechanicNotices',
-    'obdCodes',
-    'laborRate',
-    'partsCost',
-    'partType',
-    'mileage',
-    'customer',
-    'history'
-  ]);
-
-  if (!body || typeof body !== 'object') return 'Request body must be an object';
-
-  for (const key of Object.keys(body)) {
-    if (!allowed.has(key)) {
-      return `Unexpected field: ${key}`;
-    }
-  }
-
-  // VIN Hardening: Must be 17 chars and alphanumeric
-  if (!body.vin || String(body.vin).trim().length !== 17) return 'Valid 17-character VIN required';
-  if (!/^[A-HJ-NPR-Z0-9]{17}$/i.test(body.vin)) return 'VIN contains invalid characters (I, O, Q are not allowed)';
-
-  if (body.customerStates && !Array.isArray(body.customerStates)) return 'customerStates must be an array';
-  if (body.mechanicNotices && !Array.isArray(body.mechanicNotices)) return 'mechanicNotices must be an array';
-  if (body.obdCodes && !Array.isArray(body.obdCodes)) return 'obdCodes must be an array';
-  if (body.history && !Array.isArray(body.history)) return 'history must be an array';
-
-  // Deep array validation
-  if (body.customerStates && body.customerStates.some(s => typeof s !== 'string')) return 'All customerStates must be strings';
-  if (body.obdCodes && body.obdCodes.some(c => typeof c !== 'string')) return 'All obdCodes must be strings';
-
-  return null;
-}
-
-function buildSystemPrompt(laborRate, partsCost, history, manualsContext) {
-  const historyList = uniqueStrings(history);
-  const historyStr = historyList.length > 0
-    ? `FAILED REPAIR HISTORY:${historyList.map(h => `- ${h}`).join('')}CRITICAL RULE: Never suggest any item from FAILED REPAIR HISTORY. Assign 0% likelihood to those components and exclude them from diagnosis.`
-    : '';
-
-  return `You are a deterministic automotive diagnostic engine.
-
-Rules:
-- Never guess.
-- Never include a component listed in FAILED REPAIR HISTORY.
-- If data is insufficient, return a conservative fallback-style answer.
-- Use only JSON.
-
-Output shape:
-{
-  "priority": "high|medium|low",
-  "diagnosis": "string",
-  "estimatedHours": number,
-  "laborCost": number,
-  "partsCost": number,
-  "total": number,
-  "repairs": [string],
-  "probability": [{"cause":"string","likelihood":number}],
-  "knownIssues": [string],
-  "repairSteps": [string],
-  "proTips": [string],
-  "additionalChecks": [string],
-  "notes": "string",
-  "deductiveReasoning": "string",
-  "excludedComponents": [string],
-  "recommendedInspection": [string]
-}
-
-Constraints:
-- laborCost = estimatedHours * ${laborRate}
-- total = laborCost + partsCost
-- excludedComponents must list all failed repairs
-- recommendedInspection must include specific measurements/tests
-- If insufficient data, set priority to low and request measurements.
-
-${manualsContext}${historyStr}`;
-}
-
-function getPartsEstimate(year, make, model, partType) {
-  let basePrice = 50.0;
-  const target = String(partType || '').toLowerCase();
-
-  if (target.includes('pad')) basePrice = 35.0;
-  else if (target.includes('rotor')) basePrice = 65.0;
-  else if (target.includes('plug')) basePrice = 8.5;
-  else if (target.includes('oil')) basePrice = 28.0;
-  else if (target.includes('gasket')) basePrice = 22.0;
-  else if (target.includes('filter')) basePrice = 15.0;
-  else if (target.includes('belt')) basePrice = 35.0;
-  else if (target.includes('hose')) basePrice = 25.0;
-  else if (target.includes('bearing')) basePrice = 45.0;
-  else if (target.includes('pump')) basePrice = 55.0;
-  else if (target.includes('alternator')) basePrice = 85.0;
-  else if (target.includes('starter')) basePrice = 75.0;
-  else if (target.includes('axle')) basePrice = 120.0;
-  else if (target.includes('joint')) basePrice = 65.0;
-  else if (target.includes('arm')) basePrice = 85.0;
-  else if (target.includes('converter')) basePrice = 450.0;
-  else if (target.includes('gearbox')) basePrice = 350.0;
-  else if (target.includes('transmission')) basePrice = 2800.0;
-
-  return [
-    {
-      tier: 'Economy',
-      brand: 'Duralast / Everyday Aftermarket',
-      price: parseFloat((basePrice * 0.85).toFixed(2)),
-      source: 'Retail Center',
-      availability: 'In Stock (Local Store)',
-      link: 'https://www.autozone.com',
-      eta: 'Immediate Pick-up'
-    },
-    {
-      tier: 'OEM / Factory Spec',
-      brand: `${make} Genuine Certified`,
-      price: parseFloat((basePrice * 1.4).toFixed(2)),
-      source: 'eBay Motors',
-      availability: 'Low Inventory',
-      link: 'https://www.ebay.com/b/Auto-Parts-Accessories/6028/bn_1853100',
-      eta: '2-Day Express Shipping'
-    },
-    {
-      tier: 'Premium Performance',
-      brand: 'Brembo / Bosch SevereDuty',
-      price: parseFloat((basePrice * 1.95).toFixed(2)),
-      source: 'Commercial Supply',
-      availability: 'In Stock (Regional Hub)',
-      link: 'https://www.napaauto.com',
-      eta: 'Same-Day Delivery'
-    }
-  ];
-}
+// NEW ENGINE LOCATION
+const fullEstimate = require('../../../engine/estimate/full-estimate');
 
 router.post('/', async (req, res) => {
-  console.log('FULL ESTIMATE BODY:', req.body);
-  const startTime = Date.now();
-  const validationError = validateRequestBody(req.body);
-
-  if (validationError) {
-    return res.status(400).json({
-      success: false,
-      error: validationError,
-      deductiveReasoning: 'Request validation failed before diagnostic pipeline started'
-    });
-  }
-
-  const {
-    vin,
-    customerStates = [],
-    mechanicNotices = [],
-    obdCodes = [],
-    laborRate = 65,
-    partsCost = 0,
-    partType = '',
-    mileage = 0,
-    customer = {},
-    history = []
-  } = req.body;
-
-  const laborRateNum = clampNumber(laborRate, 0);
-  const partsCostNum = clampNumber(partsCost, 0);
-  const cleanHistory = uniqueStrings(history);
-  const logs = [];
-
   try {
+<<<<<<< HEAD
     logs.push('[1/5] Decoding VIN...');
     const vehicle = await decodeVinNhtsa(vin);
     if (!vehicle || !vehicle.make) {
@@ -283,6 +114,12 @@ ${cleanHistory.length ? `Previous Failures: ${cleanHistory.join(', ')}` : ''}`;
       message: error.message,
       logs
     });
+=======
+    const result = await fullEstimate(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+>>>>>>> 07379e7 (Introduce AI orchestration layer with provider routing and decouple Groq from core pipeline)
   }
 });
 

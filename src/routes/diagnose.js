@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { groqChat } = require('../services/groq');
+const { runDiagnosticPipeline } = require('../services/pipeline.engine');
 const { runDiagnosticPipeline } = require('../services/pipeline.engine');
 const { calibrateProbabilityArray } = require('../core/metrics/index');
 const { getVehicleRiskProfile } = require('../knowledge/vehicle.risk.table');
@@ -213,7 +213,7 @@ RULES:
 
     executionTrace.log('GROQ_DISPATCH', 'Sending to Groq...');
 
-    const groqRes = await groqChat([
+    const groqRes = await runDiagnosticPipeline([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ], { max_tokens: 1500, temperature: 0.15 });

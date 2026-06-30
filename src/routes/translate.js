@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { groqChat, parseGroqJson } = require('../services/groq');
+const { runDiagnosticPipeline, parseGroqJson } = require('../services/pipeline.engine');
 
 router.post('/', async (req, res, next) => {
   try {
@@ -20,7 +20,7 @@ Respond with JSON ONLY:
       return res.json({ translated: text, keywords: [] });
     }
 
-    const groqRes = await groqChat([{ role: 'user', content: prompt }], { max_tokens: 300 });
+    const groqRes = await runDiagnosticPipeline([{ role: 'user', content: prompt }], { max_tokens: 300 });
     const raw = groqRes?.choices?.[0]?.message?.content || '';
     const parsed = parseGroqJson(raw);
 
