@@ -42,3 +42,18 @@ logs/
 server.js.save
 *.pdf
 *.save
+
+# Secrets and keys (do NOT commit private keys)
+ed25519
+*.key
+*.pem
+secrets/
+.env
+.env.*
+
+# Submodule artifacts
+.gitmodules
+
+# Ignore local build caches
+.cache/
+
