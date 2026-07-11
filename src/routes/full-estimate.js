@@ -119,6 +119,6 @@ ${cleanHistory.length ? `Previous Failures: ${cleanHistory.join(', ')}` : ''}`;
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: err.message });
-      (Introduce AI orchestration layer with provider routing and decouple Groq from core pipeline)
+     // (Introduce AI orchestration layer with provider routing and decouple Groq from core pipeline)
     };
 
