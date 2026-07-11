@@ -63,21 +63,27 @@ ${cleanHistory.length ? `Previous Failures: ${cleanHistory.join(', ')}` : ''}`;
 
     const aiResponse = await groqChat(systemPrompt, userPrompt);
     const rawJson = extractJSON(aiResponse);
-    
+
     if (!rawJson) {
       throw new Error('AI engine failed to yield structured JSON payload');
     }
 
     logs.push('[4/5] Processing pricing tiers and knowledge lookups...');
     const processedEstimate = sanitizeEstimate(rawJson, laborRateNum, partsCostNum);
-    
-    // Inject marketplace tier estimations if a partType context exists
-    const partsMarketplace = getPartsEstimate(vehicle.year, vehicle.make, vehicle.model, partType || processedEstimate.diagnosis);
 
-    // Look up static service procedures if matching entries exist
+    const partsMarketplace = getPartsEstimate(
+      vehicle.year,
+      vehicle.make,
+      vehicle.model,
+      partType || processedEstimate.diagnosis
+    );
+
     let localProcedure = null;
     try {
-      localProcedure = await findKnowledgeProcedure(vehicle.make, processedEstimate.diagnosis || partType);
+      localProcedure = await findKnowledgeProcedure(
+        vehicle.make,
+        processedEstimate.diagnosis || partType
+      );
     } catch (err) {
       console.warn('Procedure metadata lookup skipped:', err.message);
     }
@@ -113,12 +119,7 @@ ${cleanHistory.length ? `Previous Failures: ${cleanHistory.join(', ')}` : ''}`;
       message: error.message,
       logs
     });
+  }
+});
 
-    try {
-    const result = await fullEstimate(req.body);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: err.message });
-     // (Introduce AI orchestration layer with provider routing and decouple Groq from core pipeline)
-    };
-
+module.exports = router;
