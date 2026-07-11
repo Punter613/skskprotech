@@ -116,7 +116,7 @@ ${cleanHistory.length ? `Previous Failures: ${cleanHistory.join(', ')}` : ''}`;
     
     const result = await fullEstimate(req.body);
     res.json(result);
-  } catch (err) {
+  } catch (error) {
     res.status(500).json({ error: err.message });
 (Introduce AI orchestration layer with provider routing and decouple Groq from core pipeline)
   }
