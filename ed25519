@@ -1,0 +1,10 @@
+REMOVED - PRIVATE KEY
+
+This file previously contained a private SSH key that has been removed for security.
+Do NOT restore the private key to the repository. Instead:
+
+1. Rotate the compromised key immediately on any services that used it (servers, deploy keys, Render, etc.).
+2. If you need to store keys for CI/deploy, use GitHub Secrets or a secure secrets manager.
+3. To permanently remove the key from git history, perform a history rewrite (with caution) or ask me to help — this requires force-pushing and coordination.
+
+(Private key removed on cleanup/strip-unneeded branch)
