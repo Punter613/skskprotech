@@ -6,7 +6,6 @@ const fullEstimate = require('../../../engine/estimate/full-estimate');
 
 router.post('/', async (req, res) => {
   try {
-<<<<<<< HEAD
     logs.push('[1/5] Decoding VIN...');
     const vehicle = await decodeVinNhtsa(vin);
     if (!vehicle || !vehicle.make) {
@@ -114,12 +113,12 @@ ${cleanHistory.length ? `Previous Failures: ${cleanHistory.join(', ')}` : ''}`;
       message: error.message,
       logs
     });
-=======
+    
     const result = await fullEstimate(req.body);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
->>>>>>> 07379e7 (Introduce AI orchestration layer with provider routing and decouple Groq from core pipeline)
+(Introduce AI orchestration layer with provider routing and decouple Groq from core pipeline)
   }
 });
 
