@@ -113,7 +113,8 @@ ${cleanHistory.length ? `Previous Failures: ${cleanHistory.join(', ')}` : ''}`;
       message: error.message,
       logs
     });
-    
+
+    try {
     const result = await fullEstimate(req.body);
     res.json(result);
   } catch (error) {
