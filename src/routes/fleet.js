@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db'); 
-const { processSingleEstimate } = require('../services/estimator');
+const orchestrator = require('../core/orchestrator/main.orchestrator');
 
 async function requireTenant(req, res, next) {
   const tenantId = req.headers['x-tenant-id'];
@@ -26,7 +26,7 @@ router.get('/roster', requireTenant, async (req, res) => {
 });
 
 router.post('/bulk-estimate', requireTenant, async (req, res) => {
-  const { vins, notes, labor_rate } = req.body;
+  const { vins, notes, context = {} } = req.body;
   const tenantId = req.tenantId;
 
   if (!vins || !Array.isArray(vins)) {
@@ -37,45 +37,59 @@ router.post('/bulk-estimate', requireTenant, async (req, res) => {
     const batchResults = await Promise.all(
       vins.map(async (vin) => {
         try {
-          if (!vin || vin.length !== 17) {
-            throw new Error(`Invalid VIN format length: ${vin?.length || 0} chars.`);
-          }
-
           const { data: vehicle, error: fetchError } = await db.supabase
             .from('fleet_vehicles')
-            .select('year_make_model, mileage, status')
+            .select('*')
             .eq('vin', vin)
             .eq('tenant_id', tenantId)
             .single();
 
           if (fetchError || !vehicle) {
-            throw new Error(`Asset profile missing from fleet log database.`);
+            throw new Error(`Asset ${vin} missing from fleet database.`);
           }
 
-          const rawResult = await processSingleEstimate({ vehicle, notes });
+          const vehicleProfile = {
+            vin: vehicle.vin,
+            make: vehicle.make || vehicle.year_make_model?.split(' ')[1],
+            model: vehicle.model || vehicle.year_make_model?.split(' ')[2],
+            year: vehicle.year || vehicle.year_make_model?.split(' ')[0],
+            mileage: vehicle.mileage,
+            isFleet: true,
+            fleetData: {
+              tenantId,
+              lastServiceMiles: vehicle.last_service_miles,
+              currentMiles: vehicle.mileage
+            }
+          };
 
+          const result = await orchestrator.process({
+            input: notes || 'Routine fleet health check',
+            vehicleProfile,
+            context: { ...context, forceSpecialist: 'fleet' }
+          });
+
+          // Update fleet vehicle status based on modular output
           const { error: updateError } = await db.supabase
             .from('fleet_vehicles')
             .update({ 
-              next_predicted_failure: rawResult.predictive_horizon,
-              status: rawResult.calculated_severity 
+              status: result.decision?.urgency || 'OK',
+              next_predicted_failure: result.decision?.economicAnalysis?.recommendation || null,
+              last_intelligence_run: new Date().toISOString()
             })
             .eq('vin', vin)
             .eq('tenant_id', tenantId);
 
           if (updateError) throw updateError;
 
-          return { vin, status: 'Success', error: null };
+          return { vin, status: 'Success', result };
         } catch (individualError) {
           return { vin, status: 'Failed', error: individualError.message };
         }
       })
     );
 
-    const failedCount = batchResults.filter(r => r.status === 'Failed').length;
-    
     return res.status(200).json({
-      summary: `Processed ${vins.length} assets. Success: ${vins.length - failedCount}, Failures: ${failedCount}`,
+      summary: `Processed ${vins.length} assets.`,
       results: batchResults
     });
   } catch (globalError) {
