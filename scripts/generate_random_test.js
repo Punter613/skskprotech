@@ -36,25 +36,20 @@ async function runRandomTest() {
     partType: symptom.toLowerCase().includes('brake') ? 'brake pads' : 'spark plugs'
   };
 
-  console.log('--- Random Test Execution ---');
+  console.log('--- Random Test Execution (Refactored) ---');
   console.log('Payload:', JSON.stringify(payload, null, 2));
 
   try {
     const response = await axios.post('http://localhost:3000/api/full-estimate', payload);
     console.log('Status:', response.status);
-    console.log('Duration:', response.data.duration_ms, 'ms');
-    console.log('AI Used:', response.data.meta.ai_used);
-    console.log('Repairs Found:', response.data.estimate.repairs);
-    console.log('Parts Tiers:', response.data.parts.length);
-    console.log('Guide Generated:', !!response.data.guide);
+    console.log('Pipeline Status:', response.data.status);
+    console.log('Latency:', response.data.metadata.latencyMs, 'ms');
+    console.log('Decision Action:', response.data.decision.action);
+    console.log('Decision Urgency:', response.data.decision.urgency);
   } catch (error) {
     console.error('Test Failed:', error.response ? error.response.data : error.message);
   }
 }
-
-// Start a local server mock if needed, or just assume the server is running
-// For the purpose of this task, we will just create the script.
-// If we want to run it, we'd need the server up.
 
 if (require.main === module) {
   runRandomTest();
