@@ -58,7 +58,7 @@ router.post('/bulk-estimate', requireTenant, async (req, res) => {
             .from('fleet_vehicles')
             .update({ 
               next_predicted_failure: rawResult.predictive_horizon,
-              status: rawResult.calculated_severity 
+              status: rawResult.calculated_severity
             })
             .eq('vin', vin)
             .eq('tenant_id', tenantId);
@@ -73,7 +73,7 @@ router.post('/bulk-estimate', requireTenant, async (req, res) => {
     );
 
     const failedCount = batchResults.filter(r => r.status === 'Failed').length;
-    
+
     return res.status(200).json({
       summary: `Processed ${vins.length} assets. Success: ${vins.length - failedCount}, Failures: ${failedCount}`,
       results: batchResults
