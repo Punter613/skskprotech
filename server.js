@@ -5,7 +5,7 @@ const path = require('path');
 const cors = require('cors');
 
 const diagnose = require('./src/routes/diagnose');
-const estimateHeuristic = require('./src/routes/estimate');
+const estimateHeuristic = require('./src/routes/estimate'); 
 const invoice = require('./src/routes/invoice');
 const oemRouter = require('./src/routes/oem');
 const verifyToken = require('./src/middleware/auth');
@@ -43,7 +43,7 @@ app.use('/api/full-estimate', fullEstimateRouter);
 const jobsRouter = require('./src/routes/jobs');
 app.use('/api/jobs', jobsRouter);
 app.use('/api/diagnose', diagnose);
-app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic);
+app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); 
 app.use('/api/invoice', invoice);
 app.use('/api/translate', require('./src/routes/translate'));
 app.use(oemRouter);
