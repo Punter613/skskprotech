@@ -1,40 +1,36 @@
 require('dotenv').config();
-const orchestrator = require('../src/core/orchestrator/main.orchestrator');
+const { processSingleEstimate } = require('../src/services/estimator.js');
 
 async function runPipelineTest() {
-  console.log("🚀 Initializing SKSK Rebuilt Platform Integration Test...");
+  console.log("🚀 Initializing SKSKFLEET AI Foreman Integration Test...");
 
   const mockVehicle = {
-    make: "Ford",
-    model: "Transit-250",
-    year: 2021,
+    year_make_model: "2021 Ford Transit-250 3.5L V6",
     mileage: 54200,
-    vin: "1FTFW1ET5DFC10312"
+    status: "OK"
   };
 
-  const mockNotes = `
-    P0302 active cylinder 2 misfire logged on arrival.
+  const mockTechnicianNotes = `
+    Unit #14 multi-system check. P0302 active cylinder 2 misfire logged on arrival.
     Spark plugs original. Completely separate issue: Front brake pads measure 3mm. 
+    Rotor surface showing light scoring.
   `;
 
   try {
     const startTime = Date.now();
-    const result = await orchestrator.process({
-      input: mockNotes,
-      vehicleProfile: mockVehicle,
-      context: { forceSpecialist: 'diagnostic' }
-    });
+    const result = await processSingleEstimate({ vehicle: mockVehicle, notes: mockTechnicianNotes });
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
     console.log(`\n🟢 Execution Complete in ${duration}s!`);
     console.log("------------------------------------------");
-    console.log("Decision Output:\n", JSON.stringify(result.decision, null, 2));
+    console.log("Parsed AI Payload Output:\n", JSON.stringify(result, null, 2));
     console.log("------------------------------------------");
 
-    if (result.status !== 'SUCCESS') throw new Error(`Pipeline status: ${result.status}`);
-    if (!result.decision.action) throw new Error("Missing: decision.action");
+    if (!result.calculated_severity) throw new Error("Missing: calculated_severity");
+    if (!Array.isArray(result.isolated_diagnostics)) throw new Error("Missing: isolated_diagnostics array");
+    if (!result.predictive_horizon.predicted_failure_window) throw new Error("Missing: predictive_horizon payload");
 
-    console.log("✅ Validation Test Passed: Rebuilt platform modular output verified.");
+    console.log("✅ Validation Test Passed: AI structure matches SKSKFLEET schema expectations perfectly.");
   } catch (error) {
     console.error("❌ Pipeline Validation Test Failed:", error.message);
     process.exit(1);

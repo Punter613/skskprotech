@@ -8,7 +8,6 @@ const groqClient = require('../groq');
 
 class AISpecialistRouter {
   constructor() {
-    // Specialist registry: intent → specialist config
     this.SPECIALISTS = {
       diagnostic: {
         name: 'Diagnostic AI',
@@ -191,7 +190,6 @@ Escalate complex technical questions to human staff.`,
       }
     };
 
-    // Intent classification patterns
     this.INTENT_PATTERNS = {
       diagnostic: [
         /noise|sound|grind|squeak|rattle|vibration|shake|pull|drift|overheat|smell|leak/i,
@@ -242,32 +240,20 @@ Escalate complex technical questions to human staff.`,
     };
   }
 
-  /**
-   * Main routing method
-   * @param {string} input - Raw user input or task description
-   * @param {Object} context - Vehicle profile, session data, etc.
-   * @returns {Object} - { specialist, config, confidence, routingReason }
-   */
   async route(input, context = {}) {
-    // 1. Classify intent
     const classification = this._classifyIntent(input);
-
-    // 2. Check for multi-intent (e.g., "diagnose and estimate")
     const multiIntent = this._detectMultiIntent(classification);
 
-    // 3. Select primary specialist
     let specialistKey = classification.primary;
     let confidence = classification.confidence;
 
-    // 4. Override based on context
     if (context.forceSpecialist && this.SPECIALISTS[context.forceSpecialist]) {
       specialistKey = context.forceSpecialist;
       confidence = 1.0;
     }
 
-    // 5. Fallback if confidence too low
     if (confidence < 0.3) {
-      specialistKey = 'receptionist'; // Human handoff
+      specialistKey = 'receptionist';
       confidence = 0.5;
     }
 
@@ -288,16 +274,10 @@ Escalate complex technical questions to human staff.`,
     };
   }
 
-  /**
-   * Execute the routed task
-   */
   async execute(routingResult, input, context) {
     const { specialist, config } = routingResult;
-
-    // Build the prompt
     const prompt = this._buildPrompt(config, input, context);
 
-    // Call the appropriate model
     try {
       const response = await groqClient.groqChat([
         { role: 'system', content: config.systemPrompt },
@@ -352,7 +332,6 @@ Escalate complex technical questions to human staff.`,
       };
     }
 
-    // Find primary intent
     let primary = null;
     let maxScore = -1;
 
@@ -379,11 +358,10 @@ Escalate complex technical questions to human staff.`,
       .sort((a, b) => b[1].score - a[1].score)
       .map(([intent, _]) => intent);
 
-    return sorted.slice(0, 3); // Top 3 intents
+    return sorted.slice(0, 3);
   }
 
   _buildChain(intents) {
-    // Define logical chains for multi-intent tasks
     const chains = {
       'diagnostic,estimate': ['diagnostic', 'estimate'],
       'diagnostic,parts': ['diagnostic', 'parts', 'estimate'],
@@ -419,9 +397,6 @@ Escalate complex technical questions to human staff.`,
     return prompt;
   }
 
-  /**
-   * Get all available specialists
-   */
   getSpecialists() {
     return Object.entries(this.SPECIALISTS).map(([key, config]) => ({
       key,
@@ -432,9 +407,6 @@ Escalate complex technical questions to human staff.`,
     }));
   }
 
-  /**
-   * Add a custom specialist (for white-label extensions)
-   */
   registerSpecialist(key, config) {
     this.SPECIALISTS[key] = config;
   }

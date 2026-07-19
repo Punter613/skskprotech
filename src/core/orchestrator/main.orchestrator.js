@@ -21,20 +21,6 @@ class SKSKOrchestrator {
     };
   }
 
-  /**
-   * Main pipeline: processes a vehicle intelligence request end-to-end
-   *
-   * Pipeline:
-   * 1. Deterministic Orchestrator (safety rules)
-   * 2. AI Specialist Router (intent classification + specialist selection)
-   * 3. AI Execution (specialist generates recommendation)
-   * 4. Evidence Verification (validate AI output)
-   * 5. Economic Analysis (calculate ECF/EVP/ROI/TCO)
-   * 6. Final Decision Assembly
-   *
-   * @param {Object} request - { input, vehicleProfile, context }
-   * @returns {Object} - Complete decision package
-   */
   async process(request) {
     const startTime = Date.now();
     this.pipelineStats.totalRequests++;
@@ -42,9 +28,6 @@ class SKSKOrchestrator {
     try {
       const { input, vehicleProfile, context = {} } = request;
 
-      // ───────────────────────────────────────────────
-      // STEP 1: DETERMINISTIC ORCHESTRATOR
-      // ───────────────────────────────────────────────
       console.log('[ORCHESTRATOR] Step 1: Running deterministic checks...');
       const deterministicResult = await deterministicOrchestrator.process(vehicleProfile, input);
 
@@ -53,12 +36,8 @@ class SKSKOrchestrator {
         return this._buildDeterministicResponse(deterministicResult, vehicleProfile);
       }
 
-      // If safety override but not critical, we can still use AI with constraints
       const safetyConstraints = deterministicResult.overrides.filter(o => o.severity === 'CRITICAL');
 
-      // ───────────────────────────────────────────────
-      // STEP 2: AI SPECIALIST ROUTER
-      // ───────────────────────────────────────────────
       console.log('[ORCHESTRATOR] Step 2: Routing to AI specialist...');
       const routingResult = await aiRouter.route(input, {
         ...context,
@@ -66,9 +45,6 @@ class SKSKOrchestrator {
         forceSpecialist: context.forceSpecialist
       });
 
-      // ───────────────────────────────────────────────
-      // STEP 3: AI EXECUTION
-      // ───────────────────────────────────────────────
       console.log(`[ORCHESTRATOR] Step 3: Executing ${routingResult.specialist} specialist...`);
       let aiOutput = await aiRouter.execute(routingResult, input, {
         ...context,
@@ -78,15 +54,11 @@ class SKSKOrchestrator {
 
       this.pipelineStats.aiProcessed++;
 
-      // Handle multi-intent chains
       if (routingResult.suggestedChain) {
         console.log(`[ORCHESTRATOR] Multi-intent detected: ${routingResult.suggestedChain.join(' → ')}`);
         aiOutput = await this._executeChain(routingResult.suggestedChain, input, context, vehicleProfile);
       }
 
-      // ───────────────────────────────────────────────
-      // STEP 4: EVIDENCE VERIFICATION
-      // ───────────────────────────────────────────────
       console.log('[ORCHESTRATOR] Step 4: Running evidence verification...');
       const evidenceResult = await evidenceVerifier.verify(
         aiOutput.output,
@@ -101,7 +73,6 @@ class SKSKOrchestrator {
           return this._buildQuarantineResponse(evidenceResult, aiOutput, vehicleProfile);
         }
 
-        // Retry with fallback specialist (receptionist for human handoff)
         console.log('[ORCHESTRATOR] Evidence failed, falling back to human handoff...');
         const fallbackRouting = await aiRouter.route(input, {
           ...context,
@@ -115,21 +86,13 @@ class SKSKOrchestrator {
         });
       }
 
-      // ───────────────────────────────────────────────
-      // STEP 5: ECONOMIC ANALYSIS
-      // ───────────────────────────────────────────────
       console.log('[ORCHESTRATOR] Step 5: Running economic analysis...');
-
-      // Parse AI output into recommendation structure
       const recommendation = this._parseAIOutput(aiOutput.output, routingResult.specialist);
       recommendation.component = recommendation.component || this._inferComponent(input);
 
       const economicResult = await economicEngine.analyze(recommendation, vehicleProfile);
       this.pipelineStats.economicAnalyzed++;
 
-      // ───────────────────────────────────────────────
-      // STEP 6: FINAL DECISION ASSEMBLY
-      // ───────────────────────────────────────────────
       console.log('[ORCHESTRATOR] Step 6: Assembling final decision...');
 
       const finalDecision = {
@@ -183,9 +146,6 @@ class SKSKOrchestrator {
     }
   }
 
-  /**
-   * Build response when deterministic rules override AI
-   */
   _buildDeterministicResponse(deterministicResult, vehicleProfile) {
     const overrides = deterministicResult.overrides;
     const critical = overrides.filter(o => o.severity === 'CRITICAL');
@@ -215,9 +175,6 @@ class SKSKOrchestrator {
     };
   }
 
-  /**
-   * Build response when evidence quarantines output
-   */
   _buildQuarantineResponse(evidenceResult, aiOutput, vehicleProfile) {
     return {
       status: 'QUARANTINED',
@@ -237,9 +194,6 @@ class SKSKOrchestrator {
     };
   }
 
-  /**
-   * Execute multi-intent chain (e.g., diagnose → estimate → parts)
-   */
   async _executeChain(chain, input, context, vehicleProfile) {
     let currentOutput = null;
     const chainResults = [];
@@ -251,7 +205,6 @@ class SKSKOrchestrator {
         forceSpecialist: specialistKey
       });
 
-      // Feed previous output as context for next specialist
       const enrichedContext = {
         ...context,
         vehicleProfile,
@@ -271,9 +224,6 @@ class SKSKOrchestrator {
     };
   }
 
-  /**
-   * Parse AI output into recommendation structure for economic engine
-   */
   _parseAIOutput(output, specialist) {
     try {
       const data = typeof output === 'string' ? JSON.parse(output) : output;
@@ -286,7 +236,6 @@ class SKSKOrchestrator {
         confidence: data.confidence || data.overallConfidence || 75
       };
     } catch (e) {
-      // Fallback for non-JSON outputs
       return {
         component: 'general',
         partsCost: 0,
@@ -297,9 +246,6 @@ class SKSKOrchestrator {
     }
   }
 
-  /**
-   * Infer component from user input when AI output is ambiguous
-   */
   _inferComponent(input) {
     const componentKeywords = {
       brakes: /brake|pad|rotor|caliper/i,
@@ -320,9 +266,6 @@ class SKSKOrchestrator {
     return 'general';
   }
 
-  /**
-   * Calculate overall confidence score
-   */
   _calculateOverallConfidence(deterministic, evidence, economic) {
     const weights = {
       deterministic: 0.3,
@@ -343,9 +286,6 @@ class SKSKOrchestrator {
     return `sksk_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   }
 
-  /**
-   * Get pipeline statistics
-   */
   getStats() {
     return {
       ...this.pipelineStats,
@@ -354,9 +294,6 @@ class SKSKOrchestrator {
     };
   }
 
-  /**
-   * Health check endpoint
-   */
   health() {
     return {
       status: 'healthy',
