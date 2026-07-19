@@ -9,20 +9,18 @@
 
 class EconomicEngine {
   constructor() {
-    // Default cost assumptions (configurable per fleet/shop)
     this.DEFAULTS = {
-      averageLaborRate: 125, // $/hour
-      emergencyPremium: 1.5, // 50% markup for emergency repairs
+      averageLaborRate: 125,
+      emergencyPremium: 1.5,
       towCost: 150,
-      rentalCarCost: 65, // per day
-      lostRevenuePerHour: 0, // fleet-specific
-      downtimeCostPerHour: 50, // general
-      partsMarkup: 0.25, // 25% shop markup
+      rentalCarCost: 65,
+      lostRevenuePerHour: 0,
+      downtimeCostPerHour: 50,
+      partsMarkup: 0.25,
       taxRate: 0.08,
-      inflationRate: 0.03 // annual
+      inflationRate: 0.03
     };
 
-    // Failure probability curves by component (simplified)
     this.FAILURE_CURVES = {
       brakes: { baseRate: 0.001, wearFactor: 0.0001, criticalThreshold: 50000 },
       timing_belt: { baseRate: 0.0005, wearFactor: 0.0002, criticalThreshold: 100000 },
@@ -30,13 +28,12 @@ class EconomicEngine {
       transmission: { baseRate: 0.0003, wearFactor: 0.00005, criticalThreshold: 150000 },
       alternator: { baseRate: 0.0004, wearFactor: 0.00008, criticalThreshold: 120000 },
       water_pump: { baseRate: 0.0005, wearFactor: 0.0001, criticalThreshold: 100000 },
-      battery: { baseRate: 0.003, wearFactor: 0.0002, criticalThreshold: 48 }, // months
-      coolant: { baseRate: 0.001, wearFactor: 0.0001, criticalThreshold: 24 }, // months
+      battery: { baseRate: 0.003, wearFactor: 0.0002, criticalThreshold: 48 },
+      coolant: { baseRate: 0.001, wearFactor: 0.0001, criticalThreshold: 24 },
       suspension: { baseRate: 0.0002, wearFactor: 0.00003, criticalThreshold: 80000 },
-      engine_oil: { baseRate: 0.005, wearFactor: 0.0005, criticalThreshold: 5000 } // miles
+      engine_oil: { baseRate: 0.005, wearFactor: 0.0005, criticalThreshold: 5000 }
     };
 
-    // Component-specific failure costs (parts + labor + consequential damage)
     this.FAILURE_COSTS = {
       brakes: { parts: 400, labor: 3, consequential: 0, description: 'Brake failure - collision risk' },
       timing_belt: { parts: 800, labor: 6, consequential: 3000, description: 'Interference engine valve damage' },
@@ -51,29 +48,18 @@ class EconomicEngine {
     };
   }
 
-  /**
-   * Main economic analysis for a repair recommendation
-   * @param {Object} recommendation - AI/Deterministic recommendation
-   * @param {Object} vehicleProfile - Full vehicle context
-   * @returns {Object} - Complete economic analysis with 3 timelines
-   */
   async analyze(recommendation, vehicleProfile) {
-    const component = recommendation.component;
-    const profile = vehicleProfile;
+    const component = recommendation.component || 'general';
+    const profile = vehicleProfile || {};
     const fleet = profile.fleetData || {};
 
-    // Calculate current failure probability
     const failureProb = this._calculateFailureProbability(component, profile);
 
-    // Calculate costs for each timeline
     const replaceToday = this._calculateReplaceToday(recommendation, profile, failureProb);
     const wait30Days = this._calculateWait30Days(recommendation, profile, failureProb);
     const waitUntilFailure = this._calculateWaitUntilFailure(recommendation, profile, failureProb);
 
-    // Determine optimal action
     const optimal = this._determineOptimalAction(replaceToday, wait30Days, waitUntilFailure);
-
-    // Fleet-specific adjustments
     const fleetImpact = fleet.isFleet ? this._calculateFleetImpact(recommendation, profile) : null;
 
     return {
@@ -94,8 +80,8 @@ class EconomicEngine {
       optimal,
       fleetImpact,
       economicScores: {
-        ecf: waitUntilFailure.totalCost, // Expected Cost of Failure = worst case
-        evp: waitUntilFailure.totalCost - replaceToday.totalCost, // Value of proactive action
+        ecf: waitUntilFailure.totalCost,
+        evp: waitUntilFailure.totalCost - replaceToday.totalCost,
         roi: (waitUntilFailure.totalCost - replaceToday.totalCost) / replaceToday.totalCost,
         tco: this._calculateTCO(profile, component)
       },
@@ -115,21 +101,19 @@ class EconomicEngine {
 
   _calculateFailureProbability(component, profile) {
     const curve = this.FAILURE_CURVES[component];
-    if (!curve) return 0.1; // Default for unknown components
+    if (!curve) return 0.1;
 
     const usage = this._getUsageMetric(component, profile);
     const wear = Math.max(0, usage - (curve.criticalThreshold * 0.5));
     const probability = curve.baseRate + (curve.wearFactor * wear);
 
-    // Adjust for driving style and climate
     let multiplier = 1.0;
     if (profile.drivingStyle === 'aggressive') multiplier += 0.3;
     if (profile.drivingStyle === 'towing') multiplier += 0.4;
     if (profile.climate === 'extreme_hot') multiplier += 0.2;
     if (profile.climate === 'extreme_cold') multiplier += 0.15;
-    if (profile.climate === 'salt_road') multiplier += 0.25; // Rust/corrosion
+    if (profile.climate === 'salt_road') multiplier += 0.25;
 
-    // Adjust for maintenance history
     if (profile.maintenanceHistory === 'poor') multiplier += 0.3;
     if (profile.maintenanceHistory === 'excellent') multiplier -= 0.2;
 
@@ -145,7 +129,7 @@ class EconomicEngine {
       case 'engine_oil':
         return profile.mileage - (profile.lastOilChangeMiles || profile.mileage - 3000);
       default:
-        return profile.mileage;
+        return profile.mileage || 0;
     }
   }
 
@@ -165,8 +149,7 @@ class EconomicEngine {
 
     const totalCost = partsCost + laborCost + tax;
 
-    // Downtime for planned repair
-    const downtimeHours = (recommendation.laborHours || costs.labor) + 0.5; // + buffer
+    const downtimeHours = (recommendation.laborHours || costs.labor) + 0.5;
     const downtimeCost = profile.isFleet ?
       (profile.dailyRevenue / 8) * downtimeHours :
       this.DEFAULTS.downtimeCostPerHour * downtimeHours;
@@ -188,18 +171,15 @@ class EconomicEngine {
 
   _calculateWait30Days(recommendation, profile, failureProb) {
     const today = this._calculateReplaceToday(recommendation, profile, failureProb);
+    const prob30d = Math.min(0.99, failureProb * 1.5);
 
-    // Failure probability increases over 30 days
-    const prob30d = Math.min(0.99, failureProb * 1.5); // Simplified escalation
-
-    // Cost if failure happens within 30 days
     const failureCosts = this.FAILURE_COSTS[recommendation.component] || { parts: 300, labor: 2, consequential: 0 };
     const laborRate = profile.shopLaborRate || this.DEFAULTS.averageLaborRate;
 
     const emergencyParts = (failureCosts.parts + failureCosts.consequential) * this.DEFAULTS.emergencyPremium;
     const emergencyLabor = failureCosts.labor * laborRate * this.DEFAULTS.emergencyPremium;
     const towCost = this.DEFAULTS.towCost;
-    const rentalCost = this.DEFAULTS.rentalCarCost * 2; // Assume 2 days
+    const rentalCost = this.DEFAULTS.rentalCarCost * 2;
 
     const expectedFailureCost = (emergencyParts + emergencyLabor + towCost + rentalCost) * prob30d;
     const expectedNoFailureCost = today.totalCost * (1 - prob30d);
@@ -215,7 +195,7 @@ class EconomicEngine {
       coreImpact: 'Moderate downtime risk with compounding component exposure',
       failureProbability: prob30d,
       riskLevel: prob30d > 0.5 ? 'HIGH' : 'MODERATE',
-      confidence: 0.75 - (prob30d * 0.3) // Confidence decreases as risk increases
+      confidence: 0.75 - (prob30d * 0.3)
     };
   }
 
@@ -223,13 +203,11 @@ class EconomicEngine {
     const failureCosts = this.FAILURE_COSTS[recommendation.component] || { parts: 300, labor: 2, consequential: 0 };
     const laborRate = profile.shopLaborRate || this.DEFAULTS.averageLaborRate;
 
-    // Worst case: complete failure with maximum consequential damage
     const emergencyParts = (failureCosts.parts + failureCosts.consequential) * this.DEFAULTS.emergencyPremium;
     const emergencyLabor = failureCosts.labor * laborRate * this.DEFAULTS.emergencyPremium;
     const towCost = this.DEFAULTS.towCost;
-    const rentalCost = this.DEFAULTS.rentalCarCost * 5; // Assume 5 days worst case
+    const rentalCost = this.DEFAULTS.rentalCarCost * 5;
 
-    // Business loss for fleet vehicles
     const businessLoss = profile.isFleet ?
       (profile.dailyRevenue * 5) + (profile.reputationCost || 0) : 0;
 
@@ -245,7 +223,7 @@ class EconomicEngine {
       totalCost: Math.round(totalCost * 100) / 100,
       primaryDriver: 'Business Loss',
       coreImpact: 'Critical roadside vehicle breakdown and operational asset disruption',
-      failureProbability: 1.0, // By definition, failure has occurred
+      failureProbability: 1.0,
       riskLevel: 'CRITICAL',
       confidence: 0.5
     };
@@ -275,7 +253,6 @@ class EconomicEngine {
       reasoning = `Failure cost ($${waitUntil.totalCost}) is not significantly higher than proactive repair. Continue monitoring.`;
     }
 
-    // Override for critical safety components
     if (today.riskLevel === 'CRITICAL' || wait30.riskLevel === 'HIGH') {
       action = 'PROCEED_IMMEDIATELY';
       urgency = 'CRITICAL';
@@ -286,28 +263,27 @@ class EconomicEngine {
   }
 
   _calculateFleetImpact(recommendation, profile) {
-    const fleet = profile.fleetData;
+    const fleet = profile.fleetData || {};
     const downtimeHours = recommendation.laborHours || 2;
 
     return {
       vehiclesDown: 1,
-      revenueAtRisk: Math.round(fleet.dailyRevenue * (downtimeHours / 8) * 100) / 100,
-      contingencyRequired: fleet.dailyRevenue > 1000,
-      recommendedContingency: fleet.dailyRevenue > 1000 ?
+      revenueAtRisk: Math.round((fleet.dailyRevenue || 500) * (downtimeHours / 8) * 100) / 100,
+      contingencyRequired: (fleet.dailyRevenue || 500) > 1000,
+      recommendedContingency: (fleet.dailyRevenue || 500) > 1000 ?
         'Activate backup vehicle or subcontract route' :
         'Standard scheduling sufficient',
-      fleetUtilizationImpact: Math.round((1 / fleet.totalVehicles) * 100 * 100) / 100 // % of fleet
+      fleetUtilizationImpact: Math.round((1 / (fleet.totalVehicles || 10)) * 100 * 100) / 100
     };
   }
 
   _calculateTCO(profile, component) {
-    // Simplified TCO calculation
     const annualMiles = profile.annualMiles || 12000;
     const yearsOwned = profile.yearsOwned || 1;
     const maintenanceCost = profile.maintenanceCost || 0;
 
     const depreciation = (profile.purchasePrice || 30000) * 0.15 * yearsOwned;
-    const fuelCost = (annualMiles / profile.mpg || 25) * 3.50 * yearsOwned;
+    const fuelCost = (annualMiles / (profile.mpg || 25)) * 3.50 * yearsOwned;
     const insuranceCost = (profile.annualInsurance || 1200) * yearsOwned;
 
     return {
@@ -320,15 +296,11 @@ class EconomicEngine {
     };
   }
 
-  /**
-   * Batch analysis for multiple recommendations
-   */
   async analyzeBatch(recommendations, vehicleProfile) {
     const results = await Promise.all(
       recommendations.map(r => this.analyze(r, vehicleProfile))
     );
 
-    // Rank by urgency and economic impact
     return results.sort((a, b) => {
       const urgencyOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
       const urgencyDiff = urgencyOrder[a.recommendation.urgency] - urgencyOrder[b.recommendation.urgency];
@@ -337,16 +309,10 @@ class EconomicEngine {
     });
   }
 
-  /**
-   * Get economic assumptions for configuration
-   */
   getAssumptions() {
     return { ...this.DEFAULTS };
   }
 
-  /**
-   * Update economic assumptions
-   */
   updateAssumptions(updates) {
     Object.assign(this.DEFAULTS, updates);
   }

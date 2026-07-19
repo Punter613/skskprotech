@@ -15,7 +15,6 @@ const router = express.Router();
 const orchestrator = require('../core/orchestrator/main.orchestrator');
 const economicEngine = require('../core/economic/economic.engine');
 
-// Middleware: validate vehicle profile
 const validateVehicleProfile = (req, res, next) => {
   const required = ['vin', 'make', 'model', 'year', 'mileage'];
   const missing = required.filter(field => !req.body.vehicleProfile?.[field]);
@@ -41,16 +40,6 @@ const validateVehicleProfile = (req, res, next) => {
   next();
 };
 
-/**
- * POST /api/intelligence/analyze
- * Main endpoint - runs full pipeline
- *
- * Body: {
- *   input: "grind noise when braking",
- *   vehicleProfile: { ... },
- *   context: { forceSpecialist: null, fleetData: null }
- * }
- */
 router.post('/analyze', validateVehicleProfile, async (req, res) => {
   try {
     const { input, vehicleProfile, context = {} } = req.body;
@@ -79,10 +68,6 @@ router.post('/analyze', validateVehicleProfile, async (req, res) => {
   }
 });
 
-/**
- * POST /api/intelligence/estimate
- * Quick estimate - runs diagnostic → estimate chain
- */
 router.post('/estimate', validateVehicleProfile, async (req, res) => {
   try {
     const { input, vehicleProfile, context = {} } = req.body;
@@ -105,10 +90,6 @@ router.post('/estimate', validateVehicleProfile, async (req, res) => {
   }
 });
 
-/**
- * POST /api/intelligence/predict
- * Predictive maintenance forecast
- */
 router.post('/predict', validateVehicleProfile, async (req, res) => {
   try {
     const { vehicleProfile, context = {} } = req.body;
@@ -130,10 +111,6 @@ router.post('/predict', validateVehicleProfile, async (req, res) => {
   }
 });
 
-/**
- * POST /api/intelligence/economic
- * Standalone economic analysis (if you already have a recommendation)
- */
 router.post('/economic', async (req, res) => {
   try {
     const { recommendation, vehicleProfile } = req.body;
@@ -153,10 +130,6 @@ router.post('/economic', async (req, res) => {
   }
 });
 
-/**
- * POST /api/intelligence/batch
- * Batch analysis for multiple recommendations
- */
 router.post('/batch', validateVehicleProfile, async (req, res) => {
   try {
     const { recommendations, vehicleProfile } = req.body;
@@ -179,18 +152,10 @@ router.post('/batch', validateVehicleProfile, async (req, res) => {
   }
 });
 
-/**
- * GET /api/intelligence/health
- * System health check
- */
 router.get('/health', (req, res) => {
   res.json(orchestrator.health());
 });
 
-/**
- * GET /api/intelligence/stats
- * Pipeline statistics
- */
 router.get('/stats', (req, res) => {
   res.json({
     status: 'SUCCESS',
@@ -199,10 +164,6 @@ router.get('/stats', (req, res) => {
   });
 });
 
-/**
- * POST /api/intelligence/feedback
- * Record human feedback for continuous learning
- */
 router.post('/feedback', async (req, res) => {
   try {
     const { repairKey, feedback } = req.body;

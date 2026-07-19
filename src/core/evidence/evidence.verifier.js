@@ -5,11 +5,10 @@
  * Confidence Scoring, Data Lineage, Version Control, Quarantine Engine
  */
 
-const { z } = require('zod'); // Add to package.json: "zod": "^3.22.4"
+const { z } = require('zod');
 
 class EvidenceVerifier {
   constructor() {
-    // Validation schemas for each specialist output
     this.SCHEMAS = {
       diagnostic: z.object({
         rootCauses: z.array(z.object({
@@ -70,13 +69,11 @@ class EvidenceVerifier {
         })),
         overall_health_score: z.number().min(0).max(100),
         next_service_miles: z.number().positive(),
-        next_service_date: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/)
+        next_service_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
       }).optional()
     };
 
-    // Knowledge base verification rules
     this.KB_RULES = {
-      // Known good part numbers by manufacturer
       validPartPrefixes: {
         'Ford': ['F', 'FL', 'W', 'E'],
         'GM': ['12', '15', '94', '95'],
@@ -84,7 +81,6 @@ class EvidenceVerifier {
         'Honda': ['06', '17', '31']
       },
 
-      // Labor hour sanity checks (max hours for common jobs)
       maxLaborHours: {
         'brake_pad_replacement': 2.0,
         'timing_belt_replacement': 6.0,
@@ -93,7 +89,6 @@ class EvidenceVerifier {
         'transmission_rebuild': 16.0
       },
 
-      // Price sanity checks (min/max by category)
       priceRanges: {
         'brake_pads': { min: 30, max: 300 },
         'alternator': { min: 150, max: 600 },
@@ -102,59 +97,41 @@ class EvidenceVerifier {
       }
     };
 
-    // Human feedback cache (in production, use Redis/DB)
     this.feedbackCache = new Map();
-
-    // Quarantine threshold
     this.QUARANTINE_THRESHOLD = 0.3;
-
-    // Minimum confidence to pass
     this.MIN_CONFIDENCE = 0.6;
   }
 
-  /**
-   * Main verification pipeline
-   * @param {Object} aiOutput - Raw AI output
-   * @param {string} specialist - Which specialist generated it
-   * @param {Object} vehicleProfile - Vehicle context
-   * @returns {Object} - { approved, confidence, checks, quarantine }
-   */
   async verify(aiOutput, specialist, vehicleProfile) {
     const checks = [];
     let totalConfidence = 0;
     let checkCount = 0;
 
-    // 1. Schema Validation
     const schemaResult = this._validateSchema(aiOutput, specialist);
     checks.push(schemaResult);
     totalConfidence += schemaResult.confidence;
     checkCount++;
 
-    // 2. Knowledge Base Verification
     const kbResult = this._verifyAgainstKnowledgeBase(aiOutput, specialist, vehicleProfile);
     checks.push(kbResult);
     totalConfidence += kbResult.confidence;
     checkCount++;
 
-    // 3. Historical Accuracy Check
     const historicalResult = await this._checkHistoricalAccuracy(aiOutput, specialist, vehicleProfile);
     checks.push(historicalResult);
     totalConfidence += historicalResult.confidence;
     checkCount++;
 
-    // 4. Human Feedback Check
     const feedbackResult = this._checkHumanFeedback(aiOutput, specialist, vehicleProfile);
     checks.push(feedbackResult);
     totalConfidence += feedbackResult.confidence;
     checkCount++;
 
-    // 5. AI Consensus (if multi-model available)
     const consensusResult = await this._checkAIConsensus(aiOutput, specialist, vehicleProfile);
     checks.push(consensusResult);
     totalConfidence += consensusResult.confidence;
     checkCount++;
 
-    // 6. Sanity Checks (price, hours, etc.)
     const sanityResult = this._runSanityChecks(aiOutput, specialist);
     checks.push(sanityResult);
     totalConfidence += sanityResult.confidence;
@@ -163,7 +140,6 @@ class EvidenceVerifier {
     const avgConfidence = totalConfidence / checkCount;
     const minConfidence = Math.min(...checks.map(c => c.confidence));
 
-    // Determine approval
     const approved = avgConfidence >= this.MIN_CONFIDENCE && minConfidence >= this.QUARANTINE_THRESHOLD;
     const quarantine = minConfidence < this.QUARANTINE_THRESHOLD;
 
@@ -200,7 +176,6 @@ class EvidenceVerifier {
     }
 
     try {
-      // If output is string (JSON), parse it
       const data = typeof output === 'string' ? JSON.parse(output) : output;
       schema.parse(data);
 
@@ -227,10 +202,9 @@ class EvidenceVerifier {
     if (specialist === 'estimate' || specialist === 'parts') {
       const data = typeof output === 'string' ? JSON.parse(output) : output;
 
-      // Verify part numbers
       for (const part of data.parts || []) {
         const make = vehicleProfile.make;
-        const validPrefixes = this.KB_RULES.validPartPrefixes[make];
+        const validPrefixes = make ? this.KB_RULES.validPartPrefixes[make] : null;
 
         if (validPrefixes && !validPrefixes.some(p => part.partNumber.startsWith(p))) {
           issues.push(`Part ${part.partNumber} prefix doesn't match ${make} patterns`);
@@ -238,17 +212,15 @@ class EvidenceVerifier {
         }
       }
 
-      // Verify labor hours
       if (data.labor) {
         const hours = data.labor.hours;
         const maxHours = Math.max(...Object.values(this.KB_RULES.maxLaborHours));
         if (hours > maxHours) {
-          issues.push(`Labor hours (${hours}) exceed maximum sanity check (${maxHours})`);
+          issues.push(`Labor hours (\s${hours}) exceed maximum sanity check (${maxHours})`);
           confidence -= 0.2;
         }
       }
 
-      // Verify prices
       for (const part of data.parts || []) {
         const category = this._categorizePart(part.description);
         const range = this.KB_RULES.priceRanges[category];
@@ -262,7 +234,6 @@ class EvidenceVerifier {
     if (specialist === 'diagnostic') {
       const data = typeof output === 'string' ? JSON.parse(output) : output;
 
-      // Check if root causes make sense for vehicle
       if (vehicleProfile.knownWeaknesses) {
         const causes = data.rootCauses || [];
         const knownIssues = causes.filter(c =>
@@ -272,7 +243,7 @@ class EvidenceVerifier {
         );
 
         if (knownIssues.length > 0) {
-          confidence += 0.1; // Bonus for matching known issues
+          confidence += 0.1;
         }
       }
     }
@@ -287,10 +258,7 @@ class EvidenceVerifier {
   }
 
   async _checkHistoricalAccuracy(output, specialist, vehicleProfile) {
-    // In production, query database for similar vehicles/repairs
-    // For now, use a simple heuristic
-
-    const vehicleKey = `${vehicleProfile.make}_${vehicleProfile.model}_${vehicleProfile.year}`;
+    const vehicleKey = `${vehicleProfile.make || 'Unknown'}_${vehicleProfile.model || 'Unknown'}_${vehicleProfile.year || 'Unknown'}`;
     const historicalData = this.feedbackCache.get(vehicleKey);
 
     if (!historicalData) {
@@ -302,7 +270,6 @@ class EvidenceVerifier {
       };
     }
 
-    // Compare output against historical success rates
     const successRate = historicalData.successRate || 0.75;
 
     return {
@@ -336,15 +303,12 @@ class EvidenceVerifier {
       name: 'HUMAN_FEEDBACK',
       passed: avgFeedback >= 0.6,
       confidence: avgFeedback,
-      detail: `Mechanic: ${(mechanicApproval * 100).toFixed(0)}%, Customer: ${(customerSatisfaction * 100).toFixed(0)}%, Fix: ${(fixSuccess * 100).toFixed(0)}%`,
+      detail: `Mechanic: \s${(mechanicApproval * 100).toFixed(0)}%, Customer: ${(customerSatisfaction * 100).toFixed(0)}%, Fix: ${(fixSuccess * 100).toFixed(0)}%`,
       feedback
     };
   }
 
   async _checkAIConsensus(output, specialist, vehicleProfile) {
-    // Placeholder for multi-model consensus
-    // In production: run same prompt through 2+ models, compare outputs
-
     return {
       name: 'AI_CONSENSUS',
       passed: true,
@@ -358,9 +322,8 @@ class EvidenceVerifier {
     let confidence = 0.9;
 
     const data = typeof output === 'string' ? JSON.parse(output) : output;
-
-    // Check for hallucinated content
     const outputStr = JSON.stringify(output).toLowerCase();
+
     const hallucinationPatterns = [
       /i think|maybe|possibly|could be|might be/i,
       /i'm not sure|uncertain|don't know/i,
@@ -374,7 +337,6 @@ class EvidenceVerifier {
       }
     }
 
-    // Check for impossible values
     if (specialist === 'prediction') {
       for (const pred of data.predictions || []) {
         if (pred.rul_miles > 500000) {
@@ -397,7 +359,7 @@ class EvidenceVerifier {
     };
   }
 
-  _categorizePart(description) {
+  _categorizePart(description = '') {
     const desc = description.toLowerCase();
     if (desc.includes('brake') && desc.includes('pad')) return 'brake_pads';
     if (desc.includes('alternator')) return 'alternator';
@@ -407,14 +369,10 @@ class EvidenceVerifier {
   }
 
   _generateRepairKey(output, specialist) {
-    // Generate a hash/key for caching feedback
     const str = JSON.stringify({ output, specialist });
     return `feedback_${Buffer.from(str).toString('base64').slice(0, 32)}`;
   }
 
-  /**
-   * Record human feedback for continuous learning
-   */
   recordFeedback(repairKey, feedback) {
     const existing = this.feedbackCache.get(repairKey) || {};
     this.feedbackCache.set(repairKey, {
@@ -425,9 +383,6 @@ class EvidenceVerifier {
     });
   }
 
-  /**
-   * Quarantine suspicious output for human review
-   */
   quarantineOutput(output, reason, metadata) {
     return {
       status: 'QUARANTINED',
@@ -442,9 +397,6 @@ class EvidenceVerifier {
     };
   }
 
-  /**
-   * Get verification statistics
-   */
   getStats() {
     return {
       totalChecks: this.feedbackCache.size,
