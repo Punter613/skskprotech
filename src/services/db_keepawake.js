@@ -3,7 +3,7 @@ const supabase = require('./db');
 /**
  * Throws a lightweight query at Supabase to force the container to stay active.
  */
-async function pokeSupabase() {
+async function sendCaffeineShot() {
   if (!supabase) {
     console.log('[Keep-Awake] Supabase client not configured. Skipping poke.');
     return;
@@ -11,15 +11,12 @@ async function pokeSupabase() {
 
   try {
     console.log('[Keep-Awake] Sending caffeine shot to Supabase...');
-    
-    // Dead simple check: just ask the database for a basic status read 
-    // or select from an existing internal table definition safely.
-    // An explicit API check or simple health check call keeps the engine idling clean.
     const startTime = Date.now();
-    
-    // We do a cheap query that doesn't burn processing power but proves life
-    const { data, error } = await supabase.from('_status_check_fallback').select('*').limit(1).maybeSingle()
-      .catch(() => ({ data: null, error: null })); // catch if table doesn't exist yet
+
+    // Querying the database version via RPC 
+    const { data, error } = await supabase.rpc('version');
+
+    if (error) throw error;
 
     const duration = Date.now() - startTime;
     console.log(`[Keep-Awake] Database responded in ${duration}ms. Supabase is awake!`);
@@ -29,19 +26,12 @@ async function pokeSupabase() {
 }
 
 /**
- * Starts an automated interval loop to kick the database every 45 minutes
+ * Starts an automated interval loop to kick the database every 45 minutes.
  */
 function startKeepAwakeLoop() {
-  if (!supabase) return;
-  
-  // 45 minutes = 45 * 60 * 1000 ms
-  const FORTY_FIVE_MINUTES = 2700000;
-  
-  // Fire once right when the server fires up
-  setTimeout(pokeSupabase, 5000);
-  
-  // Then keep hammering it on schedule
-  setInterval(pokeSupabase, FORTY_FIVE_MINUTES);
+  const intervalMs = 45 * 60 * 1000; // 45 minutes
+  setInterval(sendCaffeineShot, intervalMs);
+  console.log(`[Keep-Awake] Loop armed. Interval set to fire every 45 minutes.`);
 }
 
-module.exports = { startKeepAwakeLoop, pokeSupabase };
+module.exports = { startKeepAwakeLoop, sendCaffeineShot };

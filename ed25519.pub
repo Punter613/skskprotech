@@ -1,0 +1,5 @@
+REMOVED - PUBLIC KEY
+
+The public key file was replaced during cleanup. If you still need the public key, recreate it from the relevant private key and add it to authorized services.
+
+(Edited on cleanup/strip-unneeded branch)
