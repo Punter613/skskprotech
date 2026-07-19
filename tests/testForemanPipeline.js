@@ -11,7 +11,7 @@ async function runPipelineTest() {
   };
 
   const mockTechnicianNotes = `
-    Unit #14 multi-system check. P0302 active cylinder 2 misfire logged on arrival. 
+    Unit #14 multi-system check. P0302 active cylinder 2 misfire logged on arrival.
     Spark plugs original. Completely separate issue: Front brake pads measure 3mm. 
     Rotor surface showing light scoring.
   `;
