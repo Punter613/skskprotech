@@ -10,7 +10,7 @@ const OUTPUT_PATH = path.join(__dirname, '../src/routes/estimate.js');
 const routerCode = `const express = require('express');
 const router = express.Router();
 const { runDiagnosticPipeline } = require('../services/pipeline.engine');
-const { groqChat } = require('../services/groq');
+const { runDiagnosticPipeline } = require('../services/pipeline.engine');
 
 // Bracket-depth extraction logic to handle loose markdown text boundaries safely
 function extractJSON(text) {
@@ -128,7 +128,7 @@ OBD Codes: \${obdCodes.join(', ') || 'None'}
 Customer Reports: \${customerStates.join(', ') || 'N/A'}
 Mechanic Notices: \${mechanicNotices.join(', ') || 'N/A'}\`;
 
-    const groqRes = await groqChat([
+    const groqRes = await runDiagnosticPipeline([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt }
     ], { max_tokens: 1400, temperature: 0.2 });
