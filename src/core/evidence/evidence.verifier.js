@@ -20,7 +20,7 @@ class EvidenceVerifier {
         relatedComponents: z.array(z.string()),
         overallConfidence: z.number().min(0).max(100)
       }).optional(),
-
+      
       estimate: z.object({
         parts: z.array(z.object({
           partNumber: z.string(),
@@ -41,7 +41,7 @@ class EvidenceVerifier {
         tax: z.number().min(0),
         total: z.number().positive()
       }).optional(),
-
+      
       parts: z.object({
         parts: z.array(z.object({
           partNumber: z.string(),
@@ -55,7 +55,7 @@ class EvidenceVerifier {
         compatibility_verified: z.boolean(),
         total_cost: z.number().positive()
       }).optional(),
-
+      
       prediction: z.object({
         predictions: z.array(z.object({
           component: z.string(),
@@ -80,7 +80,7 @@ class EvidenceVerifier {
         'Toyota': ['90', '04', '53'],
         'Honda': ['06', '17', '31']
       },
-
+      
       maxLaborHours: {
         'brake_pad_replacement': 2.0,
         'timing_belt_replacement': 6.0,
@@ -88,7 +88,7 @@ class EvidenceVerifier {
         'alternator_replacement': 3.0,
         'transmission_rebuild': 16.0
       },
-
+      
       priceRanges: {
         'brake_pads': { min: 30, max: 300 },
         'alternator': { min: 150, max: 600 },
@@ -139,7 +139,7 @@ class EvidenceVerifier {
 
     const avgConfidence = totalConfidence / checkCount;
     const minConfidence = Math.min(...checks.map(c => c.confidence));
-
+    
     const approved = avgConfidence >= this.MIN_CONFIDENCE && minConfidence >= this.QUARANTINE_THRESHOLD;
     const quarantine = minConfidence < this.QUARANTINE_THRESHOLD;
 
@@ -149,8 +149,8 @@ class EvidenceVerifier {
       minConfidence,
       checks,
       quarantine,
-      quarantineReason: quarantine ?
-        `Check '${checks.find(c => c.confidence < this.QUARANTINE_THRESHOLD)?.name}' failed below threshold` :
+      quarantineReason: quarantine ? 
+        `Check '${checks.find(c => c.confidence < this.QUARANTINE_THRESHOLD)?.name}' failed below threshold` : 
         null,
       metadata: {
         timestamp: new Date().toISOString(),
@@ -178,7 +178,7 @@ class EvidenceVerifier {
     try {
       const data = typeof output === 'string' ? JSON.parse(output) : output;
       schema.parse(data);
-
+      
       return {
         name: 'SCHEMA_VALIDATION',
         passed: true,
@@ -201,11 +201,11 @@ class EvidenceVerifier {
 
     if (specialist === 'estimate' || specialist === 'parts') {
       const data = typeof output === 'string' ? JSON.parse(output) : output;
-
+      
       for (const part of data.parts || []) {
         const make = vehicleProfile.make;
         const validPrefixes = make ? this.KB_RULES.validPartPrefixes[make] : null;
-
+        
         if (validPrefixes && !validPrefixes.some(p => part.partNumber.startsWith(p))) {
           issues.push(`Part ${part.partNumber} prefix doesn't match ${make} patterns`);
           confidence -= 0.1;
@@ -233,15 +233,15 @@ class EvidenceVerifier {
 
     if (specialist === 'diagnostic') {
       const data = typeof output === 'string' ? JSON.parse(output) : output;
-
+      
       if (vehicleProfile.knownWeaknesses) {
         const causes = data.rootCauses || [];
-        const knownIssues = causes.filter(c =>
-          vehicleProfile.knownWeaknesses.some(w =>
+        const knownIssues = causes.filter(c => 
+          vehicleProfile.knownWeaknesses.some(w => 
             c.cause.toLowerCase().includes(w.toLowerCase())
           )
         );
-
+        
         if (knownIssues.length > 0) {
           confidence += 0.1;
         }
@@ -260,7 +260,7 @@ class EvidenceVerifier {
   async _checkHistoricalAccuracy(output, specialist, vehicleProfile) {
     const vehicleKey = `${vehicleProfile.make || 'Unknown'}_${vehicleProfile.model || 'Unknown'}_${vehicleProfile.year || 'Unknown'}`;
     const historicalData = this.feedbackCache.get(vehicleKey);
-
+    
     if (!historicalData) {
       return {
         name: 'HISTORICAL_ACCURACY',
@@ -271,7 +271,7 @@ class EvidenceVerifier {
     }
 
     const successRate = historicalData.successRate || 0.75;
-
+    
     return {
       name: 'HISTORICAL_ACCURACY',
       passed: successRate > 0.6,
@@ -283,7 +283,7 @@ class EvidenceVerifier {
   _checkHumanFeedback(output, specialist, vehicleProfile) {
     const repairKey = this._generateRepairKey(output, specialist);
     const feedback = this.feedbackCache.get(repairKey);
-
+    
     if (!feedback) {
       return {
         name: 'HUMAN_FEEDBACK',
@@ -296,9 +296,9 @@ class EvidenceVerifier {
     const mechanicApproval = feedback.mechanicApproval || 0;
     const customerSatisfaction = feedback.customerSatisfaction || 0;
     const fixSuccess = feedback.fixSuccess || 0;
-
+    
     const avgFeedback = (mechanicApproval + customerSatisfaction + fixSuccess) / 3;
-
+    
     return {
       name: 'HUMAN_FEEDBACK',
       passed: avgFeedback >= 0.6,
@@ -323,7 +323,7 @@ class EvidenceVerifier {
 
     const data = typeof output === 'string' ? JSON.parse(output) : output;
     const outputStr = JSON.stringify(output).toLowerCase();
-
+    
     const hallucinationPatterns = [
       /i think|maybe|possibly|could be|might be/i,
       /i'm not sure|uncertain|don't know/i,
