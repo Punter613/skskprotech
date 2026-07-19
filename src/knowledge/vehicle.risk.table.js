@@ -109,48 +109,38 @@ function getVehicleRiskProfile(vehicle = {}, vin = '') {
   const year = parseInt(vehicle.year) || 0;
   const cleanVin = (vin || '').toUpperCase().trim();
 
+  if (make.includes('dodge') && model.includes('ram')) {
+    model = '1500';
+  }
+
   for (const [key, profile] of Object.entries(VEHICLE_FLEET_DB)) {
-    const profileMake = profile.make.toLowerCase();
-    const profileModel = profile.model.toLowerCase();
+    if (!make.includes(profile.make.toLowerCase()) && !profile.make.toLowerCase().includes(make)) continue;
+    if (!model.includes(profile.model.toLowerCase()) && !profile.model.toLowerCase().includes(model)) continue;
 
-    const makeMatch = make.includes(profileMake) || profileMake.includes(make);
-    const modelMatch = model.includes(profileModel) || profileModel.includes(model);
-
-    if (makeMatch && modelMatch) {
-      if (year >= profile.minYear && year <= profile.maxYear) {
-        // If we have engine specific info, try to match it
-        const engineInfo = (trim + ' ' + (vehicle.engine || '')).toLowerCase();
-
-        if (engineInfo.includes('5.4') || engineInfo.includes('triton') || cleanVin.includes('5.4')) {
-          if (profile.engineCode.includes('3V')) return profile;
-        }
-        if (engineInfo.includes('5.3') || engineInfo.includes('vortec') || engineInfo.includes('afm')) {
-          if (profile.engineCode.includes('AFM')) return profile;
-        }
-        if (engineInfo.includes('3.5') || engineInfo.includes('ecoboost')) {
-          if (profile.engineCode.includes('EcoBoost')) return profile;
-        }
-        if (engineInfo.includes('5.7') || engineInfo.includes('hemi')) {
-          if (profile.engineCode.includes('Hemi')) return profile;
-        }
-        if (engineInfo.includes('5.7') || engineInfo.includes('3ur')) {
-          if (profile.engineCode.includes('3UR-FE')) return profile;
-        }
-        if (engineInfo.includes('2.4') || engineInfo.includes('k24')) {
-          if (profile.engineCode.includes('K24')) return profile;
-        }
-        if (engineInfo.includes('2.4') || engineInfo.includes('ecotec')) {
-          if (profile.engineCode.includes('Ecotec')) return profile;
-        }
-        if (engineInfo.includes('2.0') || engineInfo.includes('dps6') || engineInfo.includes('powershift')) {
-          if (profile.engineCode.includes('DPS6')) return profile;
-        }
-
-        // If no engine info or no engine match, but it's the right VMM/Year,
-        // we should probably still return this profile as it's the best we have.
-        // But the pattern matcher might block if engineCode doesn't match?
-        // Let's ensure it matches if possible.
-        return profile;
+    if (year >= profile.minYear && year <= profile.maxYear) {
+      if (trim.includes('5.4') || trim.includes('triton') || cleanVin.includes('5.4')) {
+        if (profile.engineCode.includes('3V')) return profile;
+      }
+      if (trim.includes('5.3') || trim.includes('vortec') || trim.includes('afm')) {
+        if (profile.engineCode.includes('AFM')) return profile;
+      }
+      if (trim.includes('3.5') || trim.includes('ecoboost')) {
+        if (profile.engineCode.includes('EcoBoost')) return profile;
+      }
+      if (trim.includes('5.7') || trim.includes('hemi')) {
+        if (profile.engineCode.includes('Hemi')) return profile;
+      }
+      if (trim.includes('5.7') || trim.includes('3ur')) {
+        if (profile.engineCode.includes('3UR-FE')) return profile;
+      }
+      if (trim.includes('2.4') || trim.includes('k24')) {
+        if (profile.engineCode.includes('K24')) return profile;
+      }
+      if (trim.includes('2.4') || trim.includes('ecotec')) {
+        if (profile.engineCode.includes('Ecotec')) return profile;
+      }
+      if (trim.includes('2.0') || trim.includes('dps6') || trim.includes('powershift')) {
+        if (profile.engineCode.includes('DPS6')) return profile;
       }
     }
   }

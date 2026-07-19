@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SKSK ProTech – Frontend</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; color: #111; }
+    h1, h2 { margin: 0.4em 0 0.2em; }
+    .row { margin: 8px 0; }
+    label { display: inline-block; width: 170px; font-weight: 600; }
+    input, select { font: inherit; }
+    button { margin: 8px 4px 0 0; padding: 6px 12px; }
+    .status { margin: 8px 0; font-style: italic; }
+    .panel { border: 1px solid #ccc; padding: 12px; margin: 12px 0; background: #fafafa; }
+    .error { color: #b00020; }
+    .ok { color: #0a7d00; }
+    .camera-section { margin: 16px 0; border: 1px dashed #888; padding: 12px; background: #f5f5f5; }
+    #cameraPreview { max-width: 320px; max-height: 240px; margin: 8px 0; border: 1px solid #ccc; }
+    #vinFromCamera { font-weight: 600; color: #0a7d00; }
+  </style>
+</head>
+<body>
+  <h1>SKSK ProTech – Frontend</h1>
+  <p>Frontend with VIN camera upload leveraging your backend's full pipeline.</p>
+
+  <div class="row">
+    <label>Backend URL</label>
+    <input id="backendUrl" value="https://p613-backend.onrender.com" />
+  </div>
+
+  <div class="row">
+    <label>Mode</label>
+    <select id="mode">
+      <option value="scrape">Quick URL scrape</option>
+      <option value="full">Full estimate ingestion</option>
+      <option value="heuristic">Heuristic estimate (AI)</option>
+    </select>
+  </div>
+
+  <!-- CAMERA UPLOAD FOR VIN -->
+  <div class="camera-section">
+    <h2>VIN Camera Upload</h2>
+    <p>Tap the camera button to capture a VIN from a license plate or dashboard sticker.</p>
+    <button id="cameraBtn">Open Camera</button>
+    <button id="captureBtn" style="display:none;">Capture VIN</button>
+    <br/>
+    <video id="cameraVideo" style="display:none;" autoplay playsinline></video>
+    <canvas id="cameraCanvas" style="display:none;"></canvas>
+    <img id="cameraPreview" alt="Camera preview" style="display:none;" />
+    <div id="vinStatus" style="margin:8px 0;"></div>
+    <div class="row">
+      <label>Detected VIN</label>
+      <input id="vinFromCamera" readonly placeholder="VIN will appear after capture" />
+    </div>
+    <div class="row">
+      <label>Manual VIN</label>
+      <input id="vin" placeholder="e.g. 1HGCM82633A123456" />
+    </div>
+    <p style="font-size:0.9em;margin:6px 0;">
+      Note: Real VIN extraction requires OCR (e.g. Tesseract.js). This demo shows the camera flow.
+    </p>
+  </div>
+
+  <div class="row">
+    <label>URL</label>
+    <input id="url" placeholder="e.g. https://lemon-manuals.la/Hyundai/2005/Tucson/..." style="width: 520px;" />
+  </div>
+
+  <div class="row">
+    <label>Keyword</label>
+    <input id="keyword" placeholder="e.g. brake pads" />
+  </div>
+
+  <div class="row">
+    <label>Fitment</label>
+    <input id="fitment" placeholder="e.g. 2005 Hyundai Tucson V6" />
+  </div>
+
+  <div class="row" id="tokenRow" style="display:none;">
+    <label>Token</label>
+    <input id="token" placeholder="API token for estimateHeuristic" />
+  </div>
+
+  <div class="row">
+    <button id="runBtn">Run</button>
+    <button id="clearBtn">Clear</button>
+  </div>
+
+  <div id="status" class="status"></div>
+
+  <div class="panel" id="resultPanel" style="display:none;">
+    <h2>Result</h2>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const backendUrlEl = document.getElementById('backendUrl');
+    const modeEl = document.getElementById('mode');
+    const urlEl = document.getElementById('url');
+    const keywordEl = document.getElementById('keyword');
+    const vinFromCameraEl = document.getElementById('vinFromCamera');
+    const vinEl = document.getElementById('vin');
+    const fitmentEl = document.getElementById('fitment');
+    const tokenRowEl = document.getElementById('tokenRow');
+    const tokenEl = document.getElementById('token');
+    const cameraBtn = document.getElementById('cameraBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const cameraVideo = document.getElementById('cameraVideo');
+    const cameraCanvas = document.getElementById('cameraCanvas');
+    const cameraPreview = document.getElementById('cameraPreview');
+    const vinStatus = document.getElementById('vinStatus');
+    const runBtn = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const statusEl = document.getElementById('status');
+    const resultPanelEl = document.getElementById('resultPanel');
+    const resultEl = document.getElementById('result');
+
+    let stream = null;
+
+    function setStatus(msg, ok = true) {
+      statusEl.textContent = msg;
+      statusEl.className = ok ? 'status ok' : 'status error';
+    }
+
+    function vinStatusMsg(msg, ok = true) {
+      vinStatus.textContent = msg;
+      vinStatus.className = ok ? 'ok' : 'error';
+    }
+
+    function clearResult() {
+      resultPanelEl.style.display = 'none';
+      resultEl.innerHTML = '';
+    }
+
+    function getPayload() {
+      const vin = vinFromCameraEl.value.trim() || vinEl.value.trim();
+      return {
+        url: urlEl.value.trim(),
+        keyword: keywordEl.value.trim(),
+        vin: vin,
+        fitment: fitmentEl.value.trim(),
+      };
+    }
+
+    function extractVinFromImageMock(imageElement) {
+      if (imageElement.src && imageElement.src.length > 0) {
+        return "CAMERA_DEMO_VIN123456";
+      }
+      return "";
+    }
+
+    async function openCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        cameraVideo.srcObject = stream;
+        cameraVideo.src = stream;
+        cameraVideo.style.display = '';
+        cameraPreview.style.display = 'none';
+        cameraBtn.style.display = 'none';
+        captureBtn.style.display = '';
+        vinStatusMsg('Camera ready. Position over VIN and tap Capture VIN.', true);
+      } catch (err) {
+        vinStatusMsg(`Camera error: ${err.message}`, false);
+      }
+    }
+
+    function closeCamera() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+      }
+      cameraVideo.style.display = 'none';
+      cameraBtn.style.display = '';
+      captureBtn.style.display = 'none';
+    }
+
+    function captureImage() {
+      const width = cameraVideo.videoWidth;
+      const height = cameraVideo.videoHeight;
+      cameraCanvas.width = width;
+      cameraCanvas.height = height;
+      const ctx = cameraCanvas.getContext('2d');
+      ctx.drawImage(cameraVideo, 0, 0, width, height);
+
+      const dataUrl = cameraCanvas.toDataURL('image/png');
+      cameraPreview.src = dataUrl;
+      cameraPreview.style.display = '';
+      cameraVideo.style.display = 'none';
+
+      const mockVin = extractVinFromImageMock(cameraPreview);
+      if (mockVin) {
+        vinFromCameraEl.value = mockVin;
+        vinStatusMsg(`Captured! VIN set to: ${mockVin}`, true);
+      } else {
+        vinStatusMsg('Captured image, but no VIN detected (mock OCR).', false);
+      }
+
+      closeCamera();
+    }
+
+    cameraBtn.addEventListener('click', openCamera);
+    captureBtn.addEventListener('click', captureImage);
+
+    runBtn.addEventListener('click', async () => {
+      clearResult();
+      const backendUrl = backendUrlEl.value.trim();
+      const mode = modeEl.value;
+      const payload = getPayload();
+
+      if (!payload.url) {
+        setStatus('URL is required', false);
+        return;
+      }
+
+      setStatus('Running...', true);
+
+      try {
+        const scrapeRes = await fetch(`${backendUrl}/api/scrape`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: payload.url,
+            keyword: payload.keyword,
+            fitment: payload.fitment,
+          }),
+        });
+
+        if (!scrapeRes.ok) {
+          const errText = await scrapeRes.text();
+          setStatus(`Scrape failed: ${scrapeRes.status} ${errText}`, false);
+          return;
+        }
+
+        const scrapeData = await scrapeRes.json();
+        const scraped = scrapeData.results || [];
+        const duration_ms = scrapeData.duration_ms || 0;
+
+        let output = {
+          mode,
+          scrape: {
+            items: scraped.length,
+            duration_ms,
+          },
+        };
+
+        if (payload.vin) {
+          output.vin = { vin: payload.vin, fromCamera: vinFromCameraEl.value.trim() !== '' };
+        }
+
+        if (mode === 'scrape') {
+          output.scrape.items = scraped;
+          renderResult(output);
+          setStatus('Scrape complete', true);
+          return;
+        }
+
+        if (mode === 'full') {
+          const fullRes = await fetch(`${backendUrl}/api/full-estimate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: payload.url,
+              keyword: payload.keyword,
+              vin: payload.vin,
+              fitment: payload.fitment,
+            }),
+          });
+
+          if (!fullRes.ok) {
+            const errText = await fullRes.text();
+            setStatus(`Full estimate failed: ${fullRes.status} ${errText}`, false);
+            return;
+          }
+
+          const fullData = await fullRes.json();
+          output.full = fullData;
+          renderResult(output);
+          setStatus('Full estimate ingestion complete', true);
+          return;
+        }
+
+        if (mode === 'heuristic') {
+          const token = tokenEl.value.trim();
+          if (!token) {
+            setStatus('Token is required for heuristic mode', false);
+            return;
+          }
+
+          const heuristicRes = await fetch(`${backendUrl}/api/estimateHeuristic`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: payload.url,
+              keyword: payload.keyword,
+              vin: payload.vin,
+              fitment: payload.fitment,
+              token,
+            }),
+          });
+
+          if (!heuristicRes.ok) {
+            const errText = await heuristicRes.text();
+            setStatus(`Heuristic estimate failed: ${heuristicRes.status} ${errText}`, false);
+            return;
+          }
+
+          const heuristicData = await heuristicRes.json();
+          output.heuristic = heuristicData;
+          renderResult(output);
+          setStatus('Heuristic estimate complete', true);
+          return;
+        }
+
+        setStatus('Unknown mode', false);
+      } catch (err) {
+        setStatus(`Error: ${err.message}`, false);
+      }
+    });
+
+    clearBtn.addEventListener('click', () => {
+      setStatus('', true);
+      vinStatusMsg('', true);
+      clearResult();
+      urlEl.value = '';
+      keywordEl.value = '';
+      vinFromCameraEl.value = '';
+      vinEl.value = '';
+      fitmentEl.value = '';
+      tokenEl.value = '';
+      cameraPreview.src = '';
+    });
+
+    modeEl.addEventListener('change', () => {
+      if (modeEl.value === 'heuristic') {
+        tokenRowEl.style.display = '';
+      } else {
+        tokenRowEl.style.display = 'none';
+      }
+    });
+
+    function renderResult(data) {
+      clearResult();
+      resultPanelEl.style.display = 'block';
+      const safe = JSON.stringify(data, null, 2);
+      resultEl.innerHTML = `<pre style="margin:0;white-space:pre-wrap;">${safe}</pre>`;
+    }
+  </script>
+</body>
+</html>

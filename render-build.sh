@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
-set -e
+set -o errexit
 
-echo "Render build script: install deps and build web client if present"
+echo "📦 Step 1: Installing Node dependencies..."
+npm install
 
-# Install root deps
-npm ci
-
-# If web client exists, build it (assumes simple static files for now)
-if [ -d "web" ]; then
-  echo "Building web client (if present)..."
-  # If web has its own package.json
-  if [ -f "web/package.json" ]; then
-    (cd web && npm ci && npm run build)
-  else
-    echo "No web build step configured"
-  fi
+echo "🦀 Step 2: Checking for Rust / Cargo..."
+if ! command -v cargo &> /dev/null
+then
+    echo "  ⚠️ Cargo not found. Installing rustup inline..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source $HOME/.cargo/env
+else
+    echo "  ✓ Cargo is already available."
 fi
 
-echo "Build complete"
+echo "🛠️ Step 3: Compiling the Rust lemonscraper binary..."
+# Navigate straight to the nested folder where Cargo.toml actually lives
+cd tools/lemon_scraper
+cargo build --release
+cd ../..
+
+echo "🚀 Step 4: Build complete!"

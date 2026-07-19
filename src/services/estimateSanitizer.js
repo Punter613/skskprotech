@@ -2,16 +2,16 @@ const { normalizeText, uniqueStrings, toFloat2 } = require('./estimateHelpers');
 
 // Centralized alias catalog mapping component names to technical variations
 const EXCLUSION_CATALOG = {
-  brake_pads: ['brake pad', 'brake pads', 'pads', 'front pads', 'rear pads'],
-  rotors: ['rotor', 'rotors', 'disc', 'brake disc'],
-  calipers: ['caliper', 'calipers', 'brake caliper'],
-  upper_control_arms: ['upper control arm', 'control arm upper'],
-  ball_joints: ['ball joint', 'balljoint'],
-  tie_rod_ends: ['tie rod', 'tierod', 'tie rod end'],
-  wheel_bearings: ['wheel bearing', 'hub bearing', 'hub assembly'],
-  shocks_struts: ['shock', 'strut', 'shock absorber', 'strut assembly'],
-  sway_bar_links: ['sway bar link', 'stabilizer link', 'end link'],
-  cv_axles: ['cv axle', 'axle shaft', 'cv joint', 'axle']
+  'brake_pads':       ['brake pad', 'brake pads', 'pads', 'front pads', 'rear pads'],
+  'rotors':           ['rotor', 'rotors', 'disc', 'brake disc'],
+  'calipers':         ['caliper', 'calipers', 'brake caliper'],
+  'upper_control_arms': ['upper control arm', 'control arm upper'],
+  'ball_joints':      ['ball joint', 'balljoint'],
+  'tie_rod_ends':     ['tie rod', 'tierod', 'tie rod end'],
+  'wheel_bearings':   ['wheel bearing', 'hub bearing', 'hub assembly'],
+  'shocks_struts':    ['shock', 'strut', 'shock absorber', 'strut assembly'],
+  'sway_bar_links':   ['sway bar link', 'stabilizer link', 'end link'],
+  'cv_axles':         ['cv axle', 'axle shaft', 'cv joint', 'axle']
 };
 
 function buildExcludedSet(history = []) {
@@ -30,8 +30,10 @@ function isExcluded(term, excludedSet) {
   if (!t) return false;
 
   for (const item of excludedSet) {
+    // 1. Exact match evaluation
     if (t === item) return true;
 
+    // 2. Catalog and Alias match evaluation
     for (const [catalogKey, aliases] of Object.entries(EXCLUSION_CATALOG)) {
       const isMatch = catalogKey === item || aliases.includes(item);
       if (isMatch && aliases.some(alias => t.includes(normalizeText(alias)))) {
@@ -39,6 +41,7 @@ function isExcluded(term, excludedSet) {
       }
     }
 
+    // 3. Substring containment guard (only for longer descriptive strings to avoid tiny-word collisions)
     if (t.length > 5 && (t.includes(item) || item.includes(t))) {
       return true;
     }
@@ -55,19 +58,19 @@ function sanitizeEstimate(estimate, history = []) {
   clean.priority = ['high', 'medium', 'low'].includes(clean.priority) ? clean.priority : 'medium';
 
   clean.estimatedHours = Number(clean.estimatedHours);
-  clean.laborCost = Number(clean.laborCost);
-  clean.partsCost = Number(clean.partsCost);
-  clean.total = Number(clean.total);
-
-  if (
-    !Number.isFinite(clean.estimatedHours) || clean.estimatedHours <= 0 ||
-    !Number.isFinite(clean.laborCost) ||
-    !Number.isFinite(clean.partsCost) ||
-    !Number.isFinite(clean.total)
-  ) {
-    return null;
+  if (!Number.isFinite(clean.estimatedHours) || clean.estimatedHours <= 0) {
+    clean.estimatedHours = 1;
   }
 
+  clean.laborCost = Number(clean.laborCost) || 0;
+  clean.partsCost = Number(clean.partsCost) || 0;
+  clean.total = Number(clean.total) || 0;
+
+  if (!Number.isFinite(clean.laborCost)) clean.laborCost = 0;
+  if (!Number.isFinite(clean.partsCost)) clean.partsCost = 0;
+  if (!Number.isFinite(clean.total)) clean.total = clean.laborCost + clean.partsCost;
+
+  // Apply safe exclusion filters on array members
   clean.repairs = Array.isArray(clean.repairs)
     ? clean.repairs.filter(x => !isExcluded(x, excludedSet))
     : [];

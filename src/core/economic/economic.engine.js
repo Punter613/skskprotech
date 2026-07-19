@@ -319,5 +319,3 @@ class EconomicEngine {
 }
 
 module.exports = new EconomicEngine();
-const EconomicEngine = `PLACEHOLDER`;
-module.exports = EconomicEngine;

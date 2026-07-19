@@ -23,15 +23,6 @@ const KNOWN_PATTERNS = [
     keywords: ['lifter', 'ticking', 'valve noise', 'misfire', 'p0300']
   },
   {
-    id: 'gm_oil_pressure_clog',
-    targetEngine: '5.3L AFM',
-    patternName: 'GM 5.3L Oil Pressure Sensor Screen Clogging',
-    primaryCause: 'Small mesh screen below oil pressure sensor clogs with sludge, causing false low pressure readings.',
-    likelihood: 82,
-    linkProtocol: 'DEFAULT_GENERIC',
-    keywords: ['oil pressure', 'low pressure', 'gauge dropping', 'p0521']
-  },
-  {
     id: 'vct_phaser_rattle',
     targetEngine: '3.5L EcoBoost',
     patternName: 'Ford EcoBoost 3.5L Cam Phaser Off-Start Rattle',
@@ -41,15 +32,6 @@ const KNOWN_PATTERNS = [
     keywords: ['rattle', 'timing chain', 'knock', 'startup']
   },
   {
-    id: 'ecoboost_turbo_leak',
-    targetEngine: '3.5L EcoBoost',
-    patternName: 'Ford 3.5L EcoBoost Turbo Coolant Line O-Ring Failure',
-    primaryCause: 'Quick-connect fittings at the turbocharger develop leaks due to heat-cycling of the internal O-rings.',
-    likelihood: 75,
-    linkProtocol: 'DEFAULT_GENERIC',
-    keywords: ['coolant leak', 'puddle', 'turbo', 'overheating']
-  },
-  {
     id: 'hemi_lifter_seizure',
     targetEngine: '5.7L Hemi',
     patternName: 'Ram 5.7 Hemi Camshaft Needle Bearing Seizure',
@@ -57,15 +39,6 @@ const KNOWN_PATTERNS = [
     likelihood: 92,
     linkProtocol: 'RAM_57_HEMI_CAM_LIFTER',
     keywords: ['ticking', 'tick', 'chirp', 'misfire', 'p0303', 'p0305', 'p0300']
-  },
-  {
-    id: 'hemi_exhaust_bolt',
-    targetEngine: '5.7L Hemi',
-    patternName: 'Ram 5.7L Exhaust Manifold Bolt Shear',
-    primaryCause: 'Thermal expansion of the exhaust manifold shears the rear-most mounting bolts, causing a cold-start tick.',
-    likelihood: 88,
-    linkProtocol: 'DEFAULT_GENERIC',
-    keywords: ['ticking', 'exhaust leak', 'manifold', 'broken bolt']
   },
   {
     id: 'tundra_water_pump_leak',
@@ -102,24 +75,6 @@ const KNOWN_PATTERNS = [
     likelihood: 96,
     linkProtocol: 'FORD_DPS6_POWERSHIFT_CLUTCH',
     keywords: ['shudder', 'hesitation', 'slip', 'no reverse', 'p07a3', 'p0805', 'u0101']
-  },
-  {
-    id: 'generic_wheel_bearing',
-    targetEngine: 'GENERIC_ENGINE',
-    patternName: 'Wheel Bearing Wear',
-    primaryCause: 'Hub bearing grease degradation or seal failure leading to physical scoring and play.',
-    likelihood: 45,
-    linkProtocol: 'DEFAULT_GENERIC',
-    keywords: ['humming', 'growl', 'bearing', 'wheel noise']
-  },
-  {
-    id: 'generic_brakes',
-    targetEngine: 'GENERIC_ENGINE',
-    patternName: 'Brake Service Required',
-    primaryCause: 'Friction material wear reaching wear indicators or minimum thickness specifications.',
-    likelihood: 60,
-    linkProtocol: 'DEFAULT_GENERIC',
-    keywords: ['squeak', 'grind', 'vibration on braking', 'soft pedal']
   }
 ];
 
@@ -130,26 +85,18 @@ function findKnownPatterns(profile = {}, symptoms = [], codes = [], notes = []) 
   const combinedText = [...symptoms, ...codes, ...notes].join(' ').toLowerCase();
 
   for (const pattern of KNOWN_PATTERNS) {
-    // Match specific engine OR generic patterns
-    if (pattern.targetEngine !== profile.engineCode && pattern.targetEngine !== 'GENERIC_ENGINE') continue;
+    if (pattern.targetEngine !== profile.engineCode) continue;
 
     const hasKeywords = pattern.keywords.some(kw => combinedText.includes(kw));
 
-    if (hasKeywords || (pattern.targetEngine === 'GENERIC_ENGINE' && combinedText.length === 0)) {
-      // For generic ones, if no symptoms, we might still want to include them in purchase evaluations
-      // but let's keep it clean for now.
-      // Actually, if combinedText is empty (purchase evaluation), we skip keyword check for generic?
-      // No, better to keep it keyword based or add a "always include" flag.
-
-      if (hasKeywords) {
-        matches.push({
-          patternId: pattern.id,
-          patternName: pattern.patternName,
-          primaryCause: pattern.primaryCause,
-          likelihood: pattern.likelihood,
-          linkProtocol: pattern.linkProtocol
-        });
-      }
+    if (hasKeywords) {
+      matches.push({
+        patternId: pattern.id,
+        patternName: pattern.patternName,
+        primaryCause: pattern.primaryCause,
+        likelihood: pattern.likelihood,
+        linkProtocol: pattern.linkProtocol
+      });
     }
   }
   return matches;

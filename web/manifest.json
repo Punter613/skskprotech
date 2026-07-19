@@ -1,9 +1,0 @@
-{
-  "short_name": "SKSK",
-  "name": "SKSK ProTech Mobile",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0b0b0f",
-  "theme_color": "#e01020",
-  "icons": []
-}
