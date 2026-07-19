@@ -52,16 +52,16 @@ class EconomicEngine {
     const component = recommendation.component || 'general';
     const profile = vehicleProfile || {};
     const fleet = profile.fleetData || {};
-
+    
     const failureProb = this._calculateFailureProbability(component, profile);
-
+    
     const replaceToday = this._calculateReplaceToday(recommendation, profile, failureProb);
     const wait30Days = this._calculateWait30Days(recommendation, profile, failureProb);
     const waitUntilFailure = this._calculateWaitUntilFailure(recommendation, profile, failureProb);
-
+    
     const optimal = this._determineOptimalAction(replaceToday, wait30Days, waitUntilFailure);
     const fleetImpact = fleet.isFleet ? this._calculateFleetImpact(recommendation, profile) : null;
-
+    
     return {
       component,
       vehicle: {
@@ -102,21 +102,21 @@ class EconomicEngine {
   _calculateFailureProbability(component, profile) {
     const curve = this.FAILURE_CURVES[component];
     if (!curve) return 0.1;
-
+    
     const usage = this._getUsageMetric(component, profile);
     const wear = Math.max(0, usage - (curve.criticalThreshold * 0.5));
     const probability = curve.baseRate + (curve.wearFactor * wear);
-
+    
     let multiplier = 1.0;
     if (profile.drivingStyle === 'aggressive') multiplier += 0.3;
     if (profile.drivingStyle === 'towing') multiplier += 0.4;
     if (profile.climate === 'extreme_hot') multiplier += 0.2;
     if (profile.climate === 'extreme_cold') multiplier += 0.15;
     if (profile.climate === 'salt_road') multiplier += 0.25;
-
+    
     if (profile.maintenanceHistory === 'poor') multiplier += 0.3;
     if (profile.maintenanceHistory === 'excellent') multiplier -= 0.2;
-
+    
     return Math.min(0.99, probability * multiplier);
   }
 
@@ -124,7 +124,7 @@ class EconomicEngine {
     switch (component) {
       case 'battery':
       case 'coolant':
-        return profile.componentData?.[component]?.ageMonths ||
+        return profile.componentData?.[component]?.ageMonths || 
                (profile.lastServiceDate ? this._monthsSince(profile.lastServiceDate) : 12);
       case 'engine_oil':
         return profile.mileage - (profile.lastOilChangeMiles || profile.mileage - 3000);
@@ -142,18 +142,18 @@ class EconomicEngine {
   _calculateReplaceToday(recommendation, profile, failureProb) {
     const costs = this.FAILURE_COSTS[recommendation.component] || { parts: 300, labor: 2, consequential: 0 };
     const laborRate = profile.shopLaborRate || this.DEFAULTS.averageLaborRate;
-
+    
     const partsCost = (recommendation.partsCost || costs.parts) * (1 + this.DEFAULTS.partsMarkup);
     const laborCost = (recommendation.laborHours || costs.labor) * laborRate;
     const tax = (partsCost + laborCost) * this.DEFAULTS.taxRate;
-
+    
     const totalCost = partsCost + laborCost + tax;
-
+    
     const downtimeHours = (recommendation.laborHours || costs.labor) + 0.5;
-    const downtimeCost = profile.isFleet ?
-      (profile.dailyRevenue / 8) * downtimeHours :
+    const downtimeCost = profile.isFleet ? 
+      (profile.dailyRevenue / 8) * downtimeHours : 
       this.DEFAULTS.downtimeCostPerHour * downtimeHours;
-
+    
     return {
       timeline: 'Replace Today',
       partsCost: Math.round(partsCost * 100) / 100,
@@ -172,20 +172,20 @@ class EconomicEngine {
   _calculateWait30Days(recommendation, profile, failureProb) {
     const today = this._calculateReplaceToday(recommendation, profile, failureProb);
     const prob30d = Math.min(0.99, failureProb * 1.5);
-
+    
     const failureCosts = this.FAILURE_COSTS[recommendation.component] || { parts: 300, labor: 2, consequential: 0 };
     const laborRate = profile.shopLaborRate || this.DEFAULTS.averageLaborRate;
-
+    
     const emergencyParts = (failureCosts.parts + failureCosts.consequential) * this.DEFAULTS.emergencyPremium;
     const emergencyLabor = failureCosts.labor * laborRate * this.DEFAULTS.emergencyPremium;
     const towCost = this.DEFAULTS.towCost;
     const rentalCost = this.DEFAULTS.rentalCarCost * 2;
-
+    
     const expectedFailureCost = (emergencyParts + emergencyLabor + towCost + rentalCost) * prob30d;
     const expectedNoFailureCost = today.totalCost * (1 - prob30d);
-
+    
     const totalCost = expectedFailureCost + expectedNoFailureCost;
-
+    
     return {
       timeline: 'Wait 30 Days',
       expectedFailureCost: Math.round(expectedFailureCost * 100) / 100,
@@ -202,17 +202,17 @@ class EconomicEngine {
   _calculateWaitUntilFailure(recommendation, profile, failureProb) {
     const failureCosts = this.FAILURE_COSTS[recommendation.component] || { parts: 300, labor: 2, consequential: 0 };
     const laborRate = profile.shopLaborRate || this.DEFAULTS.averageLaborRate;
-
+    
     const emergencyParts = (failureCosts.parts + failureCosts.consequential) * this.DEFAULTS.emergencyPremium;
     const emergencyLabor = failureCosts.labor * laborRate * this.DEFAULTS.emergencyPremium;
     const towCost = this.DEFAULTS.towCost;
     const rentalCost = this.DEFAULTS.rentalCarCost * 5;
-
-    const businessLoss = profile.isFleet ?
+    
+    const businessLoss = profile.isFleet ? 
       (profile.dailyRevenue * 5) + (profile.reputationCost || 0) : 0;
-
+    
     const totalCost = emergencyParts + emergencyLabor + towCost + rentalCost + businessLoss;
-
+    
     return {
       timeline: 'Wait Until Failure',
       emergencyParts: Math.round(emergencyParts * 100) / 100,
@@ -233,9 +233,9 @@ class EconomicEngine {
     const costs = [today, wait30, waitUntil];
     const sorted = costs.sort((a, b) => a.totalCost - b.totalCost);
     const best = sorted[0];
-
+    
     let action, urgency, confidence, reasoning;
-
+    
     if (best.timeline === 'Replace Today') {
       action = 'PROCEED_IMMEDIATELY';
       urgency = 'HIGH';
@@ -252,26 +252,26 @@ class EconomicEngine {
       confidence = 0.6;
       reasoning = `Failure cost ($${waitUntil.totalCost}) is not significantly higher than proactive repair. Continue monitoring.`;
     }
-
+    
     if (today.riskLevel === 'CRITICAL' || wait30.riskLevel === 'HIGH') {
       action = 'PROCEED_IMMEDIATELY';
       urgency = 'CRITICAL';
       reasoning = 'SAFETY OVERRIDE: Component failure poses immediate safety risk. Economic analysis secondary.';
     }
-
+    
     return { action, urgency, confidence, reasoning, optimalTimeline: best.timeline };
   }
 
   _calculateFleetImpact(recommendation, profile) {
     const fleet = profile.fleetData || {};
     const downtimeHours = recommendation.laborHours || 2;
-
+    
     return {
       vehiclesDown: 1,
       revenueAtRisk: Math.round((fleet.dailyRevenue || 500) * (downtimeHours / 8) * 100) / 100,
       contingencyRequired: (fleet.dailyRevenue || 500) > 1000,
-      recommendedContingency: (fleet.dailyRevenue || 500) > 1000 ?
-        'Activate backup vehicle or subcontract route' :
+      recommendedContingency: (fleet.dailyRevenue || 500) > 1000 ? 
+        'Activate backup vehicle or subcontract route' : 
         'Standard scheduling sufficient',
       fleetUtilizationImpact: Math.round((1 / (fleet.totalVehicles || 10)) * 100 * 100) / 100
     };
@@ -281,11 +281,11 @@ class EconomicEngine {
     const annualMiles = profile.annualMiles || 12000;
     const yearsOwned = profile.yearsOwned || 1;
     const maintenanceCost = profile.maintenanceCost || 0;
-
+    
     const depreciation = (profile.purchasePrice || 30000) * 0.15 * yearsOwned;
     const fuelCost = (annualMiles / (profile.mpg || 25)) * 3.50 * yearsOwned;
     const insuranceCost = (profile.annualInsurance || 1200) * yearsOwned;
-
+    
     return {
       depreciation: Math.round(depreciation * 100) / 100,
       fuel: Math.round(fuelCost * 100) / 100,
@@ -300,7 +300,7 @@ class EconomicEngine {
     const results = await Promise.all(
       recommendations.map(r => this.analyze(r, vehicleProfile))
     );
-
+    
     return results.sort((a, b) => {
       const urgencyOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
       const urgencyDiff = urgencyOrder[a.recommendation.urgency] - urgencyOrder[b.recommendation.urgency];
@@ -319,5 +319,3 @@ class EconomicEngine {
 }
 
 module.exports = new EconomicEngine();
-const EconomicEngine = `PLACEHOLDER`;
-module.exports = EconomicEngine;
