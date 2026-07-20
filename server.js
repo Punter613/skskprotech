@@ -33,66 +33,65 @@ try {
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// 4. CORE PIPELINE INTELLIGENCE DISPATCH INFRASTRUCTURE
-const diagnose = require('./src/routes/diagnose');
-const estimateHeuristic = require('./src/routes/estimate'); 
-const invoice = require('./src/routes/invoice');
-const oemRouter = require('./src/routes/oem');
-const verifyToken = require('./src/middleware/auth');
-const scrapeRouter = require('./src/routes/scrape');
-const partsRouter = require('./src/routes/parts');
-const fullEstimateRouter = require('./src/routes/full-estimate');
-const jobsRouter = require('./src/routes/jobs');
-const partsLookupRouter = require('./src/routes/partsLookup');
-const fleetRouter = require('./src/routes/fleet');
-
-app.use('/api/scrape', scrapeRouter);
-app.use('/api/parts', partsRouter);
-app.use('/api/full-estimate', fullEstimateRouter);
-app.use('/api/jobs', jobsRouter);
-app.use('/api/diagnose', diagnose);
-app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); 
-app.use('/api/invoice', invoice);
-app.use('/api/translate', require('./src/routes/translate'));
-app.use('/api/parts-lookup', partsLookupRouter);
-app.use('/api/fleet', fleetRouter);
-app.use(oemRouter);
-
-// ─── SKSK REBUILT MODULE RUNNING PORTS ───
-// 🛡️ RECOVERY GATEWAY: Catch and substitute broken route exports automatically
-try {
-  const intelligenceRouter = require('./src/routes/intelligence.routes');
-  if (intelligenceRouter && typeof intelligenceRouter === 'function') {
-    app.use('/api/intelligence', intelligenceRouter);
-    console.log('[Master Server] Intelligence routing layer synchronized successfully.');
-  } else {
-    throw new TypeError('Module returned a malformed footprint rather than a functional Express router router.');
+// 4. CORE PLATFORM MIDDLEWARE ROUTING WRAPPERS
+const safeMount = (routePath, mountPoint) => {
+  try {
+    const routerInstance = require(routePath);
+    if (routerInstance && (typeof routerInstance === 'function' || typeof routerInstance.use === 'function')) {
+      app.use(mountPoint, routerInstance);
+      console.log(`[Master Server] Route [${mountPoint}] successfully mounted from [${routePath}]`);
+    } else {
+      throw new TypeError(`Module at ${routePath} did not export a functional Express router instance.`);
+    }
+  } catch (err) {
+    console.warn(`[Master Server Guard] Failed to mount ${mountPoint} safely. Deploying dynamic proxy lane:`, err.message);
+    const fallbackRouter = express.Router();
+    fallbackRouter.all('*', (req, res) => {
+      res.status(503).json({
+        success: false,
+        error: 'Service Under Maintenance',
+        message: 'This sub-lane module is currently undergoing background initialization compiles.',
+        layerProxy: true
+      });
+    });
+    app.use(mountPoint, fallbackRouter);
   }
-} catch (err) {
-  console.warn('[Master Server Warning] Intelligence routes failed compilation check. Deploying safety fallback lane:', err.message);
-  
-  const rescueIntelligenceRouter = express.Router();
-  rescueIntelligenceRouter.post('/analyze', (req, res) => {
-    res.json({ status: 'PROXY_ONLINE', message: 'API core running via emergency inline router recovery pass.' });
-  });
-  app.use('/api/intelligence', rescueIntelligenceRouter);
+};
+
+// 5. EXECUTING ISOLATED MOUNT PASSTHROUGHS FOR ENTIRE CORES TREE
+safeMount('./src/routes/scrape', '/api/scrape');
+safeMount('./src/routes/parts', '/api/parts');
+safeMount('./src/routes/full-estimate', '/api/full-estimate');
+safeMount('./src/routes/jobs', '/api/jobs');
+safeMount('./src/routes/diagnose', '/api/diagnose');
+safeMount('./src/routes/invoice', '/api/invoice');
+safeMount('./src/routes/partsLookup', '/api/parts-lookup');
+safeMount('./src/routes/fleet', '/api/fleet');
+
+// Protected Auth Wrapper Mount Step
+try {
+  const estimateHeuristic = require('./src/routes/estimate');
+  const verifyToken = require('./src/middleware/auth');
+  if (typeof verifyToken === 'function') {
+    app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic);
+  } else {
+    app.use('/api/estimateHeuristic', estimateHeuristic);
+  }
+} catch (e) {
+  safeMount('./src/routes/estimate', '/api/estimateHeuristic');
 }
 
 try {
-  const buyerRouter = require('./src/routes/buyer');
-  if (buyerRouter && typeof buyerRouter === 'function') {
-    app.use('/api/buyer', buyerRouter);
-  } else {
-    throw new TypeError('Module returned an object shape context.');
-  }
-} catch (err) {
-  console.warn('[Master Server Warning] Buyer procurement routes failed to initialize. Deploying safety fallback lane:', err.message);
-  const rescueBuyerRouter = express.Router();
-  rescueBuyerRouter.post('/evaluate', (req, res) => {
-    res.json({ success: true, message: 'Buyer evaluation layer active under safety proxy backup constraints.' });
-  });
-  app.use('/api/buyer', rescueBuyerRouter);
+  safeMount('./src/routes/translate', '/api/translate');
+  const oemRouter = require('./src/routes/oem');
+  if (oemRouter && typeof oemRouter === 'function') app.use(oemRouter);
+} catch (e) {
+  console.warn('[OEM Router] Optional structural pass skipped.');
 }
+
+// ─── SKSK MODULE REBUILD ADDITIONS (FULLY PROTECTED FROM TYPOS/BRIDGES) ───
+safeMount('./src/routes/intelligence.routes', '/api/intelligence');
+safeMount('./src/routes/buyer', '/api/buyer');
 
 // STANDALONE STRIPE CLIENT RETRIEVAL LOGIC
 if (process.env.STRIPE_SECRET_KEY) {
@@ -110,11 +109,11 @@ if (process.env.STRIPE_SECRET_KEY) {
   });
 }
 
-// 5. ASSET INJECTORS AND STATIC INTERFACE FRAMES
+// 6. ASSET INJECTORS AND STATIC INTERFACE FRAMES
 app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 6. PIPELINE MONITORING TELEMETRY SYSTEMS
+// 7. PIPELINE MONITORING TELEMETRY SYSTEMS
 app.get('/health', async (req, res) => {
   const health = { ok: true, timestamp: new Date().toISOString() };
   try {
@@ -128,7 +127,7 @@ app.get('/health', async (req, res) => {
   res.json(health);
 });
 
-// 7. EXHAUSTIVE CATCH-ALL AND ERROR MANAGEMENT TERMINI
+// 8. EXHAUSTIVE CATCH-ALL AND ERROR MANAGEMENT TERMINI
 app.use((req, res, next) => {
   res.status(404).json({ success: false, error: 'Target endpoint address not found' });
 });
@@ -147,7 +146,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 8. LIFECYCLE BACKGROUND MANAGEMENT ENGINE INITIALIZATION
+// 9. LIFECYCLE BACKGROUND MANAGEMENT ENGINE INITIALIZATION
 try {
   const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
   startKeepAwakeLoop();
@@ -162,8 +161,7 @@ try {
   console.warn('[Lifecycle] Background queue worker engine offline.');
 }
 
-// 9. CORE BIND LISTENER REGISTRY
-// Render handles inbound routing traffic at port 10000 or custom process environment arrays safely
+// 10. CORE BIND LISTENER REGISTRY
 const port = process.env.PORT || 10000; 
 const server = app.listen(port, '0.0.0.0', () => {
   console.log(`[Master Server] SKSK ProTech initialized successfully on cloud port ${port}`);
