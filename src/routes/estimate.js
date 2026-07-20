@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { runDiagnosticPipeline } = require('../services/pipeline.engine');
-const { runDiagnosticPipeline } = require('../services/pipeline.engine');
+
 
 // Bracket-depth extraction logic to handle loose markdown text boundaries safely
 function extractJSON(text) {
