@@ -4,18 +4,9 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 
-const diagnose = require('./src/routes/diagnose');
-const estimateHeuristic = require('./src/routes/estimate'); 
-const invoice = require('./src/routes/invoice');
-const oemRouter = require('./src/routes/oem');
-const verifyToken = require('./src/middleware/auth');
-const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
-
 const app = express();
 
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true }));
-
+// 1. GLOBAL ACCESS CONTROL & SECURITY HEADERS
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
   methods: ['GET', 'POST', 'OPTIONS'],
@@ -30,40 +21,57 @@ app.use((req, res, next) => {
   next();
 });
 
-// Route Infrastructure
-const scrapeRouter = require('./src/routes/scrape');
+// 2. 🚨 STRIPE WEBHOOK CONTROLLER CORE (MOUNTED FIRST FOR RAW PAYLOAD RETENTION)
+// FIXED: Mounts raw buffer intercept cleanly before global JSON objects alter the body stream
+try {
+  const webhookRouter = require('../src/routes/webhooks');
+  app.use('/api/payments/webhook', express.raw({ type: 'application/json' }), webhookRouter);
+} catch (err) {
+  console.warn('[Server Warn] Webhook path resolution deferred:', err.message);
+}
+
+// 3. APPLICATION INBOUND DATA BODY PARSERS
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// 4. ROUTE INFRASTRUCTURE LANES
+// FIXED: Adjusted all relative paths to look outward into the parent root directory folder ('../src')
+const diagnose = require('../src/routes/diagnose');
+const estimateHeuristic = require('../src/routes/estimate'); 
+const invoice = require('../src/routes/invoice');
+const oemRouter = require('../src/routes/oem');
+const verifyToken = require('../src/middleware/auth');
+const scrapeRouter = require('../src/routes/scrape');
+const partsRouter = require('../src/routes/parts');
+const fullEstimateRouter = require('../src/routes/full-estimate');
+const jobsRouter = require('../src/routes/jobs');
+const partsLookupRouter = require('../src/routes/partsLookup');
+const fleetRouter = require('../src/routes/fleet');
+
 app.use('/api/scrape', scrapeRouter);
-
-const partsRouter = require('./src/routes/parts');
 app.use('/api/parts', partsRouter);
-
-// ─── NEW: Unified full-estimate pipeline lane ───
-const fullEstimateRouter = require('./src/routes/full-estimate');
 app.use('/api/full-estimate', fullEstimateRouter);
-const jobsRouter = require('./src/routes/jobs');
 app.use('/api/jobs', jobsRouter);
 app.use('/api/diagnose', diagnose);
 app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); 
 app.use('/api/invoice', invoice);
-app.use('/api/translate', require('./src/routes/translate'));
+app.use('/api/translate', require('../src/routes/translate'));
+app.use('/api/parts-lookup', partsLookupRouter);
+app.use('/api/fleet', fleetRouter);
 app.use(oemRouter);
 
 // ─── SKSK MODULE REBUILD ADDITIONS (As Clean Side-by-Side Lanes) ───
-app.use('/api/intelligence', require('./src/routes/intelligence.routes'));
-app.use('/api/buyer', require('./src/routes/buyer'));
+app.use('/api/intelligence', require('../src/routes/intelligence.routes'));
+app.use('/api/buyer', require('../src/routes/buyer'));
 
-// 🚨 STRIPE WEBHOOK EVENT PROCESSING CORE
-// Mounted BEFORE global JSON parsing for payments to preserve raw body
-const webhookRouter = require('./src/routes/webhooks');
-app.use('/api/payments', webhookRouter);
-
+// STANDALONE STRIPE SUBSCRIPTION INFRASTRUCTURE
 if (process.env.STRIPE_SECRET_KEY) {
   try {
-    const payments = require('./src/routes/payments');
+    const payments = require('../src/routes/payments');
     app.use('/api/payments', payments);
-    console.log('[Payments] Stripe payments loaded');
+    console.log('[Payments] Stripe standard checking endpoints loaded');
   } catch (err) {
-    console.warn('[Payments] Failed to load:', err.message);
+    console.warn('[Payments] Delayed standard payment loading:', err.message);
   }
 } else {
   console.log('[Payments] STRIPE_SECRET_KEY not set - payments disabled');
@@ -72,12 +80,16 @@ if (process.env.STRIPE_SECRET_KEY) {
   });
 }
 
-app.use(express.static(path.join(__dirname)));
+// 5. STATIC CORPORATE WEB PLATFORM ASSETS
+// FIXED: Targets your authentic public paths out in the root tree safely
+app.use('/fleet', express.static(path.join(__dirname, '../public/fleet.html')));
+app.use(express.static(path.join(__dirname, '../public')));
 
+// 6. HEALTH & SYSTEM MONITORING TELEMETRY
 app.get('/health', async (req, res) => {
   const health = { ok: true, timestamp: new Date().toISOString() };
   try {
-    const db = require('./src/db');
+    const db = require('../src/db');
     health.db = db.supabase ? 'connected' : 'not configured';
   } catch {
     health.db = 'error';
@@ -87,8 +99,13 @@ app.get('/health', async (req, res) => {
   res.json(health);
 });
 
+// 7. COMPREHENSIVE ERROR AND 404 SYSTEMS TERMINUS
+app.use((req, res, next) => {
+  res.status(404).json({ success: false, error: 'Not found' });
+});
+
 app.use((err, req, res, next) => {
-  console.error('[Error]', err.stack || err.message || err);
+  console.error('[Error Intercepted]', err.stack || err.message || err);
   const isDev = process.env.NODE_ENV === 'development';
   const message = isDev
     ? (err.message || 'Server error')
@@ -101,17 +118,28 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.use((req, res) => {
-  res.status(404).json({ success: false, error: 'Not found' });
-});
+// 8. LIFECYCLE BACKGROUND SERVICE INITIALIZATION
+// FIXED: Executed completely before application port bindings resolve to avoid racing bugs
+try {
+  const { startKeepAwakeLoop } = require('../src/services/db_keepawake');
+  startKeepAwakeLoop();
+} catch (e) {
+  console.warn('[Lifecycle Warn] Database awake engine bypass:', e.message);
+}
 
-startKeepAwakeLoop();
+try {
+  require('../src/workers/aiWorker');
+  console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
+} catch (e) {
+  console.warn('[Lifecycle Warn] AI Worker thread instantiation deferred:', e.message);
+}
 
+// 9. NETWORK PORT BIND LISTEN ENGINE
 const port = process.env.PORT || 3000;
 const server = app.listen(port, () => {
-  console.log(`[Server] SKSK ProTech running on port ${port}`);
-  console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`[Server] Health check: http://localhost:${port}/health`);
+  console.log(`[Server] SKSK ProTech running inside API framework layer on port ${port}`);
+  console.log(`[Server] Testing Target Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`[Server] Active Status Framework Endpoint: http://localhost:${port}/health`);
 });
 
 const gracefulShutdown = () => {
@@ -124,18 +152,3 @@ const gracefulShutdown = () => {
 
 process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
-
-// 🤖 Background Queue Worker Activation
-require('./src/workers/aiWorker');
-console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
-
-// 🔌 Live Procurement Parts Aggregator Lane
-const partsLookupRouter = require('./src/routes/partsLookup');
-app.use('/api/parts-lookup', partsLookupRouter);
-
-// 🚚 SKSKFLEET Operations Infrastructure Lane
-const fleetRouter = require('./src/routes/fleet');
-app.use('/api/fleet', fleetRouter);
-
-// Serve corporate frontend asset frames
-app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
