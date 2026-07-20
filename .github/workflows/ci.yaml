@@ -25,8 +25,6 @@ jobs:
 
     - name: Hardened OpenAPI Contract Lint
       run: npx @stoplight/spectral-cli lint openapi.yaml --ruleset .spectral.yaml --format pretty 
-    - name: Automatic Type Generation Line
-      run: npm run gen
-
+  
     - name: Strict TypeScript Tolerance Check
       run: npm run test:ts
