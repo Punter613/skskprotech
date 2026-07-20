@@ -1,6 +1,4 @@
 extends:
   - spectral:oas
-
 rules:
-  # Example: turn off a noisy rule
   oas3-api-servers: off
