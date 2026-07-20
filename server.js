@@ -6,14 +6,16 @@ const cors = require('cors');
 
 const app = express();
 
-// 1. GLOBAL PRIVACY, CORING, & PLATFORM SECURITY CONTROLS
+// ============================================================================
+// 1. GLOBAL PRIVACY, CORS, & PLATFORM SECURITY CONTROLS
+// ============================================================================
 
 // Build a flexible allowed origin list: core defaults + env overrides
 const baseAllowedOrigins = [
-  'https://pages.dev',
+  'https://pages.dev',      // 🧠 FIXED: Explicit production frontend URL
   'http://localhost:3000',
   'http://localhost:10000',
-  'https://p613-backend.onrender.com', // Render frontend / diagnostic terminal
+  'https://onrender.com'
 ];
 
 if (process.env.CORS_ORIGIN) {
@@ -26,7 +28,9 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow same-origin / non-browser requests (like curl, internal calls)
     if (!origin) return callback(null, true);
-    if (baseAllowedOrigins.includes(origin)) {
+    
+    // 🧠 FIXED: Substring check to authorize all dynamically generated preview branches from Cloudflare
+    if (baseAllowedOrigins.includes(origin) || origin.endsWith('.pages.dev')) {
       return callback(null, true);
     }
     return callback(new Error(`Origin ${origin} not allowed by SKSK CORS policy`), false);
@@ -43,7 +47,7 @@ app.use(cors({
   exposedHeaders: ['X-Tenant-ID', 'X-Target-VIN']
 }));
 
-// Handle preflight OPTIONS requests across all routes explicitly
+// Handle preflight OPTIONS requests across all routes explicitly before parsing pipelines execute
 app.options('*', cors());
 
 app.use((req, res, next) => {
@@ -54,7 +58,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// ============================================================================
 // 2. STRIPE RAW EVENT CAPTURE INTERCEPTOR (MUST RUN FIRST)
+// ============================================================================
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }), (req, res, next) => {
   try {
     const webhookRouter = require('./src/routes/webhooks');
@@ -65,12 +71,16 @@ app.use('/api/payments/webhook', express.raw({ type: 'application/json' }), (req
   }
 });
 
+// ============================================================================
 // 3. APPLICATION LEVEL STANDARD PAYLOAD PARSERS
+// ============================================================================
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// ============================================================================
 // 4. BULLETPROOF LAZY-LOADING ROUTE INTERCEPTOR UTILITY
-// FIXED: Completely prevents compile-time or syntax-time sub-file bugs from crashing server boot sequences
+// ============================================================================
+// Completely prevents compile-time or syntax-time sub-file bugs from crashing server boot sequences
 const lazyRoute = (moduleRelativePath) => {
   return (req, res, next) => {
     try {
@@ -94,7 +104,9 @@ const lazyRoute = (moduleRelativePath) => {
   };
 };
 
+// ============================================================================
 // 5. REGISTER ISOLATED GATEWAY LAYERS CLEANLY
+// ============================================================================
 app.use('/api/scrape', lazyRoute('./src/routes/scrape'));
 app.use('/api/parts', lazyRoute('./src/routes/parts'));
 app.use('/api/full-estimate', lazyRoute('./src/routes/full-estimate'));
@@ -146,11 +158,15 @@ app.use('/api/payments', (req, res, next) => {
   }
 });
 
+// ============================================================================
 // 6. ASSET INJECTORS AND STATIC INTERFACE FRAMES
+// ============================================================================
 app.use('/fleet', express.static(path.join(__dirname, 'public/fleet.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ============================================================================
 // 7. PIPELINE MONITORING TELEMETRY SYSTEMS
+// ============================================================================
 app.get('/health', async (req, res) => {
   const health = { ok: true, timestamp: new Date().toISOString() };
   try {
@@ -164,7 +180,9 @@ app.get('/health', async (req, res) => {
   res.json(health);
 });
 
+// ============================================================================
 // 8. EXHAUSTIVE CATCH-ALL AND ERROR MANAGEMENT TERMINI
+// ============================================================================
 app.use((req, res, next) => {
   res.status(404).json({ success: false, error: 'Target endpoint address not found' });
 });
@@ -183,7 +201,9 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ============================================================================
 // 9. LIFECYCLE BACKGROUND MANAGEMENT ENGINE INITIALIZATION
+// ============================================================================
 try {
   const { startKeepAwakeLoop } = require('./src/services/db_keepawake');
   startKeepAwakeLoop();
@@ -198,8 +218,9 @@ try {
   console.warn('[Lifecycle] Background queue worker engine offline.');
 }
 
+// ============================================================================
 // 10. CORE BIND LISTENER REGISTRY
-// Render default expected port fallback mapping
+// ============================================================================
 const port = process.env.PORT || 10000; 
 const server = app.listen(port, '0.0.0.0', () => {
   console.log(`[Master Server] SKSK ProTech initialized successfully on cloud port ${port}`);
