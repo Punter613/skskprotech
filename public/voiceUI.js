@@ -85,14 +85,7 @@ function resetMicButton(btn) {
 }
 
 async function shipAudioToPipeline(blob, vin) {
-  const formData = new FormData();
-  formData.append("audio", blob, "field_notes.webm");
-
-  if (activePreviewElement) activePreviewElement.innerText = "⏳ Running Groq sanitization & calculating full pipeline sequence...";
-
-  try {
-    // 🔀 FIXED: Aligned target URL pathing cleanly to map right through your active /api/scrape route lane
-    const response = await fetch(`${API_BASE}/api/scrape/voice-ingest`, {
+ const response = await fetch(`${API_BASE}/api/scrape`, {
       method: "POST",
       headers: {
         "X-Tenant-ID": "da39b560-84a1-432d-944f-12d8a9461234",
