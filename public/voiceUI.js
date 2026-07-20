@@ -43,14 +43,26 @@ async function startVoiceCapture(buttonElement) {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
     
-    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+    mediaRecorder.ondataavailable = event => {
+      if (event.data && event.data.size > 0) {
+        audioChunks.push(event.data);
+      }
+    };
+    
     mediaRecorder.onstop = async () => {
+      // 🧠 FIXED: Enforce absolute data boundary protection by creating blob explicitly inside the flushed thread
       const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
       const targetVin = buttonElement.getAttribute("data-vin");
-      await shipAudioToPipeline(audioBlob, targetVin);
+      
+      if (audioBlob.size > 1000) { // Verify audio contains true content
+        await shipAudioToPipeline(audioBlob, targetVin);
+      } else {
+        if (activePreviewElement) activePreviewElement.innerText = "⚠️ Audio sample too short. Please hold down longer.";
+      }
     };
 
-    mediaRecorder.start();
+    // Request audio chunks every 250ms to ensure constant buffer flushing to memory
+    mediaRecorder.start(250);
   } catch (err) {
     alert(`Microphone channel initialization blocked: ${err.message}`);
     resetMicButton(buttonElement);
@@ -60,6 +72,8 @@ async function startVoiceCapture(buttonElement) {
 function stopVoiceCapture(buttonElement) {
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
     mediaRecorder.stop();
+    // Stop all audio track streams to release the hardware mic indicator on the mobile screen
+    mediaRecorder.stream.getTracks().forEach(track => track.stop());
   }
   resetMicButton(buttonElement);
 }
@@ -77,8 +91,8 @@ async function shipAudioToPipeline(blob, vin) {
   if (activePreviewElement) activePreviewElement.innerText = "⏳ Running Groq sanitization & calculating full pipeline sequence...";
 
   try {
-    // Fixed: Routed directly to your specific backend voice ingestion router gateway path
-    const response = await fetch(`${API_BASE}/api/voice/ingest-audio`, {
+    // 🔀 FIXED: Aligned target URL pathing cleanly to map right through your active /api/scrape route lane
+    const response = await fetch(`${API_BASE}/api/scrape/voice-ingest`, {
       method: "POST",
       headers: {
         "X-Tenant-ID": "da39b560-84a1-432d-944f-12d8a9461234",
@@ -87,15 +101,18 @@ async function shipAudioToPipeline(blob, vin) {
       body: formData
     });
 
+    if (!response.ok) throw new Error(`Server returned HTTP network status error code: ${response.status}`);
     const result = await response.json();
+    
     if (activePreviewElement) {
-      activePreviewElement.innerHTML = `<strong>Processed Note:</strong> "${result.text}"`;
+      activePreviewElement.innerHTML = `<strong>Processed Note:</strong> "${result.text || '[No speech detected]'}"`;
     }
     
     if (result.pipeline_triggered) {
-      if (typeof loadFleetRoster === "function") loadFleetRoster(); // Hot-reload UI data records instantly
+      if (typeof loadFleetRoster === "function") loadFleetRoster(); // Hot-reload UI rows instantly
     }
   } catch (err) {
+    console.error('[Voice UI Processing Exception Caught]', err);
     if (activePreviewElement) activePreviewElement.innerText = `Ingestion error: ${err.message}`;
   }
 }
