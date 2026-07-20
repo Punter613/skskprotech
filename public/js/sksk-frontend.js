@@ -127,9 +127,14 @@ async function executeIntelligentAnalysis() {
       model: modelVal,
       year: yearVal,
       mileage: mileageVal,
-      componentData: {
-        brakes: { padThickness: 1.5 }
-      }
+      componentData: {}
+      // NOTE: componentData is for REAL sensor/inspection readings only
+      // (brake pad thickness, rotor runout, tread depth, etc). There's no
+      // input in this UI to collect that yet, so leave it empty rather
+      // than faking a value - a fake CRITICAL reading here permanently
+      // trips the deterministic safety override on EVERY request and
+      // blocks the AI from ever running, regardless of what the customer
+      // actually reported. Wire real fields in before populating this.
     },
     context: {
       source: 'cloudflare_pages_terminal',
