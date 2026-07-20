@@ -1,3 +1,9 @@
+// ==========================================
+// 📡 PRODUCTION BACKEND CLOUD INFRASTRUCTURE LINK
+// ==========================================
+// Maps all browser fetch loops directly to your live production Render cluster host
+const API_BASE_URL = 'https://onrender.com';
+
 // ===============================
 // CLEAR / RESET SESSION
 // ===============================
@@ -50,7 +56,8 @@ document.getElementById('btn-generate-estimate').addEventListener('click', (e) =
     return;
   }
 
-  executeEstimatePipeline();
+  // FIXED: Tied button action loop directly to your active execution handler name
+  runEstimate();
 });
 
 
@@ -69,7 +76,8 @@ document.getElementById('translateBtn')?.addEventListener('click', async () => {
   try {
     if (previewBox) previewBox.innerText = 'Translating...';
 
-    const res = await fetch('/translate', {
+    // FIXED: Appends absolute production endpoint URL target
+    const res = await fetch(`${API_BASE_URL}/api/translate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: raw })
@@ -100,9 +108,6 @@ if (document.getElementById('customerStates')) {
 // ===============================
 // RUN ESTIMATE (RAW ONLY)
 // ===============================
-// Backend handles translation internally.
-// No pre-translation here to avoid double-pass.
-
 function getCommonPayload() {
   const motorTypeSelect = document.getElementById('motorType');
   const motorType = motorTypeSelect ? motorTypeSelect.value : null;
@@ -134,30 +139,49 @@ function getCommonPayload() {
 }
 
 async function runEstimate() {
-  const raw = (document.getElementById('customerStates')?.value || '').trim();
+  try {
+    const raw = (document.getElementById('customerStates')?.value || '').trim();
+    const common = typeof getCommonPayload === 'function' ? getCommonPayload() : {};
 
-  const common = typeof getCommonPayload === 'function' ? getCommonPayload() : {};
+    const payload = {
+      vin: common.vin || window.currentVIN || null,
+      customerStates: raw ? [raw] : [],
+      mechanicNotices: window.currentMechanicNotices || [],
+      obdCodes: window.currentObdCodes || [],
+      laborRate: common.laborRate || window.currentLaborRate || 125,
+      partsCost: window.currentPartsCost || 0,
+      partType: window.currentPartType || '',
+      mileage: window.currentMileage || 0,
+      customer: window.currentCustomer || {},
+      history: window.currentHistory || [],
+      manualUrl: common.url || ''
+    };
 
-  const payload = {
-    vin: common.vin || window.currentVIN || null,
-    customerStates: raw ? [raw] : [],
-    mechanicNotices: window.currentMechanicNotices || [],
-    obdCodes: window.currentObdCodes || [],
-    laborRate: common.laborRate || window.currentLaborRate || 65,
-    partsCost: window.currentPartsCost || 0,
-    partType: window.currentPartType || '',
-    mileage: window.currentMileage || 0,
-    customer: window.currentCustomer || {},
-    history: window.currentHistory || [],
-    manualUrl: common.url || ''
-  };
+    console.log('[UI] Sending data stream package to SKSK Main Orchestrator...');
 
-  const estimate = await fetch('/api/skskprotech/estimate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).then(r => r.json());
+    // FIXED: Formatted target path to match your sandbox endpoint structure accurately
+    const res = await fetch(`${API_BASE_URL}/api/full-estimate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
-  renderEstimate(estimate);
+    if (!res.ok) throw new Error(`HTTP Error Status: ${res.status}`);
+    const estimate = await res.json();
+
+    if (typeof renderEstimate === 'function') {
+      renderEstimate(estimate);
+    } else {
+      console.log('[UI Target Stream Outputs Completed]:', estimate);
+      const diagOutput = document.getElementById('diagnosis-output');
+      if (diagOutput && estimate.decision) {
+        diagOutput.innerText = `Action: ${estimate.decision.action}\nReasoning: ${estimate.decision.reasoning}`;
+        const readyBanner = document.getElementById('estimate-ready-banner');
+        if (readyBanner) readyBanner.style.display = 'block';
+      }
+    }
+  } catch (err) {
+    console.error('[UI Execution Error Handled]', err);
+    alert(`Failed to complete diagnosis evaluation session: ${err.message}`);
+  }
 }
-
