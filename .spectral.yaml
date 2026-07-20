@@ -1,33 +1,6 @@
-name: SKSK ProTech Integration Pipeline
+extends:
+  - spectral:oas
 
-on:
-  push:
-    branches: [ main, chore/improve-writing ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  verify-and-build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout Code Repository
-      uses: actions/checkout@v4
-
-    - name: Set up Node.js Runtime
-      uses: actions/setup-node@v4
-      with:
-        node-version: '24'
-        cache: 'npm'
-
-    - name: Install Project Dependencies
-      run: npm ci || npm install
-
-    - name: Hardened OpenAPI Contract Lint
-      run: npx @stoplight/spectral-cli lint openapi.yaml --ruleset spectral.yaml --format pretty
-
-    - name: Automatic Type Generation Line
-      run: npm run gen
-
-    - name: Strict TypeScript Tolerance Check
-      run: npm run test:ts
+rules:
+  # Example: turn off a noisy rule
+  oas3-api-servers: off
