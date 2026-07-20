@@ -7,11 +7,44 @@ const cors = require('cors');
 const app = express();
 
 // 1. GLOBAL PRIVACY, CORING, & PLATFORM SECURITY CONTROLS
+
+// Build a flexible allowed origin list: core defaults + env overrides
+const baseAllowedOrigins = [
+  'https://pages.dev',
+  'http://localhost:3000',
+  'http://localhost:10000',
+  'https://p613-backend.onrender.com', // Render frontend / diagnostic terminal
+];
+
+if (process.env.CORS_ORIGIN) {
+  // Allow comma-separated additional origins from env
+  const extra = process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean);
+  baseAllowedOrigins.push(...extra);
+}
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: (origin, callback) => {
+    // Allow same-origin / non-browser requests (like curl, internal calls)
+    if (!origin) return callback(null, true);
+    if (baseAllowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Origin ${origin} not allowed by SKSK CORS policy`), false);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Tenant-ID',
+    'X-Target-VIN',
+    'Accept'
+  ],
+  credentials: true,
+  exposedHeaders: ['X-Tenant-ID', 'X-Target-VIN']
 }));
+
+// Handle preflight OPTIONS requests across all routes explicitly
+app.options('*', cors());
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
