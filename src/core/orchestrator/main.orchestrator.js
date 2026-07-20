@@ -270,3 +270,21 @@ class SKSKOrchestrator {
     return 'general';
   }
 
+  _calculateOverallConfidence(deterministicResult, evidenceResult, economicResult) {
+    const scores = [
+      deterministicResult?.confidence,
+      evidenceResult?.confidence,
+      economicResult?.recommendation?.confidence
+    ].filter(v => typeof v === 'number');
+
+    if (scores.length === 0) return 75;
+    return Math.round(scores.reduce((sum, v) => sum + v, 0) / scores.length);
+  }
+
+  _generateRequestId() {
+    return `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  }
+}
+
+module.exports = SKSKOrchestrator;
+

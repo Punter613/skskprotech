@@ -1,6 +1,9 @@
 // services/invoiceBuilder.js
 // Maps Groq estimate output + parts data into a clean invoice structure
 
+const express = require('express');
+const router = express.Router();
+
 function buildInvoice({ estimateData, partsData, customerInfo, vehicleInfo, laborRate }) {
   const now = new Date();
   const invoiceNumber = `SKSK-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 9000) + 1000}`;
@@ -102,4 +105,13 @@ function buildInvoice({ estimateData, partsData, customerInfo, vehicleInfo, labo
   };
 }
 
-module.exports = { buildInvoice };
+router.post('/build', (req, res) => {
+  try {
+    const invoiceData = buildInvoice(req.body || {});
+    return res.json(invoiceData);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+module.exports = router;
