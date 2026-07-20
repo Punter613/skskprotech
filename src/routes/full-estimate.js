@@ -1,5 +1,5 @@
-const express = require('express');
-const router = express.Router();
+const SKSKOrchestrator = require('../core/orchestrator/main.orchestrator');
+const orchestrator = new SKSKOrchestrator()
 
 // NEW ENGINE LOCATION
 const fullEstimate = require('../../../engine/estimate/full-estimate');
