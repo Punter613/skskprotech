@@ -1,187 +1,158 @@
-// ==========================================
-// 📡 PRODUCTION BACKEND CLOUD INFRASTRUCTURE LINK
-// ==========================================
-// Maps all browser fetch loops directly to your live production Render cluster host
-const API_BASE_URL = 'https://onrender.com';
+// public/js/sksk-frontend.js
 
-// ===============================
-// CLEAR / RESET SESSION
-// ===============================
-document.getElementById('btn-reset-session').addEventListener('click', () => {
+// 🔌 Dynamic base routing that switches instantly between local testing and your live Render container
+const BACKEND_URL = location.hostname === "localhost" || location.hostname === "127.0.0.1"
+  ? "http://localhost:10000" 
+  : "https://onrender.com";
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Bind events to the high-utility dark telemetry button interface
+  const analyzeBtn = document.getElementById('btn-generate-estimate');
+  const resetBtn = document.getElementById('btn-reset-session');
+
+  if (analyzeBtn) {
+    analyzeBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await executeIntelligentAnalysis();
+    });
+  }
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      purgeSessionTelemetry();
+    });
+  }
+});
+
+/**
+ * ⚡ Gathers form parameters and executes the main orchestration pipeline pass
+ */
+async function executeIntelligentAnalysis() {
+  const diagOutput = document.getElementById('diagnosis-output');
+  const stepsList = document.getElementById('repair-steps-list');
+  const readyBanner = document.getElementById('estimate-ready-banner');
+
+  const vinVal = document.getElementById('vin')?.value.trim();
+  const makeVal = document.getElementById('make')?.value.trim();
+  const modelVal = document.getElementById('model')?.value.trim();
+  const yearVal = Number(document.getElementById('year')?.value) || 2019;
+  const mileageVal = Number(document.getElementById('mileage')?.value) || 85000;
+  const rawSymptom = document.getElementById('customerStates')?.value.trim();
+
+  if (!vinVal || !rawSymptom) {
+    alert('Validation Failure: A valid VIN and Symptom narrative must be supplied to fire the SKSK core.');
+    return;
+  }
+
+  if (diagOutput) diagOutput.innerText = '⏳ Initializing core pipeline layers (Deterministic → AI Router → Trust)...';
+  if (stepsList) stepsList.innerHTML = '<li>Analyzing telemetry data arrays...</li>';
+
+  // 🧠 Enforce the nested data object structure expected by your validateVehicleProfile middleware
+  const payload = {
+    input: rawSymptom,
+    vehicleProfile: {
+      vin: vinVal,
+      make: makeVal,
+      model: modelVal,
+      year: yearVal,
+      mileage: mileageVal,
+      componentData: {
+        brakes: { padThickness: 1.5 } // Standard telemetric pass
+      }
+    },
+    context: {
+      source: 'cloudflare_pages_terminal',
+      timestamp: new Date().toISOString()
+    }
+  };
+
+  try {
+    // FIXED: Targets the exact absolute backend path passing your server validation middleware rules
+    const response = await fetch(`${BACKEND_URL}/api/intelligence/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error Status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[SKSK Frontend] Pipeline trace data loaded:', data);
+
+    // 🚀 RENDER DATA FIELDS DIRECTLY INTO THE INTEL VIEWPORTS
+    if (diagOutput) {
+      if (data.status === 'SUCCESS' && data.decision) {
+        diagOutput.innerHTML = `<strong>STATUS:</strong> ${data.status}\n<strong>ACTION DETERMINED:</strong> ${data.decision.action}\n<strong>URGENCY PROFILE:</strong> ${data.decision.urgency}\n<strong>CONFIDENCE MATRIX:</strong> ${data.decision.confidence}%\n\n<strong>REASONING TRACE:</strong>\n${data.decision.reasoning}`;
+      } else if (data.status === 'DETERMINISTIC_OVERRIDE') {
+        diagOutput.innerHTML = `⚠️ <strong>DETERMINISTIC MANDATORY OVERRIDE HIT:</strong>\n${data.decision?.reasoning || 'Safety firewall rule activated.'}`;
+      } else {
+        diagOutput.innerText = JSON.stringify(data.decision || data, null, 2);
+      }
+    }
+
+    // Populate the Clearance Protocols checklist module layout window
+    if (stepsList) {
+      stepsList.innerHTML = '';
+      
+      const overrides = data.decision?.overrides || data.pipeline?.deterministic?.overrides || [];
+      const diagnosticSteps = data.pipeline?.ai?.output?.diagnosticSteps || [];
+
+      if (overrides.length > 0) {
+        overrides.forEach(o => {
+          stepsList.innerHTML += `<li style="border-left-color: #ff4a4a;">🚨 <strong>MANDATORY SAFETY ACTION:</strong> ${o.requiredAction || o.action} (${o.detail || 'Component threshold breach'})</li>`;
+        });
+      }
+
+      if (diagnosticSteps.length > 0) {
+        diagnosticSteps.forEach(step => {
+          stepsList.innerHTML += `<li>${step}</li>`;
+        });
+      } else if (data.decision?.action) {
+        stepsList.innerHTML += `<li>Execute step standard repair workflow matching procedure: <strong>${data.decision.action}</strong></li>`;
+        stepsList.innerHTML += `<li>Run complete digital post-repair diagnostic clear on components.</li>`;
+      }
+    }
+
+    if (readyBanner) readyBanner.style.display = 'block';
+
+  } catch (err) {
+    console.error('[Frontend Network Request Exception]', err);
+    if (diagOutput) {
+      diagOutput.innerText = `Ingestion error: ${err.message}\n\n[Remedy]: Check your browser console network log or confirm that your Render web container is active.`;
+    }
+    if (stepsList) stepsList.innerHTML = '<li style="border-left-color: #ff4a4a;">Pipeline processing execution pass aborted due to network failure.</li>';
+  }
+}
+
+/**
+ * 🗑️ Purges all local forms and view elements back to system neutral states
+ */
+function purgeSessionTelemetry() {
   console.log('[UI] Purging local state and estimate cache.');
 
-  // 1. Clear text inputs explicitly
-  const cs = document.getElementById('customerStates'); if (cs) cs.value = '';
-  const obd = document.getElementById('obdCodes'); if (obd) obd.value = '';
-  const mn = document.getElementById('mechanicNotices'); if (mn) mn.value = '';
+  const fields = ['customerStates', 'vin', 'make', 'model', 'year', 'mileage'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (id === 'customerStates' || id === 'vin' || id === 'make' || id === 'model') el.value = '';
+      if (id === 'year') el.value = 2019;
+      if (id === 'mileage') el.value = 85000;
+    }
+  });
 
-  // 2. Clear hidden arrays/session memory
-  window.sessionStorage.removeItem('currentEstimate');
-  window.sessionStorage.removeItem('activeSymptomTranslation');
-  window.currentMechanicNotices = [];
-  window.currentObdCodes = [];
-
-  // 3. Reset UI display panes to neutral
   const readyBanner = document.getElementById('estimate-ready-banner');
   if (readyBanner) readyBanner.style.display = 'none';
 
   const diagOutput = document.getElementById('diagnosis-output');
   if (diagOutput) diagOutput.innerText = 'Awaiting fresh vehicle input...';
 
-  // 4. Reset probability breakdown and repair steps view
-  const probBreakdown = document.getElementById('probability-breakdown');
-  if (probBreakdown) probBreakdown.innerHTML = '';
+  const stepsList = document.getElementById('repair-steps-list');
+  if (stepsList) stepsList.innerHTML = '<li>System waiting for analysis pipeline activation pass token context.</li>';
 
-  const repairSteps = document.getElementById('repair-steps-list');
-  if (repairSteps) repairSteps.innerHTML = '';
-
-  // 5. Reset translation preview
-  const previewBox = document.getElementById('translatePreview');
-  if (previewBox) previewBox.innerText = 'Translation preview will appear here...';
-
-  alert('Session cleared. Form is ready for continuous, uninterrupted vehicle diagnosis.');
-});
-
-
-// ===============================
-// ESTIMATE BUTTON GUARD
-// ===============================
-document.getElementById('btn-generate-estimate').addEventListener('click', (e) => {
-  const isEstimateReady = document.getElementById('estimate-ready-banner')?.style.display === 'block';
-  const customerStatesInput = (document.getElementById('customerStates')?.value || '').trim();
-
-  if (isEstimateReady && customerStatesInput === '') {
-    e.preventDefault();
-    alert('Previous diagnosis active. Please hit "New Vehicle / Clear Session" before continuous diagnosis continues.');
-    return;
-  }
-
-  // FIXED: Tied button action loop directly to your active execution handler name
-  runEstimate();
-});
-
-
-// ===============================
-// TRANSLATE PREVIEW (READ-ONLY)
-// ===============================
-document.getElementById('translateBtn')?.addEventListener('click', async () => {
-  const raw = document.getElementById('customerStates')?.value.trim();
-  const previewBox = document.getElementById('translatePreview');
-
-  if (!raw) {
-    if (previewBox) previewBox.innerText = '[No customer states entered]';
-    return;
-  }
-
-  try {
-    if (previewBox) previewBox.innerText = 'Translating...';
-
-    // FIXED: Appends absolute production endpoint URL target
-    const res = await fetch(`${API_BASE_URL}/api/translate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: raw })
-    });
-
-    const data = await res.json();
-
-    // Show preview ONLY — do NOT mutate input
-    if (previewBox) previewBox.innerText = data.translated || '[No translation returned]';
-
-    console.log('[Translator Preview] Displayed read-only translation.');
-
-  } catch (err) {
-    if (previewBox) previewBox.innerText = '[Translation failed]';
-    console.error('[Translator Preview Error]', err);
-  }
-});
-
-// Reset preview when user edits text
-if (document.getElementById('customerStates')) {
-  document.getElementById('customerStates').addEventListener('input', () => {
-    const previewBox = document.getElementById('translatePreview');
-    if (previewBox) previewBox.innerText = 'Translation preview will appear here...';
-  });
-}
-
-
-// ===============================
-// RUN ESTIMATE (RAW ONLY)
-// ===============================
-function getCommonPayload() {
-  const motorTypeSelect = document.getElementById('motorType');
-  const motorType = motorTypeSelect ? motorTypeSelect.value : null;
-
-  const repairKeywordInput = document.getElementById('repairKeyword');
-  const repairKeyword = repairKeywordInput ? repairKeywordInput.value.trim() : '';
-
-  const laborRateInput = document.getElementById('laborRate');
-  const laborRate = laborRateInput ? Number(laborRateInput.value) || 85 : 85;
-
-  const vinInput = document.getElementById('vin');
-  const vin = vinInput ? vinInput.value.trim() : '';
-
-  const yearMakeModel = document.getElementById('yearMakeModel')?.value?.trim() || '';
-
-  const manualUrlInput = document.getElementById('manualUrl');
-  const manualUrl = manualUrlInput ? manualUrlInput.value.trim() : '';
-
-  const url = manualUrl || 'https://lemon-manuals.la/Hyundai/2005/Tucson%20V6-2.7L/Repair%20and%20Diagnosis/';
-
-  return {
-    url,
-    repairKeyword,
-    laborRate,
-    vin,
-    yearMakeModel,
-    motorType
-  };
-}
-
-async function runEstimate() {
-  try {
-    const raw = (document.getElementById('customerStates')?.value || '').trim();
-    const common = typeof getCommonPayload === 'function' ? getCommonPayload() : {};
-
-    const payload = {
-      vin: common.vin || window.currentVIN || null,
-      customerStates: raw ? [raw] : [],
-      mechanicNotices: window.currentMechanicNotices || [],
-      obdCodes: window.currentObdCodes || [],
-      laborRate: common.laborRate || window.currentLaborRate || 125,
-      partsCost: window.currentPartsCost || 0,
-      partType: window.currentPartType || '',
-      mileage: window.currentMileage || 0,
-      customer: window.currentCustomer || {},
-      history: window.currentHistory || [],
-      manualUrl: common.url || ''
-    };
-
-    console.log('[UI] Sending data stream package to SKSK Main Orchestrator...');
-
-    // FIXED: Formatted target path to match your sandbox endpoint structure accurately
-    const res = await fetch(`${API_BASE_URL}/api/full-estimate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) throw new Error(`HTTP Error Status: ${res.status}`);
-    const estimate = await res.json();
-
-    if (typeof renderEstimate === 'function') {
-      renderEstimate(estimate);
-    } else {
-      console.log('[UI Target Stream Outputs Completed]:', estimate);
-      const diagOutput = document.getElementById('diagnosis-output');
-      if (diagOutput && estimate.decision) {
-        diagOutput.innerText = `Action: ${estimate.decision.action}\nReasoning: ${estimate.decision.reasoning}`;
-        const readyBanner = document.getElementById('estimate-ready-banner');
-        if (readyBanner) readyBanner.style.display = 'block';
-      }
-    }
-  } catch (err) {
-    console.error('[UI Execution Error Handled]', err);
-    alert(`Failed to complete diagnosis evaluation session: ${err.message}`);
-  }
+  alert('Telemetry tracking channels successfully cleared. Terminal ready for next vehicle session.');
 }
