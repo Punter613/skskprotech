@@ -77,7 +77,15 @@ router.post('/analyze', validateVehicleProfile, async (req, res) => {
     const result = await orchestrator.process({ input, vehicleProfile, context });
     return res.json(result);
   } catch (error) {
-    console.error('[API] Intelligence error:', error);
+    // Log the FULL real reason server-side — previously this got swallowed into
+    // a generic "System error" message with no way to tell a safety-model refusal
+    // apart from a timeout, a bug, or bad input.
+    console.error('[API] Intelligence error — full detail:', {
+      message: error.message,
+      stack: error.stack,
+      vin: req.body?.vehicleProfile?.vin,
+      input: req.body?.input
+    });
     return res.status(500).json({
       status: 'ERROR',
       error: error.message,

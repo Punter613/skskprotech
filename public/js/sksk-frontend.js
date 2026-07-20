@@ -9,6 +9,7 @@ const BACKEND_URL =
 document.addEventListener('DOMContentLoaded', () => {
   const analyzeBtn = document.getElementById('btn-generate-estimate');
   const resetBtn = document.getElementById('btn-reset-session');
+  const translateBtn = document.getElementById('btn-translate');
 
   if (analyzeBtn) {
     analyzeBtn.addEventListener('click', async (e) => {
@@ -22,7 +23,61 @@ document.addEventListener('DOMContentLoaded', () => {
       purgeSessionTelemetry();
     });
   }
+
+  if (translateBtn) {
+    translateBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const rawSymptom = document.getElementById('customerStates')?.value.trim();
+      if (!rawSymptom) {
+        alert('Type in the customer\'s symptom description first.');
+        return;
+      }
+      translateBtn.disabled = true;
+      translateBtn.innerText = '⏳ Translating...';
+      const result = await translateSymptom(rawSymptom);
+      renderTranslation(result);
+      translateBtn.disabled = false;
+      translateBtn.innerText = '🔤 Translate Customer Words';
+    });
+  }
 });
+
+/**
+ * 🔤 Calls the backend translator: turns plain customer language into
+ * mechanic-language description + diagnostic keywords. Falls back to
+ * the raw text if the call fails, never blocks the rest of the flow.
+ */
+async function translateSymptom(rawSymptom) {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/translate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: rawSymptom })
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    return {
+      translated: data.translated || rawSymptom,
+      keywords: data.keywords || []
+    };
+  } catch (err) {
+    console.warn('[SKSK Frontend] Translate call failed, using raw text as-is:', err.message);
+    return { translated: rawSymptom, keywords: [] };
+  }
+}
+
+function renderTranslation({ translated, keywords }) {
+  const panel = document.getElementById('translate-output');
+  const textEl = document.getElementById('translated-text');
+  const keywordsEl = document.getElementById('translated-keywords');
+  if (!panel || !textEl || !keywordsEl) return;
+
+  textEl.innerText = translated;
+  keywordsEl.innerHTML = keywords.length
+    ? keywords.map(k => `<span class="keyword-chip">${k}</span>`).join('')
+    : '<span style="color: var(--text-muted); font-size: 0.8rem;">No keywords extracted</span>';
+  panel.style.display = 'block';
+}
 
 /**
  * ⚡ Gathers form parameters and executes the main orchestration pipeline pass
@@ -46,6 +101,17 @@ async function executeIntelligentAnalysis() {
 
   if (diagOutput) {
     diagOutput.innerText =
+      '⏳ Cleaning up symptom language before core pipeline pass...';
+  }
+
+  // 🧠 Auto-translate raw customer phrasing into clean mechanic language first.
+  // This also sidesteps false-positive safety-model refusals that repeated
+  // onomatopoeia ("clunk clunk clunk") can trigger in the raw diagnostic AI.
+  const { translated: cleanSymptom, keywords } = await translateSymptom(rawSymptom);
+  renderTranslation({ translated: cleanSymptom, keywords });
+
+  if (diagOutput) {
+    diagOutput.innerText =
       '⏳ Initializing core pipeline layers (Deterministic → AI Router → Trust)...';
   }
   if (stepsList) {
@@ -54,7 +120,7 @@ async function executeIntelligentAnalysis() {
 
   // 🧠 Enforce the nested data object structure expected by your validateVehicleProfile middleware
   const payload = {
-    input: rawSymptom,
+    input: cleanSymptom,
     vehicleProfile: {
       vin: vinVal,
       make: makeVal,
@@ -67,7 +133,9 @@ async function executeIntelligentAnalysis() {
     },
     context: {
       source: 'cloudflare_pages_terminal',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      rawCustomerWords: rawSymptom,
+      diagnosticKeywords: keywords
     }
   };
 

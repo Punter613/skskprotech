@@ -254,6 +254,42 @@
       font-size: 0.85rem;
       text-align: center;
     }
+
+    #translate-output {
+      display: none;
+      background: rgba(61, 220, 132, 0.06);
+      border: 1px solid var(--engine-green);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+
+    #translate-output .translated-line {
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    #translate-output .translated-line strong {
+      color: var(--engine-green);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      display: block;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .keyword-chip {
+      display: inline-block;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid var(--glow-cyan);
+      color: var(--glow-cyan);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      padding: 3px 9px;
+      border-radius: 12px;
+      margin: 2px 4px 2px 0;
+    }
   </style>
 </head>
 <body>
@@ -290,7 +326,7 @@
       </div>
     </div>
 
-    <div class="telemetry-input-group" style="margin-bottom: 20px;">
+    <div class="telemetry-input-group" style="margin-bottom: 12px;">
       <label>Active Field Notes / Symptoms Intake Data</label>
       <textarea
         id="customerStates"
@@ -299,8 +335,20 @@
       >grinding noise when braking</textarea>
     </div>
 
+    <div id="translate-output">
+      <div class="translated-line">
+        <strong>Mechanic-Language Translation</strong>
+        <span id="translated-text"></span>
+      </div>
+      <div>
+        <strong style="color: var(--glow-cyan); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; text-transform: uppercase; display: block; margin-bottom: 6px;">Diagnostic Keywords</strong>
+        <div id="translated-keywords"></div>
+      </div>
+    </div>
+
     <div class="button-action-row">
       <button class="btn-cyber" id="btn-generate-estimate">⚡ Run Intelligent Analysis</button>
+      <button class="btn-cyber" id="btn-translate" style="background: transparent; border: 1px solid var(--glow-cyan); color: var(--glow-cyan);">🔤 Translate Customer Words</button>
       <button class="btn-cyber micCaptureBtn" id="micBtn" data-vin="1FTFW1ET5DFC10312">
         🎙️ HOLD TO DICTATE NOTES
       </button>
