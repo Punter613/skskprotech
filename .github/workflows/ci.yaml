@@ -24,7 +24,7 @@ jobs:
       run: npm ci || npm install
 
     - name: Hardened OpenAPI Contract Lint
-      run: npx @stoplight/spectral-cli lint openapi.yaml --ruleset .spectral.yaml --format pretty
+      run: npx @stoplight/spectral-cli lint openapi.yaml --ruleset .spectral.yaml --format pretty 
     - name: Automatic Type Generation Line
       run: npm run gen
 
