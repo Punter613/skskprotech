@@ -59,7 +59,6 @@ class SKSKOrchestrator {
         aiOutput = await this._executeChain(routingResult.suggestedChain, input, context, vehicleProfile);
       }
       
-      // Clean parsing wrapper pass handling chained strings vs direct object sets
       const targetPayloadText = typeof aiOutput === 'object' && aiOutput !== null ? aiOutput.output : aiOutput;
       const targetSpecialistKey = (routingResult && routingResult.specialist) || 'general';
 
@@ -100,7 +99,6 @@ class SKSKOrchestrator {
       
       console.log('[ORCHESTRATOR] Step 6: Packaging dynamic runtime execution tracking frame...');
       
-      // Fixed lookup chains safely
       const targetSpecialistName = routingResult && routingResult.config && routingResult.config.name 
         ? routingResult.config.name 
         : targetSpecialistKey;
@@ -115,7 +113,6 @@ class SKSKOrchestrator {
           economic: economicResult
         },
         decision: {
-          // FIXED: Adjusted to reference optimalAction matching economicEngine layouts
           action: economicResult.recommendation?.optimalAction || 'MONITOR',
           urgency: economicResult.recommendation?.urgency || 'LOW',
           confidence: this._calculateOverallConfidence(deterministicResult, evidenceResult, economicResult),
@@ -253,7 +250,6 @@ class SKSKOrchestrator {
         confidence: data.confidence || data.overallConfidence || 75
       };
     } catch (e) {
-      // FIXED: Completed unclosed exception capture block correctly
       return {
         component: 'general',
         partsCost: 0,
@@ -264,7 +260,13 @@ class SKSKOrchestrator {
     }
   }
 
-  // FIXED: Implemented missing component inference helper
   _inferComponent(input) {
     if (!input || typeof input !== 'string') return 'general';
     const text = input.toLowerCase();
+    if (text.includes('brake') || text.includes('rotor') || text.includes('pad')) return 'brakes';
+    if (text.includes('belt') || text.includes('timing')) return 'timing_belt';
+    if (text.includes('tire') || text.includes('tread')) return 'tires';
+    if (text.includes('oil') || text.includes('lubrication')) return 'engine_oil';
+    return 'general';
+  }
+
