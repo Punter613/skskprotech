@@ -1,202 +1,204 @@
--<!DOCTYPE html>
--<html lang="en">
--<head>
--  <meta charset="UTF-8">
--  <meta name="viewport" content="width=device-width, initial-scale=1.0">
--  <title>SKSK ProTech Mobile Estimator</title>
--  <style>
--    :root {
--      --bg-dark: #0d0d12;
--      --card-bg: #16161f;
--      --border-color: #262636;
--      --brand-red: #c1121f;
--      --text-main: #f0f0f5;
--      --text-muted: #a0a0b0;
--      --success-green: #38b000;
--    }
--
--    * { box-sizing: border-box; margin: 0; padding: 0; }
--    body {
--      background-color: var(--bg-dark);
--      color: var(--text-main);
--      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
--      padding: 15px;
--    }
--
--    header {
--      margin-bottom: 20px;
--      border-bottom: 2px solid var(--brand-red);
--      padding-bottom: 10px;
--    }
--    header h1 { color: var(--brand-red); font-size: 24px; font-weight: 800; }
--    header p { color: var(--text-muted); font-size: 12px; }
--
--    .card {
--      background-color: var(--card-bg);
--      border: 1px solid var(--border-color);
--      border-radius: 6px;
--      padding: 15px;
--      margin-bottom: 15px;
--    }
--    .card-title {
--      font-size: 14px;
--      font-weight: 700;
--      text-transform: uppercase;
--      letter-spacing: 0.5px;
--      margin-bottom: 12px;
--      color: var(--text-main);
--      border-bottom: 1px solid var(--border-color);
--      padding-bottom: 6px;
--    }
--
--    .form-group { margin-bottom: 12px; }
--    label { display: block; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
--    input, textarea, select {
--      width: 100%;
--      background-color: var(--bg-dark);
--      border: 1px solid var(--border-color);
--      border-radius: 4px;
--      padding: 10px;
--      color: var(--text-main);
--      font-size: 14px;
--    }
--    input:focus, textarea:focus { border-color: var(--brand-red); outline: none; }
--
--    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
--
--    button {
--      width: 100%;
--      background-color: var(--brand-red);
--      color: #fff;
--      border: none;
--      border-radius: 4px;
--      padding: 12px;
--      font-size: 14px;
--      font-weight: 700;
--      text-transform: uppercase;
--      cursor: pointer;
--      margin-top: 5px;
--    }
--    button:active { opacity: 0.9; }
--
--    /* Results Telemetry Slots */
--    .result-badge {
--      display: inline-block;
--      background-color: rgba(193, 18, 31, 0.15);
--      border: 1px solid var(--brand-red);
--      color: var(--text-main);
--      padding: 4px 8px;
--      border-radius: 4px;
--      font-size: 12px;
--      font-weight: 700;
--      margin-bottom: 10px;
--    }
--    .step-list { margin-left: 18px; font-size: 13px; color: var(--text-main); }
--    .step-list li { margin-bottom: 8px; line-height: 1.4; }
--
--    .hidden { display: none; }
--  </style>
--</head>
--<body>
--
--  <header>
--    <h1>SKSK ProTech</h1>
--    <p>Mobile Mechanic Local Diagnostic & Estimation Interface</p>
--  </header>
--
--  <div class="card">
--    <div class="card-title">Vehicle & Job Intake</div>
--    <div class="grid-2">
--      <div class="form-group">
--        <label>Year</label>
--        <input type="number" id="year" value="2012">
--      </div>
--      <div class="form-group">
--        <label>Make</label>
--        <input type="text" id="make" value="Ram">
--      </div>
--    </div>
--    <div class="form-group">
--      <label>Trim / Engine Option</label>
--      <input type="text" id="trim" value="hemi">
--    </div>
--    <div class="form-group">
--      <label>OBD-II Fault Codes</label>
--      <input type="text" id="obdCodes" value="P0303" placeholder="e.g., P0300, P0171">
--    </div>
--    <button id="btnDiagnose">Run Local Diagnostics</button>
--  </div>
--
--  <div id="resultsPanel" class="card hidden">
--    <div class="card-title" id="lblVehicleMatch">Target Match Detected</div>
--    <div id="badgeSource" class="result-badge">SKSK Local Engine</div>
--
--    <div class="form-group">
--      <label>Primary Verified Cause</label>
--      <p id="txtPrimaryCause" style="font-size: 15px; font-weight: 700; color: #ffb703; margin-bottom: 10px;"></p>
--    </div>
--
--    <div class="form-group">
--      <label>Technical Notes</label>
--      <p id="txtNotes" style="font-size: 13px; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;"></p>
--    </div>
--
--    <div id="fieldManualSection" class="hidden">
--      <label style="margin-bottom: 6px; color: var(--success-green);">🔧 Local Field Manual Clearance Steps</label>
--      <ol id="lstSteps" class="step-list"></ol>
--    </div>
--  </div>
--
--  <script>
--    document.getElementById('btnDiagnose').addEventListener('click', async () => {
--      const year = parseInt(document.getElementById('year').value);
--      const make = document.getElementById('make').value;
--      const trim = document.getElementById('trim').value;
--      const obdRaw = document.getElementById('obdCodes').value;
--
--      const obdCodes = obdRaw.split(',').map(c => c.trim()).filter(Boolean);
--
--      const payload = {
--        vehicle: { year, make, trim },
--        obdCodes
--      };
--
--      try {
--        const response = await fetch('/api/diagnose', {
--          method: 'POST',
--          headers: { 'Content-Type': 'application/json' },
--          body: JSON.stringify(payload)
--        });
--
--        const data = await response.json();
--
--        if (data.success && data.result) {
--          const resObj = data.result;
--          document.getElementById('resultsPanel').classList.remove('hidden');
--          document.getElementById('lblVehicleMatch').innerText = resObj.localVehicleTelemetry ? `Matched Profile: ${resObj.localVehicleTelemetry.vehicleId}` : 'Diagnostic Result';
--          document.getElementById('txtPrimaryCause').innerText = resObj.primaryCause;
--          document.getElementById('txtNotes').innerText = resObj.notes;
--
--          const stepsList = document.getElementById('lstSteps');
--          stepsList.innerHTML = '';
--
--          if (resObj.repairSteps && resObj.repairSteps.length > 0) {
--            document.getElementById('fieldManualSection').classList.remove('hidden');
--            resObj.repairSteps.forEach(step => {
--              const li = document.createElement('li');
--              li.innerText = step;
--              stepsList.appendChild(li);
--            });
--          } else {
--            document.getElementById('fieldManualSection').classList.add('hidden');
--          }
--        } else {
--          alert('Local intercept missed or key unconfigured: ' + (data.details || 'Unknown Error'));
--        }
--      } catch (err) {
--        alert('Failed to connect to local SKSK server line: ' + err.message);
--      }
--    });
--  </script>
--</body>
--</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SKSK ProTech Mobile Estimator</title>
+  <style>
+    :root {
+      --bg-dark: #0d0d12;
+      --card-bg: #16161f;
+      --border-color: #262636;
+      --brand-red: #c1121f;
+      --text-main: #f0f0f5;
+      --text-muted: #a0a0b0;
+      --success-green: #38b000;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      background-color: var(--bg-dark); 
+      color: var(--text-main); 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 15px;
+    }
+
+    header {
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--brand-red);
+      padding-bottom: 10px;
+    }
+    header h1 { color: var(--brand-red); font-size: 24px; font-weight: 800; }
+    header p { color: var(--text-muted); font-size: 12px; }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 6px;
+    }
+
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+    input, textarea, select {
+      width: 100%;
+      background-color: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 10px;
+      color: var(--text-main);
+      font-size: 14px;
+    }
+    input:focus, textarea:focus { border-color: var(--brand-red); outline: none; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    button {
+      width: 100%;
+      background-color: var(--brand-red);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+    button:active { opacity: 0.9; }
+
+    /* Results Telemetry Slots */
+    .result-badge {
+      display: inline-block;
+      background-color: rgba(193, 18, 31, 0.15);
+      border: 1px solid var(--brand-red);
+      color: var(--text-main);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .step-list { margin-left: 18px; font-size: 13px; color: var(--text-main); }
+    .step-list li { margin-bottom: 8px; line-height: 1.4; }
+    
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>SKSK ProTech</h1>
+    <p>Mobile Mechanic Local Diagnostic & Estimation Interface</p>
+  </header>
+
+  <div class="card">
+    <div class="card-title">Vehicle & Job Intake</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Year</label>
+        <input type="number" id="year" value="2012">
+      </div>
+      <div class="form-group">
+        <label>Make</label>
+        <input type="text" id="make" value="Ram">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Trim / Engine Option</label>
+      <input type="text" id="trim" value="hemi">
+    </div>
+    <div class="form-group">
+      <label>OBD-II Fault Codes</label>
+      <input type="text" id="obdCodes" value="P0303" placeholder="e.g., P0300, P0171">
+    </div>
+    <button id="btn-generate-estimate" class="btn-primary">Generate Estimate</button>
+  <button id="btn-reset-session" class="btn-secondary">New Vehicle / Clear Session</button>
+  </div>
+
+  <div id="resultsPanel" class="card hidden">
+    <div class="card-title" id="lblVehicleMatch">Target Match Detected</div>
+    <div id="badgeSource" class="result-badge">SKSK Local Engine</div>
+    
+    <div class="form-group">
+      <label>Primary Verified Cause</label>
+      <p id="txtPrimaryCause" style="font-size: 15px; font-weight: 700; color: #ffb703; margin-bottom: 10px;"></p>
+    </div>
+
+    <div class="form-group">
+      <label>Technical Notes</label>
+      <p id="txtNotes" style="font-size: 13px; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;"></p>
+    </div>
+
+    <div id="fieldManualSection" class="hidden">
+      <label style="margin-bottom: 6px; color: var(--success-green);">🔧 Local Field Manual Clearance Steps</label>
+      <ol id="lstSteps" class="step-list"></ol>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('btnDiagnose').addEventListener('click', async () => {
+      const year = parseInt(document.getElementById('year').value);
+      const make = document.getElementById('make').value;
+      const trim = document.getElementById('trim').value;
+      const obdRaw = document.getElementById('obdCodes').value;
+
+      const obdCodes = obdRaw.split(',').map(c => c.trim()).filter(Boolean);
+
+      const payload = {
+        vehicle: { year, make, trim },
+        obdCodes
+      };
+
+      try {
+        const response = await fetch('/api/diagnose', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        
+        if (data.success && data.result) {
+          const resObj = data.result;
+          document.getElementById('resultsPanel').classList.remove('hidden');
+          document.getElementById('lblVehicleMatch').innerText = resObj.localVehicleTelemetry ? `Matched Profile: ${resObj.localVehicleTelemetry.vehicleId}` : 'Diagnostic Result';
+          document.getElementById('txtPrimaryCause').innerText = resObj.primaryCause;
+          document.getElementById('txtNotes').innerText = resObj.notes;
+
+          const stepsList = document.getElementById('lstSteps');
+          stepsList.innerHTML = '';
+          
+          if (resObj.repairSteps && resObj.repairSteps.length > 0) {
+            document.getElementById('fieldManualSection').classList.remove('hidden');
+            resObj.repairSteps.forEach(step => {
+              const li = document.createElement('li');
+              li.innerText = step;
+              stepsList.appendChild(li);
+            });
+          } else {
+            document.getElementById('fieldManualSection').classList.add('hidden');
+          }
+        } else {
+          alert('Local intercept missed or key unconfigured: ' + (data.details || 'Unknown Error'));
+        }
+      } catch (err) {
+        alert('Failed to connect to local SKSK server line: ' + err.message);
+      }
+    });
+  </script>
+</body>
+<script src="js/sksk-frontend.js"></script>
+</html>
