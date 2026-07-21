@@ -1266,7 +1266,10 @@
         });
 
         // ── RENDER ESTIMATE RESULT ──
+        let lastEstimate = null;
+
         function renderEstimate(est) {
+            lastEstimate = est;
             const card = document.getElementById('estimateResult');
             const priority = (est.priority || 'medium').toLowerCase();
             const badgeClass = `badge-${priority}`;
@@ -1481,8 +1484,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify(payload)
                 });
@@ -1521,8 +1523,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify(payload)
                 });
@@ -1542,44 +1543,92 @@
         });
 
         // ── INVOICE ──
+        // Note: there is no PDF generation on the backend (no pdf library installed),
+        // so this builds the invoice JSON server-side, then renders a clean printable
+        // page client-side and hands off to the browser's native print-to-PDF.
+        function renderInvoiceHtml(inv) {
+            const rows = inv.lineItems.map(li => `
+                <tr>
+                    <td>${li.type}</td>
+                    <td>${li.description}</td>
+                    <td style="text-align:right">$${li.amount.toFixed(2)}</td>
+                </tr>`).join('');
+            return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${inv.invoiceNumber}</title>
+            <style>
+                body{font-family:system-ui,sans-serif;max-width:700px;margin:2rem auto;color:#222}
+                h1{font-size:1.4rem;margin-bottom:0}
+                .muted{color:#666;font-size:.9rem}
+                table{width:100%;border-collapse:collapse;margin-top:1.5rem}
+                th,td{padding:.5rem;border-bottom:1px solid #ddd;text-align:left}
+                .totals{margin-top:1rem;text-align:right}
+                .totals div{margin:.2rem 0}
+                .grand{font-size:1.2rem;font-weight:bold;border-top:2px solid #222;padding-top:.5rem}
+                .footer{margin-top:2rem;font-size:.8rem;color:#888}
+                @media print{ button{display:none} }
+            </style></head><body>
+            <h1>SKSK ProTech — Estimate ${inv.invoiceNumber}</h1>
+            <p class="muted">${inv.createdAt.slice(0,10)} &middot; Priority: ${inv.diagnosis.priority}</p>
+            <p><strong>${inv.customer.name}</strong> ${inv.customer.phone ? '· '+inv.customer.phone : ''} ${inv.customer.email ? '· '+inv.customer.email : ''}</p>
+            <p>${[inv.vehicle.year, inv.vehicle.make, inv.vehicle.model, inv.vehicle.trim].filter(Boolean).join(' ')} ${inv.vehicle.vin ? '· VIN '+inv.vehicle.vin : ''}</p>
+            <p><strong>Diagnosis:</strong> ${inv.diagnosis.primary || 'N/A'}</p>
+            <table><thead><tr><th>Type</th><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+            <tbody>${rows}</tbody></table>
+            <div class="totals">
+                <div>Labor: $${inv.totals.laborTotal.toFixed(2)}</div>
+                <div>Parts: $${inv.totals.partsTotal.toFixed(2)}</div>
+                <div>Tax: $${inv.totals.taxAmount.toFixed(2)}</div>
+                <div class="grand">Total: $${inv.totals.total.toFixed(2)}</div>
+            </div>
+            ${inv.notes.extra ? `<p><strong>Notes:</strong> ${inv.notes.extra}</p>` : ''}
+            <p class="footer">${inv.footer}</p>
+            <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+            </body></html>`;
+        }
+
         document.getElementById('btnInvoice').addEventListener('click', async () => {
             const btn = document.getElementById('btnInvoice');
             const status = document.getElementById('invoiceStatus');
             setLoading(btn, true);
             status.className = 'status-simple';
-            status.textContent = 'Generating PDF...';
+            status.textContent = 'Building invoice...';
             try {
+                if (!lastEstimate) {
+                    throw new Error('Run an Estimate first — invoice pulls its numbers from there.');
+                }
                 const payload = {
-                    total: Number(document.getElementById('invoiceTotal').value || 0),
-                    invoiceNumber: document.getElementById('invoiceNumber').value.trim(),
-                    customer: {
-                        name: document.getElementById('invoiceCustomer').value.trim()
+                    estimate: lastEstimate,
+                    customerInfo: {
+                        name: document.getElementById('customerName').value.trim(),
+                        phone: document.getElementById('customerPhone').value.trim(),
+                        email: document.getElementById('customerEmail').value.trim()
                     },
+                    vehicleInfo: {
+                        year: document.getElementById('vehicleYear').value.trim(),
+                        make: document.getElementById('vehicleMake').value.trim(),
+                        model: document.getElementById('vehicleModel').value.trim(),
+                        trim: document.getElementById('vehicleTrim').value.trim(),
+                        vin: document.getElementById('vin').value.trim()
+                    },
+                    laborRate: Number(document.getElementById('laborRate').value || 65),
                     notes: document.getElementById('invoiceNotes').value.trim()
                 };
-                const res = await fetchWithTimeout(`${API_BASE}/api/invoice`, {
+                const res = await fetchWithTimeout(`${API_BASE}/api/invoice/build`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Accept': 'application/pdf',
-                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
+                        'Accept': 'application/json'
                     },
                     body: JSON.stringify(payload)
                 });
-                if (!res.ok) {
-                    const d = await readBody(res);
-                    throw new Error(d.error || `Invoice failed (${res.status})`);
-                }
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `invoice-${Date.now()}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
+                const inv = await readBody(res);
+                if (!res.ok) throw new Error(inv.error || `Invoice failed (${res.status})`);
+
+                const w = window.open('', '_blank');
+                w.document.write(renderInvoiceHtml(inv));
+                w.document.close();
+
                 status.className = 'status-simple success';
-                status.textContent = '✅ Invoice downloaded!';
+                status.textContent = `✅ Invoice ${inv.invoiceNumber} ready in new tab.`;
             } catch (err) {
                 status.className = 'status-simple error';
                 status.textContent = err.message || 'Invoice failed';
@@ -1621,100 +1670,6 @@
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js').catch(() => {});
         }
-
-
-        // --- Advanced Sharing & PDF Operations ---
-        async function triggerPdfDownload(estimateData) {
-            try {
-                setStatus('Generating PDF...', 'success');
-                const response = await fetch('/api/invoice', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer DEVELOPMENT_TOKEN'
-                    },
-                    body: JSON.stringify(estimateData)
-                });
-
-                if (!response.ok) throw new Error('Backend failed to stream PDF');
-
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Estimate_${estimateData.vehicle?.make || 'Vehicle'}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                setStatus('PDF Downloaded.', 'success');
-            } catch (err) {
-                console.error(err);
-                setStatus('PDF download failed.', 'error');
-            }
-        }
-
-        function shareViaSMS(customerPhone, estimateSummary) {
-            if (!customerPhone) {
-                setStatus('Missing customer phone number.', 'error');
-                return;
-            }
-            const messageText = encodeURIComponent(`SKSK ProTech Estimate Summary:\n\n${estimateSummary}`);
-            window.location.href = `sms:${customerPhone}?body=${messageText}`;
-        }
-
-        function shareViaEmail(customerEmail, vehicleInfo, estimateSummary) {
-            if (!customerEmail) {
-                setStatus('Missing customer email address.', 'error');
-                return;
-            }
-            const subject = encodeURIComponent(`Repair Estimate: ${vehicleInfo}`);
-            const body = encodeURIComponent(`Hi, here is your requested vehicle estimate:\n\n${estimateSummary}`);
-            window.location.href = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
-        }
-
-
-        // --- Hooking Up Advanced UI Share Actions ---
-        function gatherCurrentEstimatePayload() {
-            return {
-                customer: {
-                    name: document.getElementById('customerName')?.value || 'Valued Customer',
-                    phone: document.getElementById('customerPhone')?.value || '',
-                    email: document.getElementById('customerEmail')?.value || ''
-                },
-                vehicle: {
-                    year: parseInt(document.getElementById('vehicleYear')?.value, 10) || 2008,
-                    make: document.getElementById('vehicleMake')?.value || '',
-                    model: document.getElementById('vehicleModel')?.value || '',
-                    trim: document.getElementById('vehicleTrim')?.value || 'Standard'
-                },
-                estimateText: document.getElementById('outputDisplay')?.innerText || 'No active diagnostics generated yet.',
-                totalAmount: document.getElementById('estimatedTotal')?.innerText || '0.00',
-                obdCodes: document.getElementById('obdCodes')?.value ? document.getElementById('obdCodes').value.split(',').map(c => c.trim()) : [],
-                customerStates: document.getElementById('customerComplaints')?.value ? [document.getElementById('customerComplaints').value] : [],
-                mechanicNotices: document.getElementById('mechanicNotes')?.value ? [document.getElementById('mechanicNotes').value] : [],
-                mileage: parseInt(document.getElementById('vehicleMileage')?.value, 10) || 0
-            };
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('btnPrintPdf')?.addEventListener('click', () => {
-                const payload = gatherCurrentEstimatePayload();
-                triggerPdfDownload(payload);
-            });
-
-            document.getElementById('btnSendSms')?.addEventListener('click', () => {
-                const payload = gatherCurrentEstimatePayload();
-                const summary = `Total Due: ${payload.totalAmount}\n\n${payload.estimateText}`;
-                shareViaSMS(payload.customer.phone, summary);
-            });
-
-            document.getElementById('btnSendEmail')?.addEventListener('click', () => {
-                const payload = gatherCurrentEstimatePayload();
-                const vInfo = `${payload.vehicle.year} ${payload.vehicle.make} ${payload.vehicle.model}`;
-                const summary = `Total Due: ${payload.totalAmount}\n\n${payload.estimateText}`;
-                shareViaEmail(payload.customer.email, vInfo, summary);
-            });
-        });
 
         restoreForm();
     </script>
