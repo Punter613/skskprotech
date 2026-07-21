@@ -4,57 +4,51 @@
 const express = require('express');
 const router = express.Router();
 
-function buildInvoice({ estimateData, partsData, customerInfo, vehicleInfo, laborRate }) {
+function buildInvoice({ estimate, customerInfo, vehicleInfo, laborRate, notes }) {
   const now = new Date();
   const invoiceNumber = `SKSK-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${Math.floor(Math.random() * 9000) + 1000}`;
 
-  // ─── Pull repair line items ───────────────────────────────────────────────
-  const laborLines = (estimateData?.repairs || []).map((repair, i) => ({
-    lineNumber: i + 1,
-    type: 'LABOR',
-    description: repair.title,
-    detail: repair.description,
-    hours: repair.laborHours || 0,
-    rate: laborRate || 65,
-    amount: repair.laborCost || ((repair.laborHours || 0) * (laborRate || 65))
-  }));
+  const est = estimate || {};
 
-  // ─── Pull parts line items ────────────────────────────────────────────────
-  // Prefer live eBay tier prices if available, fall back to estimate
-  const partsLines = (estimateData?.parts || []).map((part, i) => {
-    // Find matching tier data from partsData if available
-    const livePart = partsData?.find(p =>
-      p.partType?.toLowerCase().includes(part.name?.toLowerCase()) ||
-      part.name?.toLowerCase().includes(p.partType?.toLowerCase())
-    );
+  // ─── Real shape from /api/estimateHeuristic: repairs is string[], one lump partsCost ───
+  const repairStrings = Array.isArray(est.repairs) ? est.repairs : [];
+  const hours = Number(est.estimatedHours) || 1;
+  const rate = Number(laborRate) || 65;
+  const laborTotal = Number(est.laborCost) || (hours * rate);
+  const partsTotal = Number(est.partsCost) || 0;
 
-    const unitPrice = livePart?.tiers?.[1]?.price  // OEM tier price
-      || part.estimatedCost?.oem
-      || part.estimatedCost?.economy
-      || 0;
+  const laborLines = repairStrings.length
+    ? repairStrings.map((desc, i) => ({
+        lineNumber: i + 1,
+        type: 'LABOR',
+        description: desc,
+        hours: parseFloat((hours / repairStrings.length).toFixed(2)),
+        rate,
+        amount: parseFloat((laborTotal / repairStrings.length).toFixed(2))
+      }))
+    : [{
+        lineNumber: 1,
+        type: 'LABOR',
+        description: est.diagnosis || 'Diagnostic labor',
+        hours,
+        rate,
+        amount: parseFloat(laborTotal.toFixed(2))
+      }];
 
-    return {
-      lineNumber: laborLines.length + i + 1,
-      type: 'PARTS',
-      description: part.name,
-      oemPartNumber: part.oemPartNumber || null,
-      quantity: part.quantity || 1,
-      unitPrice: parseFloat(unitPrice.toFixed(2)),
-      amount: parseFloat((unitPrice * (part.quantity || 1)).toFixed(2)),
-      source: livePart?.tiers?.[1]?.live ? 'eBay Motors — Live' : 'Estimated',
-      link: livePart?.tiers?.[1]?.link || null
-    };
-  });
+  const partsLines = partsTotal > 0 ? [{
+    lineNumber: laborLines.length + 1,
+    type: 'PARTS',
+    description: 'Parts (see estimate for details)',
+    quantity: 1,
+    unitPrice: parseFloat(partsTotal.toFixed(2)),
+    amount: parseFloat(partsTotal.toFixed(2))
+  }] : [];
 
-  // ─── Calculate totals ─────────────────────────────────────────────────────
-  const laborTotal = laborLines.reduce((sum, l) => sum + l.amount, 0);
-  const partsTotal = partsLines.reduce((sum, p) => sum + p.amount, 0);
   const subtotal = laborTotal + partsTotal;
   const taxRate = 0.075; // 7.5% — adjust per state
   const taxAmount = parseFloat((partsTotal * taxRate).toFixed(2)); // Tax on parts only
   const total = parseFloat((subtotal + taxAmount).toFixed(2));
 
-  // ─── Build final invoice ──────────────────────────────────────────────────
   return {
     invoiceNumber,
     status: 'ESTIMATE',
@@ -76,9 +70,8 @@ function buildInvoice({ estimateData, partsData, customerInfo, vehicleInfo, labo
     },
 
     diagnosis: {
-      primary: estimateData?.diagnosis?.primary || '',
-      priority: estimateData?.diagnosis?.priority || 'MEDIUM',
-      probability: estimateData?.diagnosis?.probability || 0
+      primary: est.diagnosis || '',
+      priority: (est.priority || 'medium').toUpperCase()
     },
 
     lineItems: [...laborLines, ...partsLines],
@@ -90,16 +83,16 @@ function buildInvoice({ estimateData, partsData, customerInfo, vehicleInfo, labo
       taxRate,
       taxAmount,
       total,
-      laborHours: estimateData?.totals?.laborHours || 0
+      laborHours: hours
     },
 
     notes: {
-      knownIssues: estimateData?.knownIssues || [],
-      whileYoureInThere: estimateData?.whileYoureInThere || [],
-      proTips: estimateData?.proTips || []
+      knownIssues: est.knownIssues || [],
+      proTips: est.proTips || [],
+      extra: notes || ''
     },
 
-    repairProcedure: estimateData?.repairProcedure || [],
+    repairProcedure: est.repairSteps || [],
 
     footer: 'This is an estimate. Final charges may vary based on parts availability and additional findings during repair. Authorization required before work begins.'
   };

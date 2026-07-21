@@ -8,12 +8,13 @@
     :root {
       --bg: #030303;
       --card: #0a0a0a;
-      --accent: #0052cc; /* Corporate Blue Theme override */
+      --accent: #0052cc;
       --text: #f5f5f5;
       --muted: #666;
       --border: #1f1f1f;
       --success: #3ddc84;
       --warning: #ffb020;
+      --danger: #ff4b5c;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); padding: 24px; }
@@ -21,8 +22,7 @@
     aside { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; height: fit-content; }
     h1 { font-size: 18px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 20px; color: var(--accent); }
     nav ul { list-style: none; }
-    nav li { padding: 10px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; font-size: 13px; color: #aaa; }
-    nav li.active { background: #111; color: #fff; border-left: 3px solid var(--accent); }
+    nav li { padding: 10px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; color: #aaa; }
     main { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; }
     .hud { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
     .stat-box { background: #000; border: 1px solid var(--border); padding: 16px; border-radius: 6px; }
@@ -36,6 +36,16 @@
     .badge--warn { background: rgba(255, 176, 32, 0.1); color: var(--warning); }
     .btn-action { background: var(--accent); color: #fff; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
     .btn-action:hover { filter: brightness(1.1); }
+    .btn-action:disabled { opacity: .5; cursor: not-allowed; }
+    input { background:#000; border:1px solid var(--border); color:var(--text); padding:8px; border-radius:4px; font-size:13px; }
+    .add-form { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+    .add-form input { flex:1; min-width:100px; }
+    .tenant-bar { display:flex; gap:8px; align-items:center; margin-bottom:20px; }
+    .tenant-bar input { flex:1; }
+    .status-msg { font-size:12px; margin-top:8px; color:var(--muted); }
+    .status-msg.error { color: var(--danger); }
+    .status-msg.success { color: var(--success); }
+    .empty-state { padding:30px; text-align:center; color:var(--muted); }
   </style>
 </head>
 <body>
@@ -44,53 +54,189 @@
       <h1>🚚 SKSKFLEET</h1>
       <nav>
         <ul>
-          <li class="active">📋 Active Roster</li>
-          <li>📅 Preventive Planner</li>
-          <li>⚡ Bulk Optimization</li>
-          <li>⚙️ White-Label System</li>
+          <li>📋 Active Roster</li>
         </ul>
       </nav>
+      <p class="status-msg">Fleet management is account-scoped. Enter any account name below — units are stored per account.</p>
     </aside>
 
     <main>
-      <div class="hud">
-        <div class="stat-box"><span>Total Fleet Units</span><h3>42 Vans</h3></div>
-        <div class="stat-box"><span>Pending AI Alerts</span><h3 style="color:var(--warning)">3 Units</h3></div>
-        <div class="stat-box"><span>Procurement Savings</span><h3 style="color:var(--success)">$1,420.00</h3></div>
+      <div class="tenant-bar">
+        <input id="tenantId" type="text" placeholder="Account / Shop ID (e.g. shaffer-mobile)">
+        <button class="btn-action" id="btnLoadRoster">Load Roster</button>
       </div>
 
-      <h2>Operational Fleet Inventory</h2>
+      <div class="hud" id="hud">
+        <div class="stat-box"><span>Total Fleet Units</span><h3 id="statTotal">—</h3></div>
+        <div class="stat-box"><span>Needs Service</span><h3 id="statAlerts" style="color:var(--warning)">—</h3></div>
+        <div class="stat-box"><span>Healthy</span><h3 id="statHealthy" style="color:var(--success)">—</h3></div>
+      </div>
+
+      <h2>Add Vehicle to Roster</h2>
+      <div class="add-form">
+        <input id="addVin" placeholder="17-char VIN" maxlength="17">
+        <input id="addYear" placeholder="Year" style="max-width:80px">
+        <input id="addMake" placeholder="Make">
+        <input id="addModel" placeholder="Model">
+        <input id="addMileage" placeholder="Mileage" style="max-width:110px">
+        <button class="btn-action" id="btnAddVehicle">+ Add Unit</button>
+      </div>
+      <div class="status-msg" id="addStatus"></div>
+
+      <h2 style="margin-top:24px">Operational Fleet Inventory</h2>
       <table>
         <thead>
           <tr>
-            <th>Unit ID</th>
+            <th>VIN</th>
             <th>Specifications</th>
-            <th>Current Mileage</th>
+            <th>Mileage</th>
             <th>Condition State</th>
             <th>AI Failure Forecast</th>
             <th>Actions</th>
           </tr>
         </thead>
-        <tbody>
-          <tr>
-            <td><strong>TRUCK-08</strong></td>
-            <td>2015 Chevrolet Express 3500 4.8L</td>
-            <td>184,210 mi</td>
-            <td><span class="badge badge--warn">Needs Service</span></td>
-            <td style="color:#ff4b5c">⚠️ Water Pump Defect (900 mi window)</td>
-            <td><button class="btn-action">Run Procurement Audit</button></td>
-          </tr>
-          <tr>
-            <td><strong>VAN-12</strong></td>
-            <td>2018 Ford Transit-250 3.5L EcoBoost</td>
-            <td>64,150 mi</td>
-            <td><span class="badge badge--ok">Healthy</span></td>
-            <td class="muted">No upcoming anomalies logged.</td>
-            <td><button class="btn-action">Run Procurement Audit</button></td>
-          </tr>
+        <tbody id="rosterBody">
+          <tr><td colspan="6" class="empty-state">Enter an account ID and click Load Roster.</td></tr>
         </tbody>
       </table>
+      <div style="margin-top:16px">
+        <button class="btn-action" id="btnBulkEstimate" disabled>⚡ Run Bulk AI Estimate on Full Roster</button>
+      </div>
+      <div class="status-msg" id="bulkStatus"></div>
     </main>
   </div>
+
+  <script>
+    const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://p613-backend.onrender.com';
+
+    const tenantInput = document.getElementById('tenantId');
+    tenantInput.value = localStorage.getItem('sksk_fleet_tenant') || '';
+
+    let currentRoster = [];
+
+    function badgeFor(status) {
+      const cls = (status || '').toLowerCase().includes('healthy') ? 'badge--ok' : 'badge--warn';
+      return `<span class="badge ${cls}">${status || 'Unknown'}</span>`;
+    }
+
+    function renderRoster(roster) {
+      currentRoster = roster;
+      const body = document.getElementById('rosterBody');
+      const bulkBtn = document.getElementById('btnBulkEstimate');
+
+      if (!roster.length) {
+        body.innerHTML = `<tr><td colspan="6" class="empty-state">No units yet — add a vehicle above.</td></tr>`;
+        bulkBtn.disabled = true;
+      } else {
+        body.innerHTML = roster.map(v => `
+          <tr>
+            <td><strong>${v.vin}</strong></td>
+            <td>${v.year_make_model || '—'}</td>
+            <td>${(v.mileage || 0).toLocaleString()} mi</td>
+            <td>${badgeFor(v.status)}</td>
+            <td>${v.next_predicted_failure?.primary_risk_component ? `⚠️ ${v.next_predicted_failure.primary_risk_component} (${v.next_predicted_failure.predicted_failure_window || 'window unknown'})` : 'No forecast yet'}</td>
+            <td>—</td>
+          </tr>`).join('');
+        bulkBtn.disabled = false;
+      }
+
+      document.getElementById('statTotal').textContent = roster.length;
+      document.getElementById('statAlerts').textContent = roster.filter(v => (v.status || '').toLowerCase().includes('needs')).length;
+      document.getElementById('statHealthy').textContent = roster.filter(v => (v.status || '').toLowerCase().includes('healthy')).length;
+    }
+
+    async function loadRoster() {
+      const tenantId = tenantInput.value.trim();
+      if (!tenantId) { alert('Enter an account/shop ID first.'); return; }
+      localStorage.setItem('sksk_fleet_tenant', tenantId);
+
+      const body = document.getElementById('rosterBody');
+      body.innerHTML = `<tr><td colspan="6" class="empty-state">Loading...</td></tr>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/fleet/roster`, {
+          headers: { 'x-tenant-id': tenantId }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+        renderRoster(data.roster || []);
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="6" class="empty-state">❌ ${err.message}</td></tr>`;
+      }
+    }
+
+    document.getElementById('btnLoadRoster').addEventListener('click', loadRoster);
+
+    document.getElementById('btnAddVehicle').addEventListener('click', async () => {
+      const tenantId = tenantInput.value.trim();
+      const status = document.getElementById('addStatus');
+      if (!tenantId) { alert('Enter an account/shop ID first.'); return; }
+
+      const vin = document.getElementById('addVin').value.trim();
+      const year = document.getElementById('addYear').value.trim();
+      const make = document.getElementById('addMake').value.trim();
+      const model = document.getElementById('addModel').value.trim();
+      const mileage = document.getElementById('addMileage').value.trim();
+
+      if (vin.length !== 17) {
+        status.className = 'status-msg error';
+        status.textContent = 'VIN must be exactly 17 characters.';
+        return;
+      }
+
+      status.className = 'status-msg';
+      status.textContent = 'Adding...';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/fleet/add`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+          body: JSON.stringify({ vin, year, make, model, mileage })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+        status.className = 'status-msg success';
+        status.textContent = `✅ Added ${vin}`;
+        ['addVin','addYear','addMake','addModel','addMileage'].forEach(id => document.getElementById(id).value = '');
+        loadRoster();
+      } catch (err) {
+        status.className = 'status-msg error';
+        status.textContent = `❌ ${err.message}`;
+      }
+    });
+
+    document.getElementById('btnBulkEstimate').addEventListener('click', async () => {
+      const tenantId = tenantInput.value.trim();
+      const status = document.getElementById('bulkStatus');
+      const btn = document.getElementById('btnBulkEstimate');
+      const vins = currentRoster.map(v => v.vin);
+
+      if (!vins.length) return;
+
+      btn.disabled = true;
+      status.className = 'status-msg';
+      status.textContent = `Running AI estimate on ${vins.length} unit(s)...`;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/fleet/bulk-estimate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+          body: JSON.stringify({ vins, labor_rate: 85 })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
+        status.className = 'status-msg success';
+        status.textContent = `✅ ${data.summary}`;
+        loadRoster();
+      } catch (err) {
+        status.className = 'status-msg error';
+        status.textContent = `❌ ${err.message}`;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    if (tenantInput.value) loadRoster();
+  </script>
 </body>
 </html>
