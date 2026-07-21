@@ -1,874 +1,202 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<meta name="theme-color" content="#0a0a0d" />
-<title>SKSK ProTech</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
-  :root{
-    --bg:#0a0a0d;
-    --surface:#131318;
-    --surface-2:#191a21;
-    --line:rgba(255,255,255,.07);
-    --line-active:rgba(214,59,47,.45);
-    --ink:#eceef2;
-    --ink-dim:#8b8d9c;
-    --ink-faint:#5c5e6c;
-
-    --signal:#d63b2f;
-    --signal-2:#ff5a48;
-    --signal-dim:rgba(214,59,47,.14);
-
-    --mech:#ffb648;
-    --mech-dim:rgba(255,182,72,.10);
-    --mech-line:rgba(255,182,72,.30);
-
-    --cust:#6b93ff;
-    --cust-dim:rgba(107,147,255,.08);
-    --cust-line:rgba(107,147,255,.22);
-
-    --good:#34d399;
-    --good-dim:rgba(52,211,153,.12);
-    --warn:#ffb648;
-    --bad:#ff5a48;
-
-    --r-sm:10px;
-    --r-md:14px;
-    --r-lg:20px;
-  }
-
-  *{box-sizing:border-box;margin:0;padding:0}
-
-  body{
-    min-height:100vh;
-    background:var(--bg);
-    color:var(--ink);
-    font-family:'Inter',system-ui,-apple-system,sans-serif;
-    padding:14px;
-    background-image:
-      radial-gradient(ellipse 70% 34% at 50% -6%, rgba(214,59,47,.14) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 26% at 90% 100%, rgba(107,147,255,.05) 0%, transparent 55%);
-  }
-
-  .shell{max-width:640px;margin:0 auto}
-
-  /* ── EYEBROW / LABEL FACE ── */
-  .eyebrow{
-    font-family:'Space Grotesk',sans-serif;
-    font-size:.68rem;
-    font-weight:600;
-    letter-spacing:.09em;
-    text-transform:uppercase;
-  }
-
-  /* ── HEADER ── */
-  .header{
-    display:flex;align-items:center;justify-content:space-between;
-    padding:14px 16px;margin-bottom:14px;
-    background:rgba(19,19,24,.85);
-    border:1px solid var(--line);
-    border-radius:var(--r-lg);
-    backdrop-filter:blur(16px);
-  }
-  .brand{display:flex;align-items:center;gap:11px}
-  .brand-mark{
-    width:38px;height:38px;border-radius:10px;
-    background:linear-gradient(150deg,var(--signal),#6e0f0a);
-    display:flex;align-items:center;justify-content:center;
-    font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1rem;color:#fff;
-    box-shadow:0 0 18px rgba(214,59,47,.35);
-  }
-  .brand-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:1.08rem;letter-spacing:-.01em}
-  .brand-name em{font-style:normal;color:var(--signal-2)}
-  .brand-sub{font-size:.7rem;color:var(--ink-dim);margin-top:1px}
-  .status-pill{
-    display:flex;align-items:center;gap:6px;
-    background:var(--good-dim);border:1px solid rgba(52,211,153,.28);
-    border-radius:99px;padding:5px 10px;
-    font-family:'JetBrains Mono',monospace;font-size:.65rem;font-weight:600;color:var(--good);
-  }
-  .dot{width:6px;height:6px;border-radius:50%;background:var(--good);animation:pulse 2s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-
-  /* ── TABS ── */
-  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px}
-  .tab{
-    border:1px solid var(--line);border-radius:var(--r-md);
-    padding:10px 6px;background:var(--surface);color:var(--ink-dim);
-    font-size:.74rem;font-weight:600;text-align:center;cursor:pointer;
-    display:flex;flex-direction:column;align-items:center;gap:3px;
-    transition:all .15s ease;
-  }
-  .tab .ic{font-size:1.02rem}
-  .tab.active{
-    border-color:var(--line-active);color:var(--ink);
-    background:linear-gradient(150deg,var(--signal-dim),rgba(110,15,10,.10));
-    box-shadow:0 0 0 1px var(--line-active) inset;
-  }
-
-  /* ── PANEL ── */
-  .panel{display:none;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;margin-bottom:14px}
-  .panel.active{display:block;animation:fade .18s ease}
-  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-
-  .section-eyebrow{
-    color:var(--signal-2);margin-bottom:10px;
-    display:flex;align-items:center;gap:8px;
-  }
-  .section-eyebrow::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(214,59,47,.28),transparent)}
-
-  /* ── VOICE BAR ── */
-  .voice-bar{
-    display:flex;align-items:center;gap:10px;
-    background:rgba(214,59,47,.05);border:1px solid rgba(214,59,47,.18);
-    border-radius:var(--r-md);padding:11px 13px;margin-bottom:16px;
-  }
-  .voice-bar p{font-size:.78rem;color:var(--ink-dim);flex:1;line-height:1.35}
-  .voice-bar strong{color:var(--ink)}
-  .btn-voice{
-    display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:9px;
-    border:1px solid rgba(214,59,47,.35);
-    background:linear-gradient(150deg,rgba(214,59,47,.22),rgba(110,15,10,.18));
-    color:var(--ink);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap;
-  }
-  .btn-voice.recording{background:linear-gradient(150deg,rgba(214,59,47,.55),rgba(180,10,10,.4));animation:recpulse 1s infinite}
-  @keyframes recpulse{0%,100%{box-shadow:0 0 0 0 rgba(214,59,47,.4)}50%{box-shadow:0 0 0 7px rgba(214,59,47,0)}}
-
-  /* ── VIN ── */
-  .vin-row{display:flex;gap:8px;align-items:flex-end;margin-bottom:12px}
-  .vin-row .field{flex:1}
-  .vin-optional{font-size:.68rem;color:var(--ink-faint);font-weight:500;text-transform:none;letter-spacing:0}
-  .btn-vin{
-    padding:11px 13px;border-radius:var(--r-md);height:47px;white-space:nowrap;
-    border:1px solid var(--mech-line);background:var(--mech-dim);color:var(--mech);
-    font-size:.78rem;font-weight:700;cursor:pointer;
-  }
-
-  /* ── FORM GRID ── */
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .grid-1{display:grid;grid-template-columns:1fr;gap:10px}
-  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-  .field{display:flex;flex-direction:column;gap:4px}
-  label{font-size:.72rem;font-weight:600;color:var(--ink-dim)}
-  input,textarea,select{
-    width:100%;border:1px solid var(--line);background:rgba(255,255,255,.025);
-    color:var(--ink);border-radius:var(--r-md);padding:11px 12px;
-    font-size:.92rem;font-family:'Inter',sans-serif;outline:none;
-    transition:border-color .15s, box-shadow .15s;
-  }
-  textarea{min-height:72px;resize:vertical;line-height:1.4}
-  input:focus,textarea:focus{border-color:var(--line-active);box-shadow:0 0 0 3px rgba(214,59,47,.10)}
-  input::placeholder,textarea::placeholder{color:var(--ink-faint)}
-  input.mono,#vin,#diagVin,#obdCodes,#diagCodes{font-family:'JetBrains Mono',monospace;letter-spacing:.02em}
-
-  .divider{height:1px;background:var(--line);margin:16px 0}
-
-  /* ── CUSTOMER vs MECHANIC VOICE WEIGHTING ── */
-  .voice-field{border-radius:var(--r-md);padding:12px;border:1px solid transparent}
-  .voice-field.customer{background:var(--cust-dim);border-color:var(--cust-line)}
-  .voice-field.customer label{color:var(--cust)}
-  .voice-field.mechanic{background:var(--mech-dim);border-color:var(--mech-line)}
-  .voice-field.mechanic label{color:var(--mech);font-weight:700}
-  .voice-tag{
-    display:inline-flex;align-items:center;gap:4px;font-size:.63rem;font-weight:700;
-    letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;margin-left:6px;
-  }
-  .voice-tag.customer{background:rgba(107,147,255,.16);color:var(--cust)}
-  .voice-tag.mechanic{background:rgba(255,182,72,.18);color:var(--mech)}
-  .weight-note{font-size:.68rem;color:var(--ink-faint);margin-top:6px;line-height:1.4}
-  .voice-field textarea{background:rgba(0,0,0,.18);border-color:transparent}
-  .voice-field.customer textarea:focus{border-color:var(--cust-line);box-shadow:0 0 0 3px rgba(107,147,255,.10)}
-  .voice-field.mechanic textarea:focus{border-color:var(--mech-line);box-shadow:0 0 0 3px rgba(255,182,72,.10)}
-
-  .translate-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;justify-content:space-between}
-  .translate-row label{margin:0}
-  .btn-translate{
-    padding:6px 11px;border-radius:8px;border:1px solid var(--cust-line);
-    background:rgba(107,147,255,.10);color:var(--cust);font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;
-  }
-  .translate-arrow{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px 0 10px;color:var(--ink-faint);font-size:.68rem;font-family:'JetBrains Mono',monospace}
-  .translate-arrow::before,.translate-arrow::after{content:'';flex:1;height:1px;background:var(--line)}
-
-  /* ── BUTTONS ── */
-  .actions{display:grid;gap:9px;margin-top:16px}
-  .actions-row{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px}
-  .btn{
-    appearance:none;border:1px solid var(--line);border-radius:var(--r-md);
-    padding:13px 16px;font-size:.92rem;font-weight:700;font-family:'Inter',sans-serif;
-    color:var(--ink);background:var(--surface-2);min-height:48px;width:100%;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;gap:8px;transition:all .15s;
-  }
-  .btn:hover:not(:disabled){border-color:var(--line-active);background:rgba(214,59,47,.07)}
-  .btn:disabled{opacity:.5;cursor:not-allowed}
-  .btn.primary{
-    background:linear-gradient(150deg,#a3140f,#54070a);
-    border-color:rgba(214,59,47,.5);
-    box-shadow:0 4px 18px rgba(214,59,47,.22), inset 0 1px 0 rgba(255,255,255,.06);
-    font-size:.96rem;min-height:52px;font-family:'Space Grotesk',sans-serif;letter-spacing:.01em;
-  }
-  .btn.primary:hover:not(:disabled){box-shadow:0 6px 24px rgba(214,59,47,.35)}
-  .spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.22);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
-  .btn.loading .spinner{display:block}
-  .btn.loading .btn-label{display:none}
-  @keyframes spin{to{transform:rotate(360deg)}}
-
-  /* ── RESULT CARD ── */
-  .result-card{margin-top:14px;border-radius:var(--r-lg);background:var(--surface);border:1px solid var(--line);overflow:hidden;display:none}
-  .result-card.visible{display:block;animation:fade .22s ease}
-  .result-card.error{border-color:rgba(255,90,72,.35)}
-  .result-header{
-    padding:13px 16px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--line);
-    display:flex;align-items:center;justify-content:space-between;gap:8px;
-  }
-  .result-title{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:.92rem}
-  .pill{padding:3px 10px;border-radius:99px;font-size:.66rem;font-weight:700;font-family:'JetBrains Mono',monospace;white-space:nowrap}
-  .pill.high,.pill.immediate{background:rgba(255,90,72,.14);color:var(--bad);border:1px solid rgba(255,90,72,.3)}
-  .pill.medium,.pill.soon{background:rgba(255,182,72,.14);color:var(--warn);border:1px solid rgba(255,182,72,.3)}
-  .pill.low,.pill.monitor{background:var(--good-dim);color:var(--good);border:1px solid rgba(52,211,153,.28)}
-
-  .result-body{padding:16px;display:flex;flex-direction:column;gap:16px}
-  .r-sec{display:flex;flex-direction:column;gap:7px}
-  .r-sec-title{font-family:'Space Grotesk',sans-serif;font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--signal-2);display:flex;align-items:center;gap:6px}
-  .r-text{font-size:.9rem;color:var(--ink);line-height:1.5}
-  .r-muted{font-size:.82rem;color:var(--ink-dim);line-height:1.5}
-
-  .money-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-  .money-box{background:rgba(255,255,255,.025);border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center}
-  .money-box .m-label{font-size:.63rem;color:var(--ink-dim);font-weight:600;letter-spacing:.04em}
-  .money-box .m-val{font-family:'JetBrains Mono',monospace;font-size:1.08rem;font-weight:700;margin-top:3px}
-  .money-box.total{border-color:rgba(52,211,153,.3)}
-  .money-box.total .m-val{color:var(--good)}
-
-  .list-items{display:flex;flex-direction:column;gap:5px}
-  .list-item{display:flex;align-items:flex-start;gap:9px;font-size:.86rem;line-height:1.4;padding:8px 10px;background:rgba(255,255,255,.02);border-radius:9px;border:1px solid transparent}
-  .list-item .num{font-family:'JetBrains Mono',monospace;color:var(--signal-2);font-weight:700;min-width:16px;font-size:.78rem}
-  .list-item .ic{min-width:15px}
-
-  /* ── PROBABILITY LADDER (signature element) ── */
-  .ladder{display:flex;flex-direction:column;gap:8px}
-  .rung{display:flex;align-items:center;gap:10px}
-  .rung-rank{
-    font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:700;color:var(--ink-faint);
-    min-width:20px;
-  }
-  .rung-body{flex:1;display:flex;flex-direction:column;gap:4px}
-  .rung-label-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-  .rung-label{font-size:.85rem;color:var(--ink)}
-  .rung-pct{font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:700;color:var(--signal-2)}
-  .rung-track{height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
-  .rung-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--signal),var(--signal-2));transition:width .7s ease}
-  .rung:first-child .rung-rank{color:var(--signal-2)}
-  .rung:first-child .rung-track{height:6px}
-
-  .code-row{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:rgba(255,182,72,.05);border:1px solid rgba(255,182,72,.15);border-radius:10px}
-  .code-tag{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:700;color:var(--mech);min-width:54px}
-  .code-desc{font-size:.8rem;color:var(--ink);line-height:1.4}
-
-  .safety-banner{display:flex;align-items:center;gap:9px;padding:10px 13px;background:rgba(255,90,72,.08);border:1px solid rgba(255,90,72,.3);border-radius:10px;font-size:.83rem;font-weight:700;color:var(--bad)}
-
-  .status-simple{margin-top:12px;padding:13px 15px;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);color:var(--ink-dim);font-size:.86rem;min-height:46px;display:flex;align-items:center}
-  .status-simple.success{border-color:rgba(52,211,153,.35);color:var(--good)}
-  .status-simple.error{border-color:rgba(255,90,72,.35);color:var(--bad)}
-
-  .footer{max-width:640px;margin:14px auto 0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--ink-faint);padding-bottom:6px}
-
-  @media (max-width:600px){
-    body{padding:9px}
-    .tabs{grid-template-columns:repeat(2,1fr)}
-    .grid,.grid-3,.money-row{grid-template-columns:1fr}
-    .actions-row{grid-template-columns:1fr}
-  }
-</style>
-</head>
-<body>
-
-<header class="header">
-  <div class="brand">
-    <div class="brand-mark">SK</div>
-    <div>
-      <div class="brand-name">SKSK <em>ProTech</em></div>
-      <div class="brand-sub">Mobile Mechanic AI</div>
-    </div>
-  </div>
-  <div class="status-pill"><span class="dot"></span>LIVE</div>
-</header>
-
-<div class="shell">
-
-  <div class="tabs">
-    <button class="tab active" data-tab="estimateTab"><span class="ic">📋</span>Estimate</button>
-    <button class="tab" data-tab="diagnoseTab"><span class="ic">🔍</span>Diagnose</button>
-    <button class="tab" data-tab="invoiceTab"><span class="ic">🧾</span>Invoice</button>
-    <button class="tab" data-tab="shareTab"><span class="ic">📤</span>Share</button>
-  </div>
-
-  <!-- ═══════════════ ESTIMATE ═══════════════ -->
-  <section class="panel active" id="estimateTab">
-
-    <div class="voice-bar">
-      <span style="font-size:1.15rem">🎙️</span>
-      <p><strong>Voice mode</strong> — speak the customer's words, auto-fills the form</p>
-      <button class="btn-voice" id="btnVoiceEstimate"><span>🎤</span> Speak</button>
-    </div>
-
-    <div class="section-eyebrow eyebrow">Customer Info</div>
-    <div class="grid" style="margin-bottom:14px">
-      <div class="field"><label>Customer Name</label><input id="customerName" type="text" placeholder="Jane Doe"></div>
-      <div class="field"><label>Phone</label><input id="customerPhone" type="tel" placeholder="555-0123"></div>
-      <div class="field"><label>Email</label><input id="customerEmail" type="email" placeholder="jane@example.com"></div>
-      <div class="field"><label>Labor Rate ($/hr)</label><input id="laborRate" type="number" value="65" min="0"></div>
-    </div>
-
-    <div class="section-eyebrow eyebrow">Vehicle</div>
-
-    <div class="vin-row">
-      <div class="field">
-        <label>VIN <span class="vin-optional">— optional, paste to auto-fill</span></label>
-        <input id="vin" class="mono" type="text" placeholder="17-character VIN" maxlength="17">
-      </div>
-      <button class="btn-vin" id="btnDecodeVin">Decode</button>
-    </div>
-    <p class="weight-note" style="margin:6px 0 14px">No VIN? No problem — fill year / make / model below by hand.</p>
-
-    <div class="grid-3" style="margin-bottom:10px">
-      <div class="field"><label>Year</label><input id="vehicleYear" type="text" placeholder="2008"></div>
-      <div class="field"><label>Make</label><input id="vehicleMake" type="text" placeholder="Kia"></div>
-      <div class="field"><label>Model</label><input id="vehicleModel" type="text" placeholder="Sorento"></div>
-    </div>
-    <div class="grid" style="margin-bottom:16px">
-      <div class="field"><label>Trim / Engine</label><input id="vehicleTrim" type="text" placeholder="BL 6cyl 3.8L"></div>
-      <div class="field"><label>Parts Cost ($)</label><input id="partsCost" type="number" value="0" min="0"></div>
-    </div>
-
-    <div class="section-eyebrow eyebrow">Symptoms</div>
-
-    <div class="voice-field customer" style="margin-bottom:10px">
-      <div class="translate-row">
-        <label>Customer States <span class="voice-tag customer">Their words</span></label>
-      </div>
-      <textarea id="customerStates" placeholder="What the customer told you, in their own words..."></textarea>
-      <p class="weight-note">Carries real signal — but a mechanic's own read on the car outweighs it below.</p>
-    </div>
-
-    <div class="translate-arrow">
-      <button class="btn-translate" id="btnTranslate">↓ Translate to tech language</button>
-    </div>
-
-    <div class="voice-field mechanic" style="margin-bottom:12px">
-      <label>Mechanic Notices <span class="voice-tag mechanic">Your read</span></label>
-      <textarea id="mechanicNotices" placeholder="What you found on inspection — this drives the diagnosis..."></textarea>
-    </div>
-
-    <div class="field" style="margin-bottom:16px">
-      <label>OBD Codes <span style="font-weight:400;color:var(--ink-faint)">(comma separated)</span></label>
-      <input id="obdCodes" type="text" placeholder="P0300, P0171">
-    </div>
-
-    <div class="actions">
-      <button class="btn primary" id="btnEstimate">
-        <div class="spinner"></div>
-        <span class="btn-label">⚡ Generate Estimate</span>
-      </button>
-    </div>
-
-    <div class="result-card" id="estimateResult"></div>
-  </section>
-
-  <!-- ═══════════════ DIAGNOSE ═══════════════ -->
-  <section class="panel" id="diagnoseTab">
-
-    <div class="voice-bar">
-      <span style="font-size:1.15rem">🎙️</span>
-      <p><strong>Voice mode</strong> — describe what you're seeing</p>
-      <button class="btn-voice" id="btnVoiceDiagnose"><span>🎤</span> Speak</button>
-    </div>
-
-    <div class="section-eyebrow eyebrow">Vehicle &amp; Codes</div>
-
-    <div class="vin-row">
-      <div class="field"><label>VIN <span class="vin-optional">— optional</span></label>
-        <input id="diagVin" class="mono" type="text" placeholder="Paste to auto-decode" maxlength="17"></div>
-      <button class="btn-vin" id="btnDecodeVinDiag">Decode</button>
-    </div>
-
-    <div class="grid" style="margin:12px 0 16px">
-      <div class="field"><label>Mileage</label><input id="diagMileage" type="number" placeholder="150000"></div>
-      <div class="field"><label>OBD Codes <span style="font-weight:400;color:var(--ink-faint)">(comma sep.)</span></label><input id="diagCodes" type="text" placeholder="P0300, P0171"></div>
-    </div>
-
-    <div class="section-eyebrow eyebrow">Observations</div>
-
-    <div class="voice-field customer" style="margin-bottom:10px">
-      <label>Symptoms <span class="voice-tag customer">Reported</span></label>
-      <textarea id="diagSymptoms" placeholder="Noise when turning, hard start, check engine light..."></textarea>
-    </div>
-
-    <div class="translate-arrow">
-      <button class="btn-translate" id="btnTranslateDiag">↓ Translate to tech language</button>
-    </div>
-
-    <div class="voice-field mechanic" style="margin-bottom:16px">
-      <label>Tech Notes <span class="voice-tag mechanic">Confirmed</span></label>
-      <textarea id="diagNotes" placeholder="Battery tested weak, alternator charging at 13.2V..."></textarea>
-    </div>
-
-    <div class="actions">
-      <button class="btn primary" id="btnDiagnose">
-        <div class="spinner"></div>
-        <span class="btn-label">🔍 Run Diagnosis</span>
-      </button>
-    </div>
-
-    <div class="result-card" id="diagnoseResult"></div>
-  </section>
-
-  <!-- ═══════════════ INVOICE ═══════════════ -->
-  <section class="panel" id="invoiceTab">
-    <div class="section-eyebrow eyebrow">Invoice Details</div>
-    <div class="grid">
-      <div class="field"><label>Customer Name</label><input id="invoiceCustomer" type="text" placeholder="Jane Doe"></div>
-      <div class="field"><label>Invoice Number</label><input id="invoiceNumber" type="text" placeholder="Auto-generated"></div>
-      <div class="field"><label>Invoice Total ($)</label><input id="invoiceTotal" type="number" value="0" min="0"></div>
-    </div>
-    <div class="field" style="margin-top:12px">
-      <label>Notes</label>
-      <textarea id="invoiceNotes" placeholder="Parts included, labor covered, warranty info..."></textarea>
-    </div>
-    <div class="actions-row">
-      <button class="btn primary" id="btnInvoice">
-        <div class="spinner"></div>
-        <span class="btn-label">🧾 Download PDF</span>
-      </button>
-    </div>
-    <div class="status-simple" id="invoiceStatus">Ready to generate.</div>
-  </section>
-
-  <!-- ═══════════════ SHARE ═══════════════ -->
-  <section class="panel" id="shareTab">
-    <div class="section-eyebrow eyebrow">Share SKSK ProTech</div>
-    <div class="field">
-      <label>Share Message</label>
-      <textarea id="shareText">SKSK ProTech — AI-assisted mobile mechanic estimates and diagnostics.</textarea>
-    </div>
-    <div class="actions">
-      <button class="btn primary" id="btnShare"><span class="btn-label">📤 Share App</span></button>
-    </div>
-    <div class="status-simple" id="shareStatus">Ready.</div>
-  </section>
-
-</div>
-
-<div class="footer">SKSK PROTECH · MOBILE DIAGNOSTIC TERMINAL</div>
-
-<script>
-  // ── CONFIG ──
-  // NOTE: /api/estimateHeuristic and /api/diagnose are the routes that return
-  // this full, rich shape (proTips, repairSteps, probability, knownIssues).
-  // /api/estimateHeuristic is currently gated by verifyToken on the backend —
-  // this UI sends NO Authorization header rather than a fake one. Until that
-  // route is either made public or wired to real auth, expect a 401/400 here.
-  // Flagging in-code so it isn't silently "fixed" by faking a bearer token again.
-  const API_BASE = (location.hostname === 'localhost')
-    ? 'http://localhost:3000'
-    : 'https://p613-backend.onrender.com';
-
-  const splitList  = v => (v||'').split(',').map(s=>s.trim()).filter(Boolean);
-  const splitLines = v => (v||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-
-  async function fetchWithTimeout(url, opts={}, ms=20000){
-    const ctrl = new AbortController();
-    const t = setTimeout(()=>ctrl.abort(), ms);
-    try { return await fetch(url, {...opts, signal: ctrl.signal}); }
-    finally { clearTimeout(t); }
-  }
-  async function readBody(res){
-    const text = await res.text();
-    try { return JSON.parse(text); } catch { return { error: text || `HTTP ${res.status}` }; }
-  }
-  function setLoading(btn, on){
-    btn.classList.toggle('loading', on);
-    btn.disabled = on;
-  }
-
-  // ── FORM PERSISTENCE ──
-  const formFields = ['customerName','customerPhone','customerEmail','vehicleYear','vehicleMake',
-    'vehicleModel','vehicleTrim','laborRate','partsCost','vin','customerStates','mechanicNotices','obdCodes'];
-  function saveForm(){
-    const d = {};
-    formFields.forEach(k=>{ const el=document.getElementById(k); if(el) d[k]=el.value; });
-    localStorage.setItem('sksk_form', JSON.stringify(d));
-  }
-  function restoreForm(){
-    try{
-      const d = JSON.parse(localStorage.getItem('sksk_form')||'{}');
-      Object.keys(d).forEach(k=>{ const el=document.getElementById(k); if(el) el.value=d[k]; });
-    }catch{}
-  }
-  document.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('input', saveForm));
-
-  // ── TABS ──
-  document.querySelectorAll('.tab').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
-      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(btn.dataset.tab).classList.add('active');
-    });
-  });
-
-  // ── VOICE ──
-  function startVoice(targetId, btnEl){
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if(!SR){ alert('Voice not supported on this browser. Try Chrome.'); return; }
-    const rec = new SR();
-    rec.lang='en-US'; rec.interimResults=false; rec.maxAlternatives=1;
-    btnEl.classList.add('recording'); btnEl.innerHTML='<span>⏹</span> Stop';
-    rec.start();
-    rec.onresult = e=>{
-      const t = e.results[0][0].transcript;
-      const target = document.getElementById(targetId);
-      if(target) target.value = (target.value ? target.value+' ' : '') + t;
-      saveForm();
-    };
-    rec.onerror = rec.onend = ()=>{
-      btnEl.classList.remove('recording'); btnEl.innerHTML='<span>🎤</span> Speak';
-    };
-  }
-  document.getElementById('btnVoiceEstimate').addEventListener('click', function(){ startVoice('customerStates', this); });
-  document.getElementById('btnVoiceDiagnose').addEventListener('click', function(){ startVoice('diagSymptoms', this); });
-
-  // ── VIN DECODE (NHTSA public API — optional convenience, never required) ──
-  async function decodeVin(vin, yearId, makeId, modelId, trimId){
-    if(!vin || vin.length!==17){ alert('Enter a valid 17-character VIN, or just fill in year/make/model by hand.'); return; }
-    try{
-      const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/${vin}?format=json`);
-      const data = await res.json();
-      const r = data.Results?.[0];
-      if(!r) throw new Error('No results');
-      if(yearId) document.getElementById(yearId).value = r.ModelYear || '';
-      if(makeId) document.getElementById(makeId).value = r.Make || '';
-      if(modelId) document.getElementById(modelId).value = r.Model || '';
-      if(trimId) document.getElementById(trimId).value = [r.Trim, r.EngineCylinders ? r.EngineCylinders+'cyl':'', r.DisplacementL ? r.DisplacementL+'L':''].filter(Boolean).join(' ');
-      saveForm();
-    }catch(e){
-      alert('VIN decode failed — check the VIN, or just fill vehicle info manually.');
-    }
-  }
-  document.getElementById('btnDecodeVin').addEventListener('click', ()=>{
-    decodeVin(document.getElementById('vin').value.trim(),'vehicleYear','vehicleMake','vehicleModel','vehicleTrim');
-  });
-  document.getElementById('btnDecodeVinDiag').addEventListener('click', ()=>{
-    decodeVin(document.getElementById('diagVin').value.trim(), null,null,null,null);
-  });
-
-  // ── TRANSLATE (customer voice → mechanic voice) ──
-  // Guard: translation is idempotent per source text. Spam-clicking, or
-  // clicking again after the text hasn't changed, must never re-run the
-  // call or re-append — exactly one translation per distinct input, no
-  // matter how many times (or whether) the mechanic hits the button.
-  const translateState = {}; // { [fromId]: { lastSource, lastResult, busy } }
-
-  async function translateCustomerSpeak(fromId, toId, btnEl){
-    const fromEl = document.getElementById(fromId);
-    const toEl = document.getElementById(toId);
-    const raw = fromEl.value.trim();
-    if(!raw){ alert('Enter what the customer said first.'); return; }
-
-    const state = translateState[fromId] || (translateState[fromId] = {});
-
-    // Already in flight for this field — ignore the extra click entirely.
-    if(state.busy) return;
-
-    // Same source text as last successful translation — no-op, don't
-    // re-call the API or re-append. Give a quick visual "already done" cue.
-    if(state.lastSource === raw && state.lastResult){
-      const orig = btnEl.textContent;
-      btnEl.textContent = '✓ Already translated';
-      setTimeout(()=>{ btnEl.textContent = orig; }, 1100);
-      return;
-    }
-
-    // Mechanic has hand-edited this field since the last auto-translation —
-    // their read outweighs the customer's words, so don't silently clobber
-    // it. Require them to clear the field themselves before re-translating.
-    if(state.lastResult && toEl.value.trim() !== state.lastResult.trim()){
-      const orig = btnEl.textContent;
-      btnEl.textContent = '⚠ Notes edited — clear to re-translate';
-      setTimeout(()=>{ btnEl.textContent = orig; }, 1600);
-      return;
-    }
-
-    state.busy = true;
-    const orig = btnEl.textContent;
-    btnEl.textContent = 'Translating…'; btnEl.disabled = true;
-    try{
-      const res = await fetchWithTimeout(`${API_BASE}/api/translate`, {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ text: raw })
-      });
-      const data = await readBody(res);
-      const result = data.translated || `[from customer]: ${raw} — needs inspection to confirm`;
-
-      // Replace, don't append — this call already represents the current
-      // customer-states text in full, so appending would duplicate it.
-      toEl.value = result;
-      state.lastSource = raw;
-      state.lastResult = result;
-      saveForm();
-    }catch(e){
-      const result = `[from customer]: ${raw} — needs inspection to confirm`;
-      toEl.value = result;
-      state.lastSource = raw;
-      state.lastResult = result;
-    }finally{
-      state.busy = false;
-      btnEl.textContent = orig; btnEl.disabled = false;
-    }
-  }
-  document.getElementById('btnTranslate').addEventListener('click', function(){
-    translateCustomerSpeak('customerStates','mechanicNotices', this);
-  });
-  document.getElementById('btnTranslateDiag').addEventListener('click', function(){
-    translateCustomerSpeak('diagSymptoms','diagNotes', this);
-  });
-
-  // ── RENDER: PROBABILITY LADDER (signature element — order = real info) ──
-  function renderLadder(probability){
-    if(!probability?.length) return '';
-    return `
-    <div class="r-sec">
-      <div class="r-sec-title"><span>📊</span> Most Likely, In Order</div>
-      <div class="ladder">
-        ${probability.map((p,i)=>`
-          <div class="rung">
-            <span class="rung-rank">${String(i+1).padStart(2,'0')}</span>
-            <div class="rung-body">
-              <div class="rung-label-row"><span class="rung-label">${p.cause}</span><span class="rung-pct">${p.likelihood}%</span></div>
-              <div class="rung-track"><div class="rung-fill" style="width:${p.likelihood}%"></div></div>
-            </div>
-          </div>`).join('')}
-      </div>
-    </div>`;
-  }
-
-  function renderList(title, icon, items, numbered){
-    if(!items?.length) return '';
-    return `
-    <div class="r-sec">
-      <div class="r-sec-title"><span>${icon}</span> ${title}</div>
-      <div class="list-items">
-        ${items.map((x,i)=>`<div class="list-item">${numbered?`<span class="num">${i+1}</span>`:`<span class="ic">→</span>`}${x}</div>`).join('')}
-      </div>
-    </div>`;
-  }
-
-  // ── RENDER: ESTIMATE ──
-  function renderEstimate(est){
-    const card = document.getElementById('estimateResult');
-    const priority = (est.priority||'medium').toLowerCase();
-    card.className = 'result-card visible';
-    card.innerHTML = `
-      <div class="result-header">
-        <div class="result-title">Estimate Ready</div>
-        <span class="pill ${priority}">${priority.toUpperCase()} PRIORITY</span>
-      </div>
-      <div class="result-body">
-        <div class="r-sec">
-          <div class="r-sec-title"><span>🩺</span> Diagnosis</div>
-          <div class="r-text">${est.diagnosis||'N/A'}</div>
-        </div>
-
-        <div class="money-row">
-          <div class="money-box"><div class="m-label">LABOR</div><div class="m-val">$${est.laborCost||0}</div></div>
-          <div class="money-box"><div class="m-label">PARTS</div><div class="m-val">$${est.partsCost||0}</div></div>
-          <div class="money-box total"><div class="m-label">TOTAL</div><div class="m-val">$${est.total||0}</div></div>
-        </div>
-
-        ${renderList('Repairs Needed','🔩', est.repairs, true)}
-        ${renderLadder(est.probability)}
-        ${renderList('Known Issues — Watch For These','⚠️', est.knownIssues, true)}
-        ${renderList('Repair Procedure','🛠️', est.repairSteps, true)}
-        ${renderList('Pro Tips','⚡', est.proTips, false)}
-        ${renderList("While You're In There",'🔎', est.additionalChecks, false)}
-
-        ${est.notes ? `<div class="r-muted">📝 ${est.notes}</div>` : ''}
-      </div>`;
-  }
-
-  // ── RENDER: DIAGNOSE ──
-  function renderDiagnose(r){
-    const card = document.getElementById('diagnoseResult');
-    const urgency = (r.urgency||'soon').toLowerCase();
-    card.className = 'result-card visible';
-    card.innerHTML = `
-      <div class="result-header">
-        <div class="result-title">Diagnosis Complete</div>
-        <span class="pill ${urgency}">${urgency.toUpperCase()}</span>
-      </div>
-      <div class="result-body">
-        ${r.safetyRisk ? `<div class="safety-banner">⚠️ Safety risk — don't drive until repaired</div>` : ''}
-
-        <div class="r-sec">
-          <div class="r-sec-title"><span>🎯</span> Primary Cause</div>
-          <div class="r-text">${r.primaryCause||'N/A'}</div>
-        </div>
-
-        ${renderList('Other Possibilities','🔀', r.secondaryCauses, false)}
-
-        ${Object.keys(r.codeExplanations||{}).length ? `
-        <div class="r-sec">
-          <div class="r-sec-title"><span>🔢</span> Code Breakdown</div>
-          <div class="list-items">
-            ${Object.entries(r.codeExplanations).map(([k,v])=>`
-              <div class="code-row"><span class="code-tag">${k}</span><span class="code-desc">${v}</span></div>`).join('')}
-          </div>
-        </div>` : ''}
-
-        ${renderLadder(r.probability)}
-        ${renderList('Known Issues — Watch For','⚠️', r.knownIssues, true)}
-        ${renderList('Repair Procedure','🛠️', r.repairSteps, true)}
-        ${renderList('Pro Tips','⚡', r.proTips, false)}
-        ${renderList('Confirm With These Tests','🧪', r.recommendedTests, false)}
-        ${renderList("While You're In There",'🔎', r.additionalChecks, false)}
-
-        <div class="r-muted">⏱ Est. repair time: ${r.estimatedRepairTime||'N/A'}${r.notes?`  ·  📝 ${r.notes}`:''}</div>
-      </div>`;
-  }
-
-  // ── ESTIMATE SUBMIT ──
-  document.getElementById('btnEstimate').addEventListener('click', async ()=>{
-    const btn = document.getElementById('btnEstimate');
-    setLoading(btn, true);
-    const card = document.getElementById('estimateResult');
-    card.className = 'result-card';
-    try{
-      const payload = {
-        customer: {
-          name: document.getElementById('customerName').value.trim(),
-          phone: document.getElementById('customerPhone').value.trim(),
-          email: document.getElementById('customerEmail').value.trim()
-        },
-        vehicle: {
-          year: parseInt(document.getElementById('vehicleYear').value.trim(),10) || undefined,
-          make: document.getElementById('vehicleMake').value.trim(),
-          model: document.getElementById('vehicleModel').value.trim(),
-          trim: document.getElementById('vehicleTrim').value.trim()
-        },
-        obdCodes: splitList(document.getElementById('obdCodes').value),
-        customerStates: splitLines(document.getElementById('customerStates').value),
-        mechanicNotices: splitLines(document.getElementById('mechanicNotices').value),
-        laborRate: Number(document.getElementById('laborRate').value || 0),
-        partsCost: Number(document.getElementById('partsCost').value || 0),
-        vin: document.getElementById('vin').value.trim()
-      };
-
-      const res = await fetchWithTimeout(`${API_BASE}/api/estimateHeuristic`, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await readBody(res);
-      if(!res.ok) throw new Error(data.error || `Estimate failed (${res.status})`);
-      renderEstimate(data.estimate || {});
-      card.scrollIntoView({behavior:'smooth', block:'nearest'});
-    }catch(err){
-      card.className = 'result-card visible error';
-      card.innerHTML = `<div class="result-header"><div class="result-title">Error</div></div><div class="result-body"><div class="r-text">${err.message||'Estimate failed'}</div></div>`;
-    }finally{
-      setLoading(btn, false);
-    }
-  });
-
-  // ── DIAGNOSE SUBMIT ──
-  document.getElementById('btnDiagnose').addEventListener('click', async ()=>{
-    const btn = document.getElementById('btnDiagnose');
-    setLoading(btn, true);
-    const card = document.getElementById('diagnoseResult');
-    card.className = 'result-card';
-    try{
-      const payload = {
-        vin: document.getElementById('diagVin').value.trim(),
-        mileage: Number(document.getElementById('diagMileage').value || 0),
-        symptoms: splitLines(document.getElementById('diagSymptoms').value),
-        codes: splitList(document.getElementById('diagCodes').value),
-        notes: splitLines(document.getElementById('diagNotes').value)
-      };
-      const res = await fetchWithTimeout(`${API_BASE}/api/diagnose`, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'Accept':'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await readBody(res);
-      if(!res.ok) throw new Error(data.error || `Diagnosis failed (${res.status})`);
-      renderDiagnose(data.result || {});
-      card.scrollIntoView({behavior:'smooth', block:'nearest'});
-    }catch(err){
-      card.className = 'result-card visible error';
-      card.innerHTML = `<div class="result-header"><div class="result-title">Error</div></div><div class="result-body"><div class="r-text">${err.message||'Diagnosis failed'}</div></div>`;
-    }finally{
-      setLoading(btn, false);
-    }
-  });
-
-  // ── INVOICE ──
-  document.getElementById('btnInvoice').addEventListener('click', async ()=>{
-    const btn = document.getElementById('btnInvoice');
-    const status = document.getElementById('invoiceStatus');
-    setLoading(btn, true);
-    status.className = 'status-simple'; status.textContent = 'Generating PDF…';
-    try{
-      const payload = {
-        total: Number(document.getElementById('invoiceTotal').value || 0),
-        invoiceNumber: document.getElementById('invoiceNumber').value.trim(),
-        customer: { name: document.getElementById('invoiceCustomer').value.trim() },
-        notes: document.getElementById('invoiceNotes').value.trim()
-      };
-      const res = await fetchWithTimeout(`${API_BASE}/api/invoice`, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'Accept':'application/pdf' },
-        body: JSON.stringify(payload)
-      });
-      if(!res.ok){ const d = await readBody(res); throw new Error(d.error || `Invoice failed (${res.status})`); }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `invoice-${Date.now()}.pdf`;
-      document.body.appendChild(a); a.click(); a.remove();
-      status.className = 'status-simple success'; status.textContent = 'Invoice downloaded.';
-    }catch(err){
-      status.className = 'status-simple error'; status.textContent = err.message || 'Invoice failed';
-    }finally{
-      setLoading(btn, false);
-    }
-  });
-
-  // ── SHARE ──
-  document.getElementById('btnShare').addEventListener('click', async ()=>{
-    const text = document.getElementById('shareText').value.trim();
-    const status = document.getElementById('shareStatus');
-    if(navigator.share){
-      try{
-        await navigator.share({ title:'SKSK ProTech', text, url: location.href });
-        status.className='status-simple success'; status.textContent='Shared.';
-      }catch{
-        status.className='status-simple error'; status.textContent='Share canceled.';
-      }
-    } else {
-      try{
-        await navigator.clipboard.writeText(`${text} ${location.href}`);
-        status.className='status-simple success'; status.textContent='Copied to clipboard.';
-      }catch{
-        status.className='status-simple error'; status.textContent='Sharing not supported on this device.';
-      }
-    }
-  });
-
-  if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
-
-  restoreForm();
-</script>
-</body>
-</html>
+-<!DOCTYPE html>
+-<html lang="en">
+-<head>
+-  <meta charset="UTF-8">
+-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+-  <title>SKSK ProTech Mobile Estimator</title>
+-  <style>
+-    :root {
+-      --bg-dark: #0d0d12;
+-      --card-bg: #16161f;
+-      --border-color: #262636;
+-      --brand-red: #c1121f;
+-      --text-main: #f0f0f5;
+-      --text-muted: #a0a0b0;
+-      --success-green: #38b000;
+-    }
+-
+-    * { box-sizing: border-box; margin: 0; padding: 0; }
+-    body {
+-      background-color: var(--bg-dark);
+-      color: var(--text-main);
+-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+-      padding: 15px;
+-    }
+-
+-    header {
+-      margin-bottom: 20px;
+-      border-bottom: 2px solid var(--brand-red);
+-      padding-bottom: 10px;
+-    }
+-    header h1 { color: var(--brand-red); font-size: 24px; font-weight: 800; }
+-    header p { color: var(--text-muted); font-size: 12px; }
+-
+-    .card {
+-      background-color: var(--card-bg);
+-      border: 1px solid var(--border-color);
+-      border-radius: 6px;
+-      padding: 15px;
+-      margin-bottom: 15px;
+-    }
+-    .card-title {
+-      font-size: 14px;
+-      font-weight: 700;
+-      text-transform: uppercase;
+-      letter-spacing: 0.5px;
+-      margin-bottom: 12px;
+-      color: var(--text-main);
+-      border-bottom: 1px solid var(--border-color);
+-      padding-bottom: 6px;
+-    }
+-
+-    .form-group { margin-bottom: 12px; }
+-    label { display: block; font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+-    input, textarea, select {
+-      width: 100%;
+-      background-color: var(--bg-dark);
+-      border: 1px solid var(--border-color);
+-      border-radius: 4px;
+-      padding: 10px;
+-      color: var(--text-main);
+-      font-size: 14px;
+-    }
+-    input:focus, textarea:focus { border-color: var(--brand-red); outline: none; }
+-
+-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+-
+-    button {
+-      width: 100%;
+-      background-color: var(--brand-red);
+-      color: #fff;
+-      border: none;
+-      border-radius: 4px;
+-      padding: 12px;
+-      font-size: 14px;
+-      font-weight: 700;
+-      text-transform: uppercase;
+-      cursor: pointer;
+-      margin-top: 5px;
+-    }
+-    button:active { opacity: 0.9; }
+-
+-    /* Results Telemetry Slots */
+-    .result-badge {
+-      display: inline-block;
+-      background-color: rgba(193, 18, 31, 0.15);
+-      border: 1px solid var(--brand-red);
+-      color: var(--text-main);
+-      padding: 4px 8px;
+-      border-radius: 4px;
+-      font-size: 12px;
+-      font-weight: 700;
+-      margin-bottom: 10px;
+-    }
+-    .step-list { margin-left: 18px; font-size: 13px; color: var(--text-main); }
+-    .step-list li { margin-bottom: 8px; line-height: 1.4; }
+-
+-    .hidden { display: none; }
+-  </style>
+-</head>
+-<body>
+-
+-  <header>
+-    <h1>SKSK ProTech</h1>
+-    <p>Mobile Mechanic Local Diagnostic & Estimation Interface</p>
+-  </header>
+-
+-  <div class="card">
+-    <div class="card-title">Vehicle & Job Intake</div>
+-    <div class="grid-2">
+-      <div class="form-group">
+-        <label>Year</label>
+-        <input type="number" id="year" value="2012">
+-      </div>
+-      <div class="form-group">
+-        <label>Make</label>
+-        <input type="text" id="make" value="Ram">
+-      </div>
+-    </div>
+-    <div class="form-group">
+-      <label>Trim / Engine Option</label>
+-      <input type="text" id="trim" value="hemi">
+-    </div>
+-    <div class="form-group">
+-      <label>OBD-II Fault Codes</label>
+-      <input type="text" id="obdCodes" value="P0303" placeholder="e.g., P0300, P0171">
+-    </div>
+-    <button id="btnDiagnose">Run Local Diagnostics</button>
+-  </div>
+-
+-  <div id="resultsPanel" class="card hidden">
+-    <div class="card-title" id="lblVehicleMatch">Target Match Detected</div>
+-    <div id="badgeSource" class="result-badge">SKSK Local Engine</div>
+-
+-    <div class="form-group">
+-      <label>Primary Verified Cause</label>
+-      <p id="txtPrimaryCause" style="font-size: 15px; font-weight: 700; color: #ffb703; margin-bottom: 10px;"></p>
+-    </div>
+-
+-    <div class="form-group">
+-      <label>Technical Notes</label>
+-      <p id="txtNotes" style="font-size: 13px; color: var(--text-muted); line-height: 1.4; margin-bottom: 12px;"></p>
+-    </div>
+-
+-    <div id="fieldManualSection" class="hidden">
+-      <label style="margin-bottom: 6px; color: var(--success-green);">🔧 Local Field Manual Clearance Steps</label>
+-      <ol id="lstSteps" class="step-list"></ol>
+-    </div>
+-  </div>
+-
+-  <script>
+-    document.getElementById('btnDiagnose').addEventListener('click', async () => {
+-      const year = parseInt(document.getElementById('year').value);
+-      const make = document.getElementById('make').value;
+-      const trim = document.getElementById('trim').value;
+-      const obdRaw = document.getElementById('obdCodes').value;
+-
+-      const obdCodes = obdRaw.split(',').map(c => c.trim()).filter(Boolean);
+-
+-      const payload = {
+-        vehicle: { year, make, trim },
+-        obdCodes
+-      };
+-
+-      try {
+-        const response = await fetch('/api/diagnose', {
+-          method: 'POST',
+-          headers: { 'Content-Type': 'application/json' },
+-          body: JSON.stringify(payload)
+-        });
+-
+-        const data = await response.json();
+-
+-        if (data.success && data.result) {
+-          const resObj = data.result;
+-          document.getElementById('resultsPanel').classList.remove('hidden');
+-          document.getElementById('lblVehicleMatch').innerText = resObj.localVehicleTelemetry ? `Matched Profile: ${resObj.localVehicleTelemetry.vehicleId}` : 'Diagnostic Result';
+-          document.getElementById('txtPrimaryCause').innerText = resObj.primaryCause;
+-          document.getElementById('txtNotes').innerText = resObj.notes;
+-
+-          const stepsList = document.getElementById('lstSteps');
+-          stepsList.innerHTML = '';
+-
+-          if (resObj.repairSteps && resObj.repairSteps.length > 0) {
+-            document.getElementById('fieldManualSection').classList.remove('hidden');
+-            resObj.repairSteps.forEach(step => {
+-              const li = document.createElement('li');
+-              li.innerText = step;
+-              stepsList.appendChild(li);
+-            });
+-          } else {
+-            document.getElementById('fieldManualSection').classList.add('hidden');
+-          }
+-        } else {
+-          alert('Local intercept missed or key unconfigured: ' + (data.details || 'Unknown Error'));
+-        }
+-      } catch (err) {
+-        alert('Failed to connect to local SKSK server line: ' + err.message);
+-      }
+-    });
+-  </script>
+-</body>
+-</html>
