@@ -40,7 +40,6 @@ const diagnose = require('../src/routes/diagnose');
 const estimateHeuristic = require('../src/routes/estimate'); 
 const invoice = require('../src/routes/invoice');
 const oemRouter = require('../src/routes/oem');
-const verifyToken = require('../src/middleware/auth');
 const scrapeRouter = require('../src/routes/scrape');
 const partsRouter = require('../src/routes/parts');
 const fullEstimateRouter = require('../src/routes/full-estimate');
@@ -53,7 +52,7 @@ app.use('/api/parts', partsRouter);
 app.use('/api/full-estimate', fullEstimateRouter);
 app.use('/api/jobs', jobsRouter);
 app.use('/api/diagnose', diagnose);
-app.use('/api/estimateHeuristic', verifyToken, estimateHeuristic); 
+app.use('/api/estimateHeuristic', estimateHeuristic); 
 app.use('/api/invoice', invoice);
 app.use('/api/translate', require('../src/routes/translate'));
 app.use('/api/parts-lookup', partsLookupRouter);
@@ -82,7 +81,7 @@ if (process.env.STRIPE_SECRET_KEY) {
 
 // 5. STATIC CORPORATE WEB PLATFORM ASSETS
 // FIXED: Targets your authentic public paths out in the root tree safely
-app.use('/fleet', express.static(path.join(__dirname, '../public/fleet.html')));
+app.get('/fleet', (req, res) => res.sendFile(path.join(__dirname, '../public/fleet.html')));
 app.use(express.static(path.join(__dirname, '../public')));
 
 // 6. HEALTH & SYSTEM MONITORING TELEMETRY
