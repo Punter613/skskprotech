@@ -6,6 +6,7 @@ const { processSingleEstimate } = require('../services/estimator');
 async function requireTenant(req, res, next) {
   const tenantId = req.headers['x-tenant-id'];
   if (!tenantId) return res.status(401).json({ error: 'Missing corporate account context.' });
+  if (!db.supabase) return res.status(503).json({ error: 'Fleet storage not configured (SUPABASE_URL/KEY missing).' });
   req.tenantId = tenantId;
   next();
 }
@@ -20,6 +21,34 @@ router.get('/roster', requireTenant, async (req, res) => {
 
     if (error) throw error;
     res.json({ ok: true, roster: data || [] });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/add', requireTenant, async (req, res) => {
+  const { vin, year, make, model, mileage } = req.body || {};
+
+  if (!vin || vin.length !== 17) {
+    return res.status(400).json({ ok: false, error: 'A valid 17-character VIN is required.' });
+  }
+
+  try {
+    const year_make_model = [year, make, model].filter(Boolean).join(' ') || null;
+    const { data, error } = await db.supabase
+      .from('fleet_vehicles')
+      .upsert({
+        tenant_id: req.tenantId,
+        vin,
+        year_make_model,
+        mileage: Number(mileage) || 0,
+        status: 'Healthy'
+      }, { onConflict: 'tenant_id,vin' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json({ ok: true, vehicle: data });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
