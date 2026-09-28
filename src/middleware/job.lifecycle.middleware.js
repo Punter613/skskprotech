@@ -193,22 +193,24 @@ async function invoiceLifecycle(req, res, next) {
   try {
     const job = await getJob(jobId);
     if (!job) return res.status(404).json({ success: false, error: 'Job not found', jobId });
-    if (job.status !== 'ESTIMATED' || !job.estimate) {
-      return res.status(409).json({ success: false, error: 'Canonical estimate must exist before invoice generation', jobId, status: job.status });
-    }
 
-    req.body = hydrateInvoiceInput(job, req.body || {});
-    wrapJson(res, async payload => {
-      if (payload?.success === false) return { ...payload, jobId };
-      const invoice = await attachInvoice(jobId, payload || {});
-      return invoice;
+    // Canonical lifecycle jobs must complete the commercial workflow:
+    // verified estimate -> customer authorization -> work order -> completed work
+    // -> final invoice. The generic invoice builder is intentionally unavailable
+    // once a lifecycle jobId is supplied.
+    return res.status(409).json({
+      success: false,
+      error: 'Lifecycle jobs must be invoiced from completed authorized work.',
+      code: 'COMMERCIAL_WORKFLOW_REQUIRED',
+      jobId,
+      status: job.status,
+      requiredFlow: ['ESTIMATE', 'AUTHORIZATION', 'WORK_ORDER', 'COMPLETION', 'FINAL_INVOICE']
     });
-    next();
   } catch (err) {
     return res.status(409).json({
       success: false,
-      error: 'Canonical estimate is invalid for invoice generation.',
-      code: 'ESTIMATE_SNAPSHOT_REQUIRED_OR_INVALID',
+      error: 'Lifecycle job could not be validated for invoice generation.',
+      code: 'COMMERCIAL_WORKFLOW_REQUIRED',
       jobId
     });
   }
