@@ -1,9 +1,10 @@
 'use strict';
 
 const { createJob, getJob, patchJob } = require('./job.lifecycle');
+const { assertVerifiedEstimateSnapshot } = require('../core/evidence/verified.estimate.snapshot');
 
 const QUICK_ESTIMATE_TYPE = 'QUICK_ESTIMATE';
-const QUICK_ESTIMATE_BASES = new Set(['CUSTOMER_REQUEST', 'PRELIMINARY_INSPECTION']);
+const QUICK_ESTIMATE_BASES = new Set(['CUSTOMER_REQUEST', 'PRELIMINARY_INSPECTION', 'VERIFIED_REPAIR']);
 const ITEM_DECISIONS = new Set(['PROPOSED', 'AUTHORIZED', 'DEFERRED', 'DECLINED']);
 const ITEM_PRIORITIES = new Set(['CRITICAL', 'WARNING', 'ADVISORY', 'ROUTINE']);
 const ESTIMATE_STATUSES = new Set([
@@ -205,6 +206,50 @@ async function createQuickEstimate(jobId, input = {}) {
   return estimate;
 }
 
+async function handoffVerifiedEstimate(jobId) {
+  const job = await getJob(jobId);
+  if (!job) return null;
+  if (!job.estimate || !job.verifiedCase) throw new Error('Verified repair estimate is required before customer authorization handoff');
+
+  const snapshot = assertVerifiedEstimateSnapshot(job.estimate, job);
+  const sourceFingerprint = snapshot.fingerprint;
+  const existing = quickEstimates(job).find(estimate =>
+    estimate.basis === 'VERIFIED_REPAIR' && estimate.sourceVerifiedEstimateFingerprint === sourceFingerprint
+  );
+  if (existing) return { created: false, estimate: existing };
+
+  const resolution = snapshot.repairResolution || {};
+  const operation = resolution.operations?.[0];
+  const description = clean(operation?.description || operation?.cause || snapshot.diagnosis || 'Verified repair', 600);
+  const estimate = buildQuickEstimate(job, {
+    basis: 'VERIFIED_REPAIR',
+    title: 'Verified repair — customer authorization',
+    laborRate: resolution.labor?.hourlyRate || 0,
+    taxRate: 0,
+    workItems: [{
+      itemId: 'LI-001',
+      description,
+      priority: snapshot.priority === 'high' ? 'CRITICAL' : snapshot.priority === 'medium' ? 'WARNING' : 'ROUTINE',
+      partsCost: snapshot.partsCost,
+      laborHours: resolution.labor?.hours || snapshot.estimatedHours || 0,
+      laborRate: resolution.labor?.hourlyRate || 0,
+      notes: `Verified diagnostic scope. VERIFIED_CASE ${snapshot.verifiedCaseFingerprint}.`
+    }]
+  });
+  estimate.sourceVerifiedEstimateFingerprint = sourceFingerprint;
+  estimate.verifiedCaseFingerprint = snapshot.verifiedCaseFingerprint;
+  estimate.repairResolutionFingerprint = snapshot.repairResolutionFingerprint;
+  estimate.disclaimer = 'This customer authorization document is derived from the persisted verified repair estimate. Customer authorization approves the listed repair scope and price; it does not alter the underlying diagnostic evidence or VERIFIED_CASE.';
+
+  await patchJob(jobId, {
+    customerEstimateCenter: {
+      ...(job.customerEstimateCenter || {}),
+      quickEstimates: [...quickEstimates(job), estimate]
+    }
+  });
+  return { created: true, estimate };
+}
+
 async function reviseQuickEstimate(jobId, estimateId, input = {}) {
   const job = await getJob(jobId);
   if (!job) return null;
@@ -370,6 +415,7 @@ module.exports = {
   statusFromDecisions,
   createEstimateOnlyLifecycle,
   createQuickEstimate,
+  handoffVerifiedEstimate,
   reviseQuickEstimate,
   presentQuickEstimate,
   recordCustomerDecisions,

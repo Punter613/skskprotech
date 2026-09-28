@@ -157,10 +157,11 @@ test('Render PR preview can call its own API without opening CORS to arbitrary R
   assert.doesNotMatch(serverSource, /hostname\.endsWith\(['"]\.onrender\.com['"]\)/);
 });
 
-test('estimate and invoice follow the same persisted job', () => {
+test('verified estimate follows the same persisted job into customer authorization, not direct billing', () => {
   assert.match(html, /post\(['"]\/api\/estimateHeuristic['"],\{jobId/);
-  assert.match(html, /post\(['"]\/api\/invoice\/build['"],\{jobId\}\)/);
-  assert.doesNotMatch(html, /post\(['"]\/api\/invoice\/build['"],\{jobId,estimate:/);
+  assert.match(html, /estimate-center\/\$\{encodeURIComponent\(jobId\)\}\/from-verified-estimate/);
+  assert.doesNotMatch(html, /\/api\/invoice\/build/);
+  assert.match(html, /A verified estimate is not permission to perform or bill work/);
 });
 
 test('not verified keeps estimate locked', () => {
