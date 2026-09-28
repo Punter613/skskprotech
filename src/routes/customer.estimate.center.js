@@ -7,6 +7,7 @@ const { workOrderSummary, workOrders } = require('../services/work.order');
 const {
   createEstimateOnlyLifecycle,
   createQuickEstimate,
+  handoffVerifiedEstimate,
   reviseQuickEstimate,
   presentQuickEstimate,
   recordCustomerDecisions,
@@ -42,6 +43,21 @@ router.get('/:id', async (req, res) => {
     workOrders: workOrderSummary(job),
     workOrderDocuments: JSON.parse(JSON.stringify(workOrders(job)))
   });
+});
+
+router.post('/:id/from-verified-estimate', async (req, res) => {
+  try {
+    const result = await handoffVerifiedEstimate(req.params.id);
+    if (!result) return fail(res, 404, 'Lifecycle number not found', { lifecycleNumber: req.params.id });
+    return res.status(result.created ? 201 : 200).json({
+      success: true,
+      lifecycleNumber: req.params.id,
+      created: result.created,
+      estimate: result.estimate
+    });
+  } catch (err) {
+    return fail(res, 409, err.message || 'Verified estimate handoff failed', { lifecycleNumber: req.params.id });
+  }
 });
 
 router.post('/:id/quick', async (req, res) => {
