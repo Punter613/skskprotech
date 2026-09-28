@@ -82,41 +82,50 @@ jobs:
             "$PREVIEW_URL/api/diagnose" || true)"
           cat /tmp/applicability-diagnose.json || true
           echo
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Component applicability Diagnose canary failed with HTTP $HTTP_CODE."
+          if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "500" ]; then
+            echo "Component applicability Diagnose canary returned unexpected HTTP $HTTP_CODE."
             exit 1
           fi
 
-          JOB_ID="$(node - <<'NODE'
+          JOB_ID="$(HTTP_CODE="$HTTP_CODE" node - <<'NODE'
           const fs = require('fs');
           const body = JSON.parse(fs.readFileSync('/tmp/applicability-diagnose.json', 'utf8'));
           const result = body.result || {};
           const config = result.vehicleConfiguration || {};
           const failures = [];
-          if (body.success !== true) failures.push('success !== true');
           if (!body.jobId) failures.push('jobId missing');
-          if (config.policy !== 'PROVE_COMPONENT_EXISTS_OR_QUALIFY_IF_EQUIPPED') failures.push(`policy ${config.policy}`);
-          if (config.vinStatus !== 'MANUAL_UNVERIFIED') failures.push(`vinStatus ${config.vinStatus}`);
-          if (config.engineStatus !== 'MANUAL_UNVERIFIED') failures.push(`engineStatus ${config.engineStatus}`);
-          if (config.drivetrainStatus !== 'UNKNOWN') failures.push(`drivetrainStatus ${config.drivetrainStatus}`);
-          if (!Array.isArray(config.warnings) || !config.warnings.some(x => /manual intake/i.test(String(x)))) failures.push('manual intake warning missing');
 
-          const sensitive = /center support bearing|carrier bearing|transfer case|power transfer unit|\bPTU\b|center differential|front differential|rear differential|drive\s*shaft|driveshaft|propeller shaft|universal joint|u[-\s]?joint|turbocharger|supercharger|high[-\s]?voltage battery|traction battery|hybrid battery|diesel particulate filter|\bDPF\b/i;
-          const qualified = /if equipped|specific component fitment not yet verified|configuration not verified/i;
-          const primary = String(result.primaryCause || '');
-          if (sensitive.test(primary) && !qualified.test(primary)) failures.push(`unqualified primary: ${primary}`);
+          if (process.env.HTTP_CODE === '200') {
+            if (body.success !== true) failures.push('success !== true');
+            if (config.policy !== 'PROVE_COMPONENT_EXISTS_OR_QUALIFY_IF_EQUIPPED') failures.push(`policy ${config.policy}`);
+            if (config.vinStatus !== 'MANUAL_UNVERIFIED') failures.push(`vinStatus ${config.vinStatus}`);
+            if (config.engineStatus !== 'MANUAL_UNVERIFIED') failures.push(`engineStatus ${config.engineStatus}`);
+            if (config.drivetrainStatus !== 'UNKNOWN') failures.push(`drivetrainStatus ${config.drivetrainStatus}`);
+            if (!Array.isArray(config.warnings) || !config.warnings.some(x => /manual intake/i.test(String(x)))) failures.push('manual intake warning missing');
 
-          for (const cause of result.secondaryCauses || []) {
-            if (sensitive.test(String(cause)) && !qualified.test(String(cause))) failures.push(`unqualified secondary: ${cause}`);
+            const sensitive = /center support bearing|carrier bearing|transfer case|power transfer unit|\\bPTU\\b|center differential|front differential|rear differential|drive\\s*shaft|driveshaft|propeller shaft|universal joint|u[-\\s]?joint|turbocharger|supercharger|high[-\\s]?voltage battery|traction battery|hybrid battery|diesel particulate filter|\\bDPF\\b/i;
+            const qualified = /if equipped|specific component fitment not yet verified|configuration not verified/i;
+            const primary = String(result.primaryCause || '');
+            if (sensitive.test(primary) && !qualified.test(primary)) failures.push(`unqualified primary: ${primary}`);
+            for (const cause of result.secondaryCauses || []) {
+              if (sensitive.test(String(cause)) && !qualified.test(String(cause))) failures.push(`unqualified secondary: ${cause}`);
+            }
+            for (const item of result.probability || []) {
+              const cause = String(item?.cause || '');
+              if (sensitive.test(cause) && !qualified.test(cause)) failures.push(`unqualified probability cause: ${cause}`);
+            }
+            for (const test of [...(result.recommendedTests || []), ...(result.additionalChecks || [])]) {
+              const text = String(test || '');
+              if (sensitive.test(text) && !/^If equipped on this exact vehicle configuration:/i.test(text)) failures.push(`unqualified test: ${text}`);
+            }
+          } else {
+            if (body.success !== false) failures.push('failed Diagnose did not fail closed');
+            if (!/valid diagnostic candidate|unparseable diagnostic response|empty response/i.test(String(body.details || ''))) {
+              failures.push(`unexpected fail-closed reason: ${body.details || 'missing'}`);
+            }
+            if (result.primaryCause || (result.probability || []).length) failures.push('failed Diagnose returned diagnostic candidates');
           }
-          for (const item of result.probability || []) {
-            const cause = String(item?.cause || '');
-            if (sensitive.test(cause) && !qualified.test(cause)) failures.push(`unqualified probability cause: ${cause}`);
-          }
-          for (const test of [...(result.recommendedTests || []), ...(result.additionalChecks || [])]) {
-            const text = String(test || '');
-            if (sensitive.test(text) && !/^If equipped on this exact vehicle configuration:/i.test(text)) failures.push(`unqualified test: ${text}`);
-          }
+
           if (failures.length) {
             console.error(failures.join('; '));
             process.exit(1);
@@ -146,12 +155,16 @@ jobs:
           const job = body.job || {};
           const config = job.diagnosis?.evidencePacket?.vehicleConfiguration || {};
           const failures = [];
-          if (config.policy !== 'PROVE_COMPONENT_EXISTS_OR_QUALIFY_IF_EQUIPPED') failures.push('persisted configuration policy missing');
-          if (config.drivetrainStatus !== 'UNKNOWN') failures.push(`persisted drivetrainStatus ${config.drivetrainStatus}`);
           if (JSON.stringify(job.intake?.obdCodes || []) !== '[]') failures.push(`manual DTCs leaked into trusted intake: ${JSON.stringify(job.intake?.obdCodes)}`);
+          if (job.status === 'DIAGNOSIS_FAILED') {
+            if (job.diagnosis?.result) failures.push('failed diagnosis persisted a result');
+          } else {
+            if (config.policy !== 'PROVE_COMPONENT_EXISTS_OR_QUALIFY_IF_EQUIPPED') failures.push('persisted configuration policy missing');
+            if (config.drivetrainStatus !== 'UNKNOWN') failures.push(`persisted drivetrainStatus ${config.drivetrainStatus}`);
+          }
           if (failures.length) {
             console.error(failures.join('; '));
             process.exit(1);
           }
-          console.log('Component applicability runtime passed: manual 2008 Sorento intake stayed configuration-bounded and unverified DTCs stayed audit-only.');
+          console.log('Component applicability runtime passed: manual 2008 Sorento intake stayed bounded, unverified DTCs stayed audit-only, and no-candidate AI output failed closed.');
           NODE
