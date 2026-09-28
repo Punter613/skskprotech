@@ -65,10 +65,10 @@ test('normalizer keywords narrow both diagnosis evidence and Customer States fal
   assert.match(html, /symptoms:lines\(\$\('symptoms'\)\.value\)/);
 });
 
-test('Run Diagnosis stays primary while read-only knowledge search is secondary', () => {
+test('Run Diagnosis stays primary while read-only Brain assistance is secondary', () => {
   assert.match(html, /id="diag" class="btn primary major"/);
   assert.doesNotMatch(html, /id="quickAsk" class="btn knowledge major"/);
-  assert.match(html, /id="quickAsk" class="btn knowledge compact"[^>]*>📚 Search Knowledge/);
+  assert.match(html, /id="quickAsk" class="btn knowledge compact"[^>]*>🧠 Ask Brain/);
 });
 
 test('unverified diagnosis fallback is downstream of saved mechanic evidence and remains explicitly locked', () => {
