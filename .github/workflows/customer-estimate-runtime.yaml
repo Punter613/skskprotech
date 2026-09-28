@@ -11,6 +11,7 @@ on:
       - 'public/_redirects'
       - 'tests/customer.estimate.center.test.js'
       - 'tests/frontend.customer.estimate.center.test.js'
+      - 'tests/frontend.lifecycle.recall.test.js'
       - 'package.json'
       - 'api/.render-preview-trigger'
       - '.github/workflows/customer-estimate-runtime.yaml'
