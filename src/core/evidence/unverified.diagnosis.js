@@ -6,6 +6,7 @@ const {
   summarizeDtcProvenance,
   DTC_SOURCES
 } = require('./dtc.provenance');
+const { assertValidDiagnosticResult } = require('./diagnostic.candidate');
 
 const SCHEMA_VERSION = 1;
 const STATE = 'UNVERIFIED_DIAGNOSIS';
@@ -49,17 +50,7 @@ function normalizeConfidence(result = {}) {
 }
 
 function selectMostLikelyCause(result = {}) {
-  const direct = clean(result.primaryCause || result.diagnosis, 300);
-  if (direct && !/^manual inspection required$/i.test(direct)) return direct;
-
-  const ranked = Array.isArray(result.probability) ? result.probability : [];
-  const best = ranked
-    .map(item => ({ cause: clean(item?.cause, 300), likelihood: Number(item?.likelihood) || 0 }))
-    .filter(item => item.cause)
-    .sort((a, b) => b.likelihood - a.likelihood)[0];
-  if (best?.cause) return best.cause;
-
-  throw new Error('Unverified diagnosis requires a persisted diagnostic candidate');
+  return assertValidDiagnosticResult(result, 'Unverified diagnosis requires a persisted diagnostic candidate');
 }
 
 function completedTestNames(job = {}) {
