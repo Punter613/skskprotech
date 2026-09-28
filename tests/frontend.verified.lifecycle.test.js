@@ -16,7 +16,7 @@ test('public root enters the verified lifecycle UI', () => {
   assert.match(html, /TEST/);
   assert.match(html, /VERIFY/);
   assert.match(html, /ESTIMATE/);
-  assert.match(html, /INVOICE/);
+  assert.match(html, /6 AUTHORIZE\+/);
 });
 
 test('frontend captures engine trim and sends only verified DTC context through automatic retrieval', () => {
