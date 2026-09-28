@@ -117,24 +117,22 @@ test('canonical estimate snapshot binds VERIFIED_CASE and repair resolution fing
   assert.doesNotThrow(() => assertVerifiedEstimateSnapshot(job.estimate, job));
 });
 
-test('invoice happy path uses persisted estimate resolution lines and canonical customer/vehicle', async () => {
+test('direct invoice API rejects canonical lifecycle job and requires commercial workflow', async () => {
   const job = makeJob();
   global.__jobs[job.jobId] = job;
   await withServer(async base => {
     const { response, body } = await post(base, { jobId: job.jobId });
-    assert.equal(response.status, 200);
-    assert.equal(body.invoiceNumber, job.jobId);
-    assert.equal(body.estimateFingerprint, job.estimate.fingerprint);
-    assert.equal(body.customer.name, 'Jane Customer');
-    assert.equal(body.vehicle.make, 'Chevrolet');
-    assert.equal(body.totals.laborTotal, 97.5);
-    assert.equal(body.totals.partsTotal, 80);
-    assert.equal(body.lineItems[0].operationId, job.estimate.repairResolution.operations[0].operationId);
-    assert.equal(body.lineItems[1].partNumber, 'COIL-1');
+    assert.equal(response.status, 409);
+    assert.equal(body.success, false);
+    assert.equal(body.code, 'COMMERCIAL_WORKFLOW_REQUIRED');
+    assert.equal(body.jobId, job.jobId);
+    assert.deepEqual(body.requiredFlow, ['ESTIMATE', 'AUTHORIZATION', 'WORK_ORDER', 'COMPLETION', 'FINAL_INVOICE']);
+    assert.equal(global.__jobs[job.jobId].invoice, null);
+    assert.equal(global.__jobs[job.jobId].status, 'ESTIMATED');
   });
 });
 
-test('invoice ignores tampered request estimate customer vehicle and labor rate', async () => {
+test('direct invoice bypass remains blocked even when request attempts to override persisted truth', async () => {
   const job = makeJob();
   global.__jobs[job.jobId] = job;
   await withServer(async base => {
@@ -145,16 +143,13 @@ test('invoice ignores tampered request estimate customer vehicle and labor rate'
       vehicleInfo: { year: 2025, make: 'Ford', model: 'F-150' },
       laborRate: 1
     });
-    assert.equal(response.status, 200);
-    assert.equal(body.customer.name, 'Jane Customer');
-    assert.equal(body.vehicle.make, 'Chevrolet');
-    assert.equal(body.diagnosis.primary, 'Verified fault: Ignition coil failure');
-    assert.equal(body.totals.laborTotal, 97.5);
-    assert.equal(body.totals.partsTotal, 80);
+    assert.equal(response.status, 409);
+    assert.equal(body.code, 'COMMERCIAL_WORKFLOW_REQUIRED');
+    assert.equal(global.__jobs[job.jobId].invoice, null);
   });
 });
 
-test('tampered persisted estimate snapshot fails closed before invoice generation', async () => {
+test('direct invoice bypass remains blocked even when persisted estimate is malformed', async () => {
   const job = makeJob();
   job.estimate = JSON.parse(JSON.stringify(job.estimate));
   job.estimate.partsCost = 1;
@@ -163,11 +158,12 @@ test('tampered persisted estimate snapshot fails closed before invoice generatio
     const { response, body } = await post(base, { jobId: job.jobId });
     assert.equal(response.status, 409);
     assert.equal(body.success, false);
-    assert.equal(body.code, 'ESTIMATE_SNAPSHOT_REQUIRED_OR_INVALID');
+    assert.equal(body.code, 'COMMERCIAL_WORKFLOW_REQUIRED');
+    assert.equal(global.__jobs[job.jobId].invoice, null);
   });
 });
 
-test('mismatched canonical estimate totals fail closed and are not attached as invoice', async () => {
+test('direct invoice bypass remains blocked regardless of canonical estimate totals', async () => {
   const job = makeJob();
   const badEstimate = { ...JSON.parse(JSON.stringify(job.estimate)), laborCost: 1 };
   delete badEstimate.fingerprint;
@@ -177,6 +173,7 @@ test('mismatched canonical estimate totals fail closed and are not attached as i
     const { response, body } = await post(base, { jobId: job.jobId });
     assert.equal(response.status, 409);
     assert.equal(body.success, false);
+    assert.equal(body.code, 'COMMERCIAL_WORKFLOW_REQUIRED');
     assert.equal(global.__jobs[job.jobId].invoice, null);
     assert.equal(global.__jobs[job.jobId].status, 'ESTIMATED');
   });
