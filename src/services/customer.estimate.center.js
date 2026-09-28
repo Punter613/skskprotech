@@ -329,12 +329,20 @@ function verifiedEstimateSummary(job = {}) {
 
 function invoiceSummary(job = {}) {
   if (!job.invoice) return null;
+  const invoice = job.invoice;
   return {
-    type: 'INVOICE',
+    type: invoice.type || 'INVOICE',
+    status: invoice.status || null,
     lifecycleNumber: job.jobId,
-    documentNumber: job.invoice.invoiceNumber || job.jobId,
-    total: money(job.invoice.total ?? job.invoice.grandTotal ?? job.invoice.totals?.total),
-    createdAt: job.invoice.createdAt || null
+    documentNumber: invoice.documentNumber || invoice.invoiceNumber || job.jobId,
+    policy: invoice.policy || null,
+    total: money(invoice.total ?? invoice.grandTotal ?? invoice.totals?.total),
+    totals: invoice.totals || null,
+    lineItems: Array.isArray(invoice.lineItems) ? JSON.parse(JSON.stringify(invoice.lineItems)) : [],
+    sourceWorkOrders: Array.isArray(invoice.sourceWorkOrders) ? JSON.parse(JSON.stringify(invoice.sourceWorkOrders)) : [],
+    invoiceFingerprint: invoice.invoiceFingerprint || invoice.fingerprint || null,
+    createdAt: invoice.createdAt || invoice.finalizedAt || null,
+    finalizedAt: invoice.finalizedAt || null
   };
 }
 
