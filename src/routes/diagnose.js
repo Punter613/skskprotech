@@ -264,3 +264,4 @@ MULTI-CONDITION REASONING: When a symptom occurs under distinct operating condit
 
 module.exports = router;
 module.exports.filterCodeExplanations = filterCodeExplanations;
+module.exports.extractJSON = extractJSON;
