@@ -87,7 +87,8 @@ jobs:
             exit 1
           fi
 
-          JOB_ID="$(HTTP_CODE="$HTTP_CODE" node - <<'NODE'
+          DIAGNOSE_HTTP_CODE="$HTTP_CODE"
+          JOB_ID="$(HTTP_CODE="$DIAGNOSE_HTTP_CODE" node - <<'NODE'
           const fs = require('fs');
           const body = JSON.parse(fs.readFileSync('/tmp/applicability-diagnose.json', 'utf8'));
           const result = body.result || {};
@@ -149,14 +150,14 @@ jobs:
             exit 1
           fi
 
-          node - <<'NODE'
+          DIAGNOSE_HTTP_CODE="$DIAGNOSE_HTTP_CODE" node - <<'NODE'
           const fs = require('fs');
           const body = JSON.parse(fs.readFileSync('/tmp/applicability-job.json', 'utf8'));
           const job = body.job || {};
           const config = job.diagnosis?.evidencePacket?.vehicleConfiguration || {};
           const failures = [];
           if (JSON.stringify(job.intake?.obdCodes || []) !== '[]') failures.push(`manual DTCs leaked into trusted intake: ${JSON.stringify(job.intake?.obdCodes)}`);
-          if (job.status === 'DIAGNOSIS_FAILED') {
+          if (process.env.DIAGNOSE_HTTP_CODE === '500') {
             if (job.diagnosis?.result) failures.push('failed diagnosis persisted a result');
           } else {
             if (config.policy !== 'PROVE_COMPONENT_EXISTS_OR_QUALIFY_IF_EQUIPPED') failures.push('persisted configuration policy missing');
