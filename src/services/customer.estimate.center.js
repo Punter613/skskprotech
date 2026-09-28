@@ -173,6 +173,13 @@ function findEstimateRevision(job, estimateId, revision) {
   ) || null;
 }
 
+function estimateHasWorkOrder(job = {}, estimate = {}) {
+  return (job.workOrderCenter?.workOrders || []).some(order =>
+    order.sourceEstimate?.estimateId === estimate.estimateId
+      && Number(order.sourceEstimate?.revision) === Number(estimate.revision)
+  );
+}
+
 function latestEstimate(job, estimateId) {
   return quickEstimates(job)
     .filter(estimate => estimate.estimateId === estimateId)
@@ -316,6 +323,11 @@ async function recordCustomerDecisions(jobId, estimateId, revision, decisions = 
   const target = findEstimateRevision(job, estimateId, revision);
   if (!target) throw new Error('Quick estimate revision not found');
   if (target.status === 'SUPERSEDED') throw new Error('Superseded estimate revisions are read-only');
+  if (estimateHasWorkOrder(job, target)) {
+    const error = new Error('Customer decisions on an estimate revision are locked after a Work Order is created. Added or changed work requires a new estimate revision and fresh customer authorization.');
+    error.code = 'WORK_ORDER_LOCKS_SOURCE_AUTHORIZATION';
+    throw error;
+  }
 
   const decisionMap = new Map((Array.isArray(decisions) ? decisions : []).map(entry => [clean(entry.itemId, 80), entry]));
   if (!decisionMap.size) throw new Error('At least one work-item decision is required');
@@ -422,5 +434,6 @@ module.exports = {
   recordCustomerDecisions,
   estimateCenterSummary,
   quickEstimates,
-  latestEstimate
+  latestEstimate,
+  estimateHasWorkOrder
 };
