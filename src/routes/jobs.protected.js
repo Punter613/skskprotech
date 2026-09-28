@@ -10,6 +10,7 @@ const {
   isVerificationEligibleTest,
   testConfirmsFault
 } = require('../services/job.lifecycle');
+const { assertValidDiagnosticResult } = require('../core/evidence/diagnostic.candidate');
 
 function clean(value) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -106,6 +107,8 @@ router.post('/:id/verify', async (req, res, next) => {
     if (!job) {
       return res.status(404).json({ success: false, error: 'Job not found', jobId: req.params.id });
     }
+
+    assertValidDiagnosticResult(job.diagnosis?.result, 'Verification requires a valid persisted diagnostic candidate');
 
     const testsById = new Map((job.tests || []).map(test => [clean(test.id), test]));
     const selectedTests = evidenceTestIds.map(id => testsById.get(id));
