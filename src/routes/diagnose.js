@@ -19,19 +19,40 @@ const {
 } = require('../core/evidence/dtc.provenance');
 const { collectVehicleEvidence, selectRelevantTsbs } = require('../services/vehicle.evidence');
 const { resolveVehicleProfile, waitForVehicleWarmup } = require('../services/vehicle.warmup');
+const { assertValidDiagnosticResult } = require('../core/evidence/diagnostic.candidate');
 
 function extractJSON(text) {
   if (!text) return null;
-  text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
-  const start = text.indexOf('{');
+  const raw = String(text).trim();
+
+  try { return JSON.parse(raw); } catch {}
+
+  const unfenced = raw.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  try { return JSON.parse(unfenced); } catch {}
+
+  const start = unfenced.indexOf('{');
   if (start === -1) return null;
+
   let depth = 0;
-  for (let i = start; i < text.length; i++) {
-    if (text[i] === '{') depth++;
-    else if (text[i] === '}') {
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < unfenced.length; i++) {
+    const char = unfenced[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{') depth++;
+    else if (char === '}') {
       depth--;
       if (depth === 0) {
-        try { return JSON.parse(text.slice(start, i + 1)); }
+        try { return JSON.parse(unfenced.slice(start, i + 1)); }
         catch { return null; }
       }
     }
@@ -182,7 +203,14 @@ MULTI-CONDITION REASONING: When a symptom occurs under distinct operating condit
       response_format: { type: 'json_object' }
     });
     const aiText = typeof aiRes === 'string' ? aiRes : (aiRes?.choices?.[0]?.message?.content || ''); if (!aiText) throw new Error('AI provider returned empty response');
-    let parsed = extractJSON(aiText); if (!parsed || typeof parsed !== 'object') { console.warn('[Diagnose] JSON extract failed. Raw snippet:', aiText.substring(0, 300)); parsed = safeResult({ notes: 'AI returned unparseable response — please retry' }); }
+    let parsed = extractJSON(aiText);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      console.warn('[Diagnose] JSON parse failed. Raw snippet:', aiText.substring(0, 300));
+      const parseError = new Error('AI returned an unparseable diagnostic response');
+      parseError.code = 'DIAG_GENERATION_PARSE_FAILED';
+      throw parseError;
+    }
+    assertValidDiagnosticResult(parsed, 'AI response did not contain a valid diagnostic candidate');
 
     const stageGuard = applyDiagnosticStageGuard(parsed);
     if (stageGuard.changed) {
