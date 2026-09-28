@@ -168,3 +168,30 @@ test('not verified keeps estimate locked', () => {
   assert.match(html, /Not verified\. Continue testing; estimate remains locked\./);
   assert.match(html, /\$\('estimateCard'\)\.hidden=true/);
 });
+
+test('technician workspace shows one focused stage and keeps Brain outside diagnostic authority progression', () => {
+  assert.match(html, /data-workspace-card="Diag"/);
+  assert.match(html, /data-workspace-card="Brain"/);
+  assert.match(html, /data-workspace-card="Test"/);
+  assert.match(html, /data-workspace-card="Verify"/);
+  assert.match(html, /data-workspace-card="Estimate"/);
+  assert.match(html, /data-workspace-card="Invoice"/);
+  assert.match(html, /function showWorkspace\(name\)/);
+  assert.match(html, /workspaceCard\.workspaceActive/);
+  assert.match(html, /Authority: <strong>READ-ONLY KNOWLEDGE<\/strong>/);
+  assert.match(html, /Brain is a read-only mechanic aid\. It never advances diagnostic authority\./);
+  assert.match(html, /if\(name==='Brain'\)return showWorkspace\('Brain'\)/);
+  assert.match(html, /const authorityOrder=\['Diag','Test','Verify','Estimate','Invoice'\]/);
+});
+
+test('workspace transitions follow technician actions instead of accumulating cards', () => {
+  assert.match(html, /showWorkspace\('Brain'\);out\.innerHTML='<div class="status">Searching SKSK knowledge/);
+  assert.match(html, /stage\('Test'\)/);
+  assert.match(html, /stage\('Verify'\)/);
+  assert.match(html, /stage\('Estimate'\)/);
+  assert.match(html, /stage\('Invoice'\)/);
+  assert.doesNotMatch(html, /testCard'\)\.scrollIntoView/);
+  assert.doesNotMatch(html, /verifyCard'\)\.scrollIntoView/);
+  assert.doesNotMatch(html, /estimateCard'\)\.scrollIntoView/);
+  assert.doesNotMatch(html, /invoiceCard'\)\.scrollIntoView/);
+});
