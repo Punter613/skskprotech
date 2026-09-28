@@ -11,7 +11,8 @@ const serverSource = fs.readFileSync(path.join(__dirname, '..', 'api', 'server.j
 
 test('public root enters the verified lifecycle UI', () => {
   assert.match(redirects, /^\/ \/lifecycle\.html 200/m);
-  assert.match(html, /1 INTAKE/);\n  assert.match(html, /Run Diagnosis/);
+  assert.match(html, /1 INTAKE/);
+  assert.match(html, /Run Diagnosis/);
   assert.match(html, /TEST/);
   assert.match(html, /VERIFY/);
   assert.match(html, /ESTIMATE/);
