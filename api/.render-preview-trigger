@@ -1,3 +1,3 @@
 Render preview trigger
-reason: validate repository health entrypoint changes against exact backend PR head
+reason: validate corrected fail-closed applicability persistence canary
 updated: 2026-09-28

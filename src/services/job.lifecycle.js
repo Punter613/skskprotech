@@ -5,6 +5,7 @@ const {
   assertVerifiedEstimateSnapshot
 } = require('../core/evidence/verified.estimate.snapshot');
 const { buildUnverifiedDiagnosis } = require('../core/evidence/unverified.diagnosis');
+const { assertValidDiagnosticResult } = require('../core/evidence/diagnostic.candidate');
 
 const VALID_STATES = new Set([
   'DIAGNOSING', 'TESTING', 'VERIFIED', 'ESTIMATED', 'INVOICED', 'DIAG_FAILED',
@@ -300,6 +301,7 @@ async function verifyJob(jobId, verification = {}) {
   const job = await getJob(jobId);
   if (!job) return null;
   if (!job.diagnosis?.result) throw new Error('Diagnosis must exist before verification');
+  assertValidDiagnosticResult(job.diagnosis.result, 'Verification requires a valid persisted diagnostic candidate');
   if (!Array.isArray(job.tests) || job.tests.length === 0) throw new Error('At least one recorded test is required before verification');
 
   const confirmed = verification.confirmed === true;
