@@ -395,6 +395,7 @@ function estimateCenterSummary(job = {}) {
   return {
     lifecycleNumber: job.jobId,
     jobStatus: job.status,
+    relationship: job.relationship || null,
     customer: job.customer || {},
     vehicle: job.vehicle || {},
     quickEstimates: [...quickEstimates(job)].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))),
