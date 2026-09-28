@@ -238,8 +238,13 @@ jobs:
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB" || true)"
           CENTER_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-center.json -w '%{http_code}' \
             "$PREVIEW_URL/api/jobs/estimate-center/$ENCODED_JOB" || true)"
-          if [ "$JOB_READ_HTTP" != "200" ] || [ "$CENTER_HTTP" != "200" ]; then
+          if [ "$JOB_READ_HTTP" != "200" ]; then
+            echo "Final invoice job readback failed with HTTP $JOB_READ_HTTP"
             cat /tmp/fi-job-read.json 2>/dev/null || true
+            exit 1
+          fi
+          if [ "$CENTER_HTTP" != "200" ]; then
+            echo "Final invoice Estimate Center readback failed with HTTP $CENTER_HTTP"
             cat /tmp/fi-center.json 2>/dev/null || true
             exit 1
           fi
