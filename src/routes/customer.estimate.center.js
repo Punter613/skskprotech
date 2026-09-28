@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { getJob } = require('../services/job.lifecycle');
-const { workOrderSummary } = require('../services/work.order');
+const { workOrderSummary, workOrders } = require('../services/work.order');
 const {
   createEstimateOnlyLifecycle,
   createQuickEstimate,
@@ -39,7 +39,8 @@ router.get('/:id', async (req, res) => {
   return res.json({
     success: true,
     ...estimateCenterSummary(job),
-    workOrders: workOrderSummary(job)
+    workOrders: workOrderSummary(job),
+    workOrderDocuments: JSON.parse(JSON.stringify(workOrders(job)))
   });
 });
 
