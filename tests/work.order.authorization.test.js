@@ -120,7 +120,7 @@ test('deferred, declined, or merely proposed lines cannot enter a Work Order', a
   assert.equal(orders.length, 0);
 });
 
-test('authorization snapshot remains immutable if the source estimate decision later changes', async () => {
+test('source authorization is locked after Work Order creation and added work requires fresh revision authorization', async () => {
   const { job, estimate } = await makeEstimate();
   await recordCustomerDecisions(job.jobId, estimate.estimateId, estimate.revision, [
     { itemId: 'LI-001', decision: 'AUTHORIZED', note: 'Approved at counter' }
@@ -132,14 +132,52 @@ test('authorization snapshot remains immutable if the source estimate decision l
     requestId: 'snapshot-test'
   });
 
-  await recordCustomerDecisions(job.jobId, estimate.estimateId, estimate.revision, [
-    { itemId: 'LI-001', decision: 'DEFERRED', note: 'Customer changed future preference after WO creation' }
-  ]);
+  await assert.rejects(
+    () => recordCustomerDecisions(job.jobId, estimate.estimateId, estimate.revision, [
+      { itemId: 'LI-002', decision: 'AUTHORIZED', note: 'Try to add alignment after WO creation' }
+    ]),
+    error => error.code === 'WORK_ORDER_LOCKS_SOURCE_AUTHORIZATION'
+  );
 
   const order = await getWorkOrder(job.jobId, created.workOrder.workOrderId);
   assert.equal(order.workItems[0].authorizationSnapshot.decision, 'AUTHORIZED');
   assert.equal(order.workItems[0].authorizationSnapshot.decisionNote, 'Approved at counter');
-  assert.equal(order.workItems[0].pricingSnapshot.estimatedTotal, 500);
+
+  const revision = await reviseQuickEstimate(job.jobId, estimate.estimateId, {
+    laborRate: 100,
+    taxRate: 0,
+    workItems: [
+      { description: 'Front brake service', partsCost: 300, laborHours: 2, priority: 'WARNING' },
+      { description: 'Wheel alignment', partsCost: 0, laborHours: 1, priority: 'ROUTINE' },
+      { description: 'Cabin air filter', partsCost: 40, laborHours: 0.2, priority: 'ADVISORY' },
+      { description: 'Added tie rod replacement', partsCost: 120, laborHours: 1, priority: 'WARNING' }
+    ]
+  });
+  assert.equal(revision.revision, 2);
+  assert.ok(revision.workItems.every(item => item.decision === 'PROPOSED'));
+
+  await assert.rejects(
+    () => createWorkOrder(job.jobId, {
+      estimateId: revision.estimateId,
+      revision: revision.revision,
+      itemIds: ['LI-004']
+    }),
+    error => error.code === 'UNAUTHORIZED_WORK_SCOPE'
+  );
+
+  await recordCustomerDecisions(job.jobId, revision.estimateId, revision.revision, [
+    { itemId: 'LI-004', decision: 'AUTHORIZED', note: 'Customer approved added tie rod work' }
+  ]);
+  const added = await createWorkOrder(job.jobId, {
+    estimateId: revision.estimateId,
+    revision: revision.revision,
+    itemIds: ['LI-004'],
+    requestId: 'added-work-auth-1'
+  });
+  assert.equal(added.created, true);
+  assert.equal(added.workOrder.sourceEstimate.revision, 2);
+  assert.equal(added.workOrder.workItems[0].sourceItemId, 'LI-004');
+  assert.match(added.workOrder.workItems[0].authorizationSnapshot.decisionNote, /approved added tie rod/i);
 });
 
 test('superseded estimate revisions cannot create new Work Orders', async () => {
