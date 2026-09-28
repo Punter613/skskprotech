@@ -201,6 +201,62 @@ async function createJob(input = {}) {
   return persist(job);
 }
 
+async function findReturnVisits(priorJobId) {
+  if (!priorJobId) return [];
+  const seen = new Map();
+
+  for (const job of Object.values(memoryStore())) {
+    if (job?.relationship?.type === 'RETURN_VISIT' && job.relationship.priorLifecycleNumber === priorJobId) {
+      seen.set(job.jobId, job);
+    }
+  }
+
+  if (supabase) {
+    try {
+      const { data, error } = await supabase.from('service_jobs').select('payload');
+      if (!error) {
+        for (const row of data || []) {
+          const job = row?.payload;
+          if (job?.relationship?.type === 'RETURN_VISIT' && job.relationship.priorLifecycleNumber === priorJobId) {
+            seen.set(job.jobId, job);
+            memoryStore()[job.jobId] = job;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[JobLifecycle] Return-visit lookup failed, memory results retained:', err.message);
+    }
+  }
+
+  return [...seen.values()].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+}
+
+async function createReturnVisit(priorJobId, input = {}) {
+  const prior = await getJob(priorJobId);
+  if (!prior) return null;
+
+  const rootLifecycleNumber = prior.relationship?.rootLifecycleNumber || prior.jobId;
+  const job = await createJob({
+    customer: clonePlain(prior.customer || {}),
+    vehicle: {
+      ...clonePlain(prior.vehicle || {}),
+      mileage: input.mileage ?? prior.vehicle?.mileage ?? 0
+    },
+    customerStates: Array.isArray(input.customerStates) ? input.customerStates : [],
+    mechanicNotices: Array.isArray(input.mechanicNotices) ? input.mechanicNotices : [],
+    obdCodes: Array.isArray(input.obdCodes) ? input.obdCodes : []
+  });
+
+  return patchJob(job.jobId, {
+    relationship: {
+      type: 'RETURN_VISIT',
+      priorLifecycleNumber: prior.jobId,
+      rootLifecycleNumber,
+      createdFromPriorAt: nowIso()
+    }
+  });
+}
+
 async function patchJob(jobId, patch = {}) {
   const job = await getJob(jobId);
   if (!job) return null;
@@ -433,6 +489,8 @@ module.exports = {
   createJob,
   getJob,
   patchJob,
+  createReturnVisit,
+  findReturnVisits,
   recordDiagnosis,
   recordDiagnosisFailure,
   recordUnverifiedDiagnosis,
