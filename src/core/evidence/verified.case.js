@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { assertValidDiagnosticResult } = require('./diagnostic.candidate');
 
 const SCHEMA_VERSION = 1;
 
@@ -40,6 +41,7 @@ function buildVerifiedCase(job = {}) {
     throw new Error('Verified case requires persisted VERIFIED status and an explicit confirmed cause');
   }
   if (!job.diagnosis?.result) throw new Error('Verified case requires a persisted diagnosis');
+  assertValidDiagnosticResult(job.diagnosis.result, 'Verified case requires a valid persisted diagnostic candidate');
   if (!Array.isArray(job.tests) || job.tests.length === 0) throw new Error('Verified case requires recorded tests');
 
   const conclusion = clean(verification.conclusion, 1000);
