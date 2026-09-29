@@ -46,7 +46,7 @@ app.use(cors({
     return callback(new Error('Origin not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-SKSK-API-Key']
 }));
 
 app.use((req, res, next) => {
@@ -82,6 +82,10 @@ const partsLookupRouter = require('../src/routes/partsLookup');
 const fleetRouter = require('../src/routes/fleet');
 const vehicleRouter = require('../src/routes/vehicle');
 const quickAskRouter = require('../src/routes/quick.ask');
+const { requireApiAccess, createRateLimiter } = require('../src/middleware/api.access');
+const aiRateLimit = createRateLimiter();
+const protectAi = [requireApiAccess, aiRateLimit];
+
 const {
   diagnosisLifecycle,
   estimateLifecycle,
@@ -93,19 +97,19 @@ app.use('/api/parts', partsRouter);
 app.use('/api/full-estimate', fullEstimateRouter);
 app.use('/api/jobs', jobsRouter);
 
-app.use('/api/diagnose', diagnosisLifecycle, diagnose);
+app.use('/api/diagnose', ...protectAi, diagnosisLifecycle, diagnose);
 app.use('/api/estimateHeuristic', estimateLifecycle, estimateHeuristic);
 app.use('/api/invoice', invoiceLifecycle, invoice);
 
-app.use('/api/translate', require('../src/routes/translate'));
+app.use('/api/translate', ...protectAi, require('../src/routes/translate'));
 app.use('/api/parts-lookup', partsLookupRouter);
 app.use('/api/fleet', fleetRouter);
 app.use('/api/vehicle', vehicleRouter);
-app.use('/api/quick-ask', quickAskRouter);
+app.use('/api/quick-ask', ...protectAi, quickAskRouter);
 app.use(oemRouter);
 
 // ─── SKSK MODULE REBUILD ADDITIONS (As Clean Side-by-Side Lanes) ───
-app.use('/api/intelligence', require('../src/routes/intelligence.routes'));
+app.use('/api/intelligence', ...protectAi, require('../src/routes/intelligence.routes'));
 app.use('/api/buyer', require('../src/routes/buyer'));
 
 // STANDALONE STRIPE SUBSCRIPTION INFRASTRUCTURE
