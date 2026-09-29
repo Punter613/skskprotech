@@ -56,6 +56,32 @@ test('bad diagnostic field type is rejected before lifecycle job creation', asyn
   });
 });
 
+test('unsafe VIN and vehicle identifier types are rejected without creating jobs', async () => {
+  const cases = [
+    { vin: 12345 },
+    { vin: { a: 1 } },
+    { vehicle: { vin: 12345 } },
+    { vehicle: { make: 5, model: 'Sorento' } },
+    { vehicle: { make: 'Kia', model: 7 } },
+    { vehicle: { make: 'Kia', model: 'Sorento', engine: 38 } },
+    { vehicle: { make: 'Kia', model: 'Sorento', year: {} } }
+  ];
+  await withServer(async base => {
+    for (const payload of cases) {
+      resetJobs();
+      const before = jobCount();
+      const response = await fetch(`${base}/api/diagnose`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const body = await response.json();
+      assert.equal(response.status, 400, JSON.stringify(payload));
+      assert.equal(body.code, 'INVALID_DIAGNOSIS_INPUT');
+      assert.equal(jobCount(), before, JSON.stringify(payload));
+    }
+  });
+});
+
 test('minimal valid diagnostic inputs still pass the pre-create guard', async () => {
   const cases = [
     { vin: 'KNDJC736385765089' },
