@@ -94,25 +94,25 @@ const {
   invoiceLifecycle
 } = require('../src/middleware/job.lifecycle.middleware');
 
-app.use('/api/scrape', scrapeRouter);
-app.use('/api/parts', partsRouter);
+app.use('/api/scrape', requireApiAccess, scrapeRouter);
+app.use('/api/parts', requireApiAccess, partsRouter);
 app.use('/api/full-estimate', fullEstimateRouter);
-app.use('/api/jobs', jobsRouter);
+app.use('/api/jobs', requireApiAccess, jobsRouter);
 
 app.use('/api/diagnose', ...protectAi, diagnosisLifecycle, diagnose);
-app.use('/api/estimateHeuristic', estimateLifecycle, estimateHeuristic);
-app.use('/api/invoice', invoiceLifecycle, invoice);
+app.use('/api/estimateHeuristic', requireApiAccess, estimateLifecycle, estimateHeuristic);
+app.use('/api/invoice', requireApiAccess, invoiceLifecycle, invoice);
 
 app.use('/api/translate', ...protectAi, require('../src/routes/translate'));
 app.use('/api/parts-lookup', partsLookupRouter);
-app.use('/api/fleet', fleetRouter);
+app.use('/api/fleet', requireApiAccess, fleetRouter);
 app.use('/api/vehicle', vehicleRouter);
 app.use('/api/quick-ask', ...protectAi, quickAskRouter);
 app.use(oemRouter);
 
 // ─── SKSK MODULE REBUILD ADDITIONS (As Clean Side-by-Side Lanes) ───
 app.use('/api/intelligence', ...protectAi, require('../src/routes/intelligence.routes'));
-app.use('/api/buyer', require('../src/routes/buyer'));
+app.use('/api/buyer', requireApiAccess, require('../src/routes/buyer'));
 
 // STANDALONE STRIPE SUBSCRIPTION INFRASTRUCTURE
 if (process.env.STRIPE_SECRET_KEY) {
