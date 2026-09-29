@@ -14,6 +14,7 @@ jobs:
     timeout-minutes: 5
     env:
       BASE_URL: https://p613-backend.onrender.com
+      SKSK_TEST_API_KEY: ${{ secrets.SKSK_TEST_API_KEY }}
     steps:
       - name: Public health and persistence
         run: |
@@ -40,3 +41,18 @@ jobs:
             echo "::error::Expected 401 when production auth is enforced, or transitional 400 while enforcement is intentionally disabled; got $code"
             exit 1
           fi
+
+      - name: Authenticated test-key lane reaches validation without provider spend
+        if: ${{ env.SKSK_TEST_API_KEY != '' }}
+        run: |
+          code="$(curl --connect-timeout 10 --max-time 45 -sS -o /tmp/test-key.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H "X-SKSK-API-Key: $SKSK_TEST_API_KEY" --data '{}' "$BASE_URL/api/diagnose")"
+          cat /tmp/test-key.json
+          if [ "$code" != "400" ]; then
+            echo "::error::Expected authenticated malformed diagnosis to reach validation and return 400; got $code"
+            exit 1
+          fi
+
+      - name: Require configured test key when production test lane is enabled
+        if: ${{ env.SKSK_TEST_API_KEY == '' }}
+        run: |
+          echo "::notice::SKSK_TEST_API_KEY repository secret is not configured; authenticated production smoke is skipped."
