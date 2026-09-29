@@ -41,7 +41,12 @@
 </div>
 <script src="/js/tag-status.js"></script>
 <script>
-const API='';let jobId=null,lastDiagnosis=null,lastEstimate=null,testCount=0,savedTests=[],currentDiagnosisRevision=1;const $=id=>document.getElementById(id);const list=v=>String(v||'').split(',').map(x=>x.trim()).filter(Boolean);const lines=v=>String(v||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const API=(()=>{
+  const configured=document.querySelector('meta[name="sksk-api-base"]')?.content?.trim();
+  if(configured)return configured.replace(/\\\/$/,'');
+  if(location.hostname==='skskprotech.pages.dev'||location.hostname.endsWith('.skskprotech.pages.dev'))return 'https://p613-backend.onrender.com';
+  return '';
+})();let jobId=null,lastDiagnosis=null,lastEstimate=null,testCount=0,savedTests=[],currentDiagnosisRevision=1;const $=id=>document.getElementById(id);const list=v=>String(v||'').split(',').map(x=>x.trim()).filter(Boolean);const lines=v=>String(v||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function post(path,body){const r=await fetch(API+path,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)});const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={error:t}}if(!r.ok)throw new Error(d.error||d.message||`HTTP ${r.status}`);return d}
 function setStatus(id,msg,kind=''){const el=$(id);el.textContent=msg;el.className=`status ${kind}`.trim()}
 const workspaceOrder=['Diag','Brain','Test','Verify','Estimate','Invoice'];let furthestStage=0;

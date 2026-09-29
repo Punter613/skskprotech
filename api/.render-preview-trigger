@@ -1,3 +1,1 @@
-Render preview trigger
-reason: verify non-breaking npm audit lockfile remediation against exact PR head
-updated: 2026-09-29 PR4 dependency audit fix
+frontend production API wiring; force Render exact-head preview
