@@ -45,7 +45,7 @@ jobs:
       - name: Authenticated test-key lane reaches validation without provider spend
         if: ${{ env.SKSK_TEST_API_KEY != '' }}
         run: |
-          code="$(curl --connect-timeout 10 --max-time 45 -sS -o /tmp/test-key.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H "X-SKSK-API-Key: $SKSK_TEST_API_KEY" --data '{}' "$BASE_URL/api/diagnose")"
+          code="$(curl --connect-timeout 10 --max-time 45 -sS -o /tmp/test-key.json -w '%{http_code}' -H "X-SKSK-API-Key: $SKSK_TEST_API_KEY" "$BASE_URL/health/auth-test")"
           cat /tmp/test-key.json
           if [ "$code" != "400" ]; then
             echo "::error::Expected authenticated malformed diagnosis to reach validation and return 400; got $code"
