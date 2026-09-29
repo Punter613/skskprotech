@@ -1,1 +1,1 @@
-supabase security hardening: views functions and RLS migration
+supabase least privilege: close unused anon and authenticated database surface
