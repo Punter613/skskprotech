@@ -1,372 +1,250 @@
-SKSK ProTech
+# SKSK ProTech
 
-An Automotive Intelligence Platform
+**Automotive intelligence built around evidence, reasoning, safety, and human judgment.**
 
-Evidence. Reasoning. Safety. Human Judgment.
+> **Your extra set of eyes.**
 
+SKSK ProTech is not an AI chatbot that tells a mechanic what to replace. It is a decision-support platform that helps technicians move from a customer complaint to an evidence-supported repair while keeping diagnostic authority explicit.
 
----
-
-What is SKSK?
-
-SKSK ProTech is not another AI chatbot for mechanics.
-
-It is an automotive decision-support platform designed to help mechanics, fleet managers, service advisors, and shop owners make better repair decisions through structured reasoning, deterministic safety rules, and verified repair knowledge.
-
-The mission is simple:
-
-> Give every mechanic an extra set of eyes.
-
-
-
-The mechanic always makes the final decision.
-
-The AI assists.
-
+The mechanic makes the final decision. AI assists.
 
 ---
 
-Why This Exists
+## The Current Technician Workflow
+
+SKSK organizes a repair around a controlled lifecycle:
+
+```text
+INTAKE → BRAIN → TEST → VERIFY → ESTIMATE → AUTHORIZE+
+```
+
+### 1. Intake
+
+Capture vehicle identity, mileage, Customer States, mechanic observations, and DTC provenance.
+
+Only DTCs explicitly identified as **read from a scan tool — verified** may enter diagnostic ranking, deterministic matching, or automatic DTC-focused retrieval. Typed, customer-reported, and placeholder codes remain in the audit trail without being promoted to diagnostic evidence.
+
+### 2. Brain
+
+**Ask the Brain** is a read-only mechanic aid.
+
+It can use the current case context—including the customer complaint, mechanic observations, translated retrieval terms, verified DTC context, and current diagnostic candidates—to search for:
+
+- eligible confirmed repair outcomes
+- focused service-manual references
+- published TSB evidence
+
+These sources remain separate. A TSB match is not converted into diagnostic probability, and a service-manual pointer does not confirm a fault.
+
+Brain does **not** advance diagnostic authority, authorize a repair, or unlock Estimate.
+
+### 3. Test
+
+SKSK turns diagnostic hypotheses into confirmation steps.
+
+Mechanic observations and measurements are persisted as evidence. New evidence makes the previous AI candidate stale until reassessment succeeds, preventing an older diagnosis from silently surviving contradictory or newer findings.
+
+### 4. Verify
+
+Verification requires physical evidence explicitly classified as **CONFIRMS** and tied to a named fault.
+
+An AI-generated hypothesis—even a high-confidence one—cannot substitute for that confirmation.
+
+### 5. Estimate
+
+Estimate stays locked until the diagnostic lifecycle reaches verified repair truth.
+
+The platform is designed to prevent a plausible diagnosis from quietly becoming an authorized repair.
+
+### 6. Authorize+
+
+The downstream work-order and invoice lifecycle preserves the distinction between diagnosis, verification, customer authorization, completed work, and final billing.
+
+---
+
+## Unverified Diagnosis and Cause Chains
+
+Real vehicles can have more than one fault, and one fault can contribute to another.
+
+SKSK therefore avoids flattening every similar symptom into a single candidate. The unverified diagnosis layer can preserve concurrent candidates and organize plausible relationships such as:
+
+```text
+upstream condition
+      ↓
+component fault / leak point
+      ↓
+observed consequence
+```
+
+For example, a crankcase-ventilation fault may be considered alongside a valve-cover leak and an independent oil-filter-housing leak when the observed consequence is oil contacting a hot exhaust surface.
+
+Those relationships are labeled **HYPOTHESIS_ONLY** until physical evidence confirms the individual fault. Cause-chain reasoning does not unlock VERIFY or Estimate.
+
+True aliases can be normalized without erasing distinct faults.
+
+---
+
+## Evidence Authority Model
+
+SKSK intentionally separates different levels of knowledge:
+
+| Information | What it can do |
+| --- | --- |
+| Customer statement | Establish symptoms and context |
+| Mechanic observation | Add case evidence and influence reassessment |
+| AI diagnostic candidate | Guide testing as an unverified hypothesis |
+| Confirmed repair history | Inform read-only common-pattern retrieval |
+| Service-manual reference | Point the technician toward applicable procedures |
+| Published TSB | Provide published vehicle/service evidence |
+| Physical CONFIRMS evidence tied to a named fault | Make the fault eligible for explicit verification |
+| Explicit verification | Advance repair authority toward Estimate |
+
+The core rule is simple:
+
+> **Evidence is more valuable than confidence.**
+
+---
+
+## Atomic Evidence Reassessment
+
+Test evidence and diagnostic reassessment are designed to behave as one controlled workflow.
+
+When new mechanic evidence is submitted:
+
+1. the evidence is validated and persisted;
+2. the prior diagnosis is marked stale;
+3. SKSK reassesses the persisted case;
+4. a fresh unverified diagnosis revision is issued only if reassessment succeeds.
+
+If reassessment fails, the mechanic evidence remains saved and the prior diagnosis stays visibly stale. SKSK fails closed rather than presenting an outdated candidate as current.
+
+Stable evidence IDs also make mobile retries idempotent so a retry does not silently duplicate the same test result.
+
+---
+
+## Why SKSK Exists
 
 Most automotive software stores information.
 
-Diagnostic scanners read trouble codes.
+Diagnostic scanners read trouble codes. Estimating software creates estimates and invoices. Shop-management systems organize customers and work.
 
-Estimating software creates invoices.
+SKSK is designed around a different question:
 
-Shop management systems organize customers.
+> **Given what we actually know about this vehicle, what should we test, verify, and decide next?**
 
-SKSK is designed to answer a different question:
-
-> "Given everything we know about this vehicle, what is the safest and most likely path forward?"
-
-
-
-Instead of replacing existing tools, SKSK is intended to become the intelligence layer that works alongside them.
-
+Instead of replacing existing shop tools, SKSK is intended to become the intelligence layer that works alongside them.
 
 ---
 
-Project History
+## Core Architecture
 
-Phase 1 — AI Estimator
+The platform is organized around specialized responsibilities, including:
 
-The project began as a simple AI estimate generator.
+- Diagnostics
+- Estimates and pricing
+- Parts intelligence
+- VIN intelligence
+- Fleet and buyer tools
+- Knowledge and evidence retrieval
+- Economic analysis
+- deterministic safety / TAG evaluation
+- repair lifecycle and verified outcomes
 
-One endpoint.
+The diagnostic pipeline combines deterministic controls, provider-assisted reasoning, validation, evidence verification, economic analysis, and structured output.
 
-One AI provider.
-
-One prompt.
-
-Generate labor.
-
-Generate parts.
-
-Return an estimate.
-
-It worked.
-
-Then users wanted more.
-
+AI providers are replaceable components. The durable value is the evidence and repair-intelligence system around them.
 
 ---
 
-Phase 2 — Growth
+## Deterministic Safety
 
-Features were added rapidly:
+Safety-critical recommendations are not left entirely to model output.
 
-Diagnostics
+Deterministic controls can evaluate known constraints before AI reasoning and validate output afterward. The same philosophy applies to diagnostic authority: AI may propose a candidate, but it cannot manufacture the physical evidence required to verify that candidate.
 
-Parts Lookup
-
-TSB Search
-
-Fleet
-
-Buyer Tools
-
-Receptionist
-
-Pricing
-
-Invoices
-
-Payments
-
-
-The application continued to function, but the architecture became increasingly difficult to maintain.
-
-Logic became duplicated.
-
-Routes expanded.
-
-Business logic spread across unrelated files.
-
-The software outgrew its original design.
-
+This boundary matters for systems such as brakes, steering, tires, cooling, lubrication, and electrical safety—and for ordinary repairs where replacing the wrong part is expensive even when it is not immediately dangerous.
 
 ---
 
-Phase 3 — Controlled Migration
+## Knowledge, Not Just AI
 
-Rather than deleting everything and starting over, SKSK adopted a different strategy.
+The long-term knowledge layer is built from structured automotive evidence such as:
 
-Separate the architecture without breaking the application.
+- verified repair outcomes
+- historical diagnostics
+- technician observations and test results
+- OEM/service-manual references
+- published TSB evidence
+- component and parts relationships
+- labor and pricing history
+- failure patterns
+- economic analysis
 
-Every new feature follows the new architecture.
-
-Existing features continue to work until their replacement is complete.
-
-Nothing is removed until the replacement has been tested.
-
-This allows continuous development without sacrificing stability.
-
-
----
-
-Core Philosophy
-
-Artificial Intelligence should assist decisions.
-
-Artificial Intelligence should not own decisions.
-
-The repair process follows a structured pipeline.
-
-Vehicle Information
-        │
-        ▼
-Customer Complaint
-        │
-        ▼
-TAG Safety Evaluation
-        │
-        ▼
-AI Specialist Selection
-        │
-        ▼
-Evidence Validation
-        │
-        ▼
-Economic Analysis
-        │
-        ▼
-Recommendation
-        │
-        ▼
-Mechanic Decision
-        │
-        ▼
-Repair Outcome
-        │
-        ▼
-Knowledge Base
-
-The mechanic remains responsible for the repair.
-
-The AI provides a structured second opinion.
-
+Completed work can improve future recommendations only when it meets the eligibility rules for verified repair knowledge.
 
 ---
 
-Deterministic Safety
+## Project Evolution
 
-Safety-critical recommendations are never left entirely to AI.
+### Phase 1 — AI Estimator
 
-Examples include:
+SKSK began as a simple AI estimate generator: one endpoint, one provider, one prompt, and a generated estimate.
 
-Brake wear
+### Phase 2 — Growth
 
-Steering components
+Diagnostics, parts lookup, TSB search, fleet tools, buyer tools, pricing, invoices, payments, and other capabilities expanded the project beyond its original architecture.
 
-Tire condition
+### Phase 3 — Controlled Migration
 
-Cooling system
+The repository moved toward specialized engines and explicit contracts without deleting working functionality before its replacement was proven.
 
-Oil pressure
+### Phase 4 — Evidence-Governed Lifecycle
 
-Electrical hazards
-
-
-The Deterministic Orchestrator evaluates known safety rules before AI reasoning and validates AI output afterward.
-
-This prevents unsafe recommendations from reaching the user without review.
-
+The current direction connects intake, read-only knowledge retrieval, testing, atomic reassessment, explicit physical verification, estimates, authorization, completed work, and verified repair outcomes into one evidence-governed lifecycle.
 
 ---
 
-Platform Architecture
+## Design Principles
 
-SKSK is organized into specialized engines.
-
-Each engine has a single responsibility.
-
-Core Engines
-
-• Diagnostics Engine
-• Estimate Engine
-• Pricing Engine
-• Parts Intelligence
-• VIN Engine
-• Fleet Engine
-• Buyer Engine
-• Knowledge Engine
-• Economic Engine
-• Evidence Engine
-• Safety (TAG) Engine
-
-These engines communicate through structured interfaces rather than directly depending on one another.
-
-
----
-
-Knowledge, Not Just AI
-
-Language models improve every year.
-
-The lasting value of SKSK is not the model itself.
-
-The value comes from building a structured automotive knowledge system containing:
-
-Verified repair outcomes
-
-Historical diagnostics
-
-Technician feedback
-
-OEM procedures
-
-Parts relationships
-
-Labor history
-
-Failure patterns
-
-Economic analysis
-
-
-Every completed repair has the potential to improve future recommendations.
-
-
----
-
-Current Development Status
-
-SKSK is currently undergoing a staged architectural migration.
-
-The repository intentionally contains:
-
-Legacy routes
-
-Transitional modules
-
-Duplicate functionality during migration
-
-Temporary compatibility layers
-
-
-These are not accidental.
-
-They exist to preserve working functionality while the platform is reorganized into independent engines.
-
-No production functionality is intentionally removed until its replacement has been verified.
-
-
----
-
-Long-Term Vision
-
-SKSK is designed to become an automotive intelligence platform capable of supporting:
-
-Independent repair shops
-
-Mobile mechanics
-
-Fleet maintenance
-
-Vehicle buyers
-
-Service advisors
-
-White-label commercial deployments
-
-
-Future capabilities include:
-
-Multi-provider AI routing
-
-Predictive maintenance
-
-Mechanic feedback network
-
-Evidence-based confidence scoring
-
-Fleet analytics
-
-Offline edge deployment
-
-Structured repair intelligence
-
-
-
----
-
-Design Principles
-
-Every major design decision follows these principles:
-
-1. Human judgment always has final authority.
-
-
+1. Human judgment has final authority.
 2. AI assists; it does not replace expertise.
-
-
-3. Safety rules override AI recommendations.
-
-
+3. Safety and authority boundaries are deterministic where they need to be.
 4. Evidence is more valuable than confidence.
-
-
-5. Architecture evolves through migration, not destructive rewrites.
-
-
-6. Knowledge is accumulated from verified repair outcomes.
-
-
-7. Every module should have one clear responsibility.
-
-
-
+5. Unverified hypotheses must remain visibly unverified.
+6. Distinct concurrent faults must not be collapsed merely because they share a symptom.
+7. New evidence must invalidate stale reasoning before a fresh diagnosis is trusted.
+8. Verified repair outcomes—not guesses—build durable repair knowledge.
+9. Architecture evolves through tested migration rather than destructive rewrites.
+10. Every module should have a clear responsibility.
 
 ---
 
-Repository Notice
+## Long-Term Vision
 
-If you notice duplicate modules, transitional routes, or legacy code, this is expected.
+SKSK is being built as an automotive intelligence platform for independent repair shops, mobile mechanics, fleets, service advisors, vehicle buyers, and commercial deployments.
 
-The repository represents an active architectural migration from an early prototype into a modular intelligence platform.
+The direction includes deeper repair intelligence, multi-provider reasoning, predictive maintenance, fleet analytics, mechanic feedback, evidence-based confidence, and offline/edge capability—while preserving the same core rule:
 
-The goal is continuous evolution while preserving proven functionality.
-
+> **The system can help decide what to investigate. The evidence determines what is verified.**
 
 ---
 
-Project Vision
+## Repository Notice
+
+The repository is under active development and may still contain legacy routes, transitional modules, compatibility layers, or temporarily overlapping functionality.
+
+That overlap is intentional when it protects working behavior during migration. Production functionality is not intentionally removed until its replacement has been tested.
+
+---
+
+## Project Vision
 
 Most automotive software answers:
 
-> "What happened?"
+> **What happened?**
 
+SKSK is designed to help answer:
 
+> **What is the safest, most evidence-supported decision we can make next?**
 
-SKSK is designed to answer:
-
-> "What is the safest, most evidence-supported decision we can make next?"
-
-
-
-
----
-
-Built by someone who's spent years turning wrenches, solving problems, and learning that sometimes the most valuable tool in the shop isn't another scanner—it's an extra set of eyes.
-
+Built from the perspective that sometimes the most valuable tool in the shop is not another scanner—it is **an extra set of eyes**.
