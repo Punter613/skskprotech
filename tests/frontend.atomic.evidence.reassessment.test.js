@@ -28,3 +28,21 @@ test('atomic lifecycle UI saves unsaved evidence inside reassessment and handles
   assert.match(js, /stableId/);
   assert.match(js, /evidenceReusedCount/);
 });
+
+
+test('Brain retrieval expands from mechanic observations and diagnostic candidates', () => {
+  const html = fs.readFileSync(lifecyclePath, 'utf8');
+  assert.match(html, /const mechanicContext=\$\('notes'\)\.value\.trim\(\)/);
+  assert.match(html, /const diagnosticContext=lastDiagnosis/);
+  assert.match(html, /lastDiagnosis\.secondaryCauses/);
+  assert.match(html, /lastDiagnosis\.probability/);
+  assert.match(html, /retrievalQuery=\[query,customerQuery,mechanicContext,translatedContext,keywordContext,codeContext,diagnosticContext\]/);
+});
+
+test('unverified UI labels causal grouping as unverified', () => {
+  const js = fs.readFileSync(atomicUiPath, 'utf8');
+  assert.match(js, /Possible cause chain · UNVERIFIED/);
+  assert.match(js, /Pressure \/ upstream candidates/);
+  assert.match(js, /Possible leak points/);
+  assert.match(js, /Observed consequences/);
+});
