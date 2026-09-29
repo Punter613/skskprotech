@@ -217,7 +217,7 @@ test('optional mechanic measurements preserve TAG trust and blank-value boundari
   assert.match(html, /Brake pad thickness \(mm\)/);
   assert.match(html, /Tire tread depth \(32nds\)/);
   assert.match(html, /function mechanicComponentData\(\)/);
-  assert.match(html, /if\(raw===' '\.trim\(\)\)continue|if\(raw===' '\)continue|if\(raw==='')continue/);
+  assert.ok(html.includes("if(raw==='')continue"));
   assert.match(html, /Object\.keys\(data\)\.length\?data:null/);
   assert.match(html, /\.\.\.\(componentData\?\{componentData\}:\{\}\)/);
   assert.match(html, /TAG:<\/b> not checked, no measurements entered/);
