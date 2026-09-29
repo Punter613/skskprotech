@@ -51,9 +51,7 @@ function requireApiAccess(req, res, next) {
 
   const credential = extractCredential(req);
   const keyIndex = credential ? keys.findIndex(key => safeEqual(credential, key)) : -1;
-  const testKeys = testKeysAllowed() ? configuredTestKeys() : [];
-  const testKeyIndex = credential ? testKeys.findIndex(key => safeEqual(credential, key)) : -1;
-  if (!credential || (keyIndex < 0 && testKeyIndex < 0)) {
+  if (!credential || keyIndex < 0) {
     res.setHeader('WWW-Authenticate', 'Bearer realm="SKSK ProTech"');
     return res.status(401).json({ success: false, error: 'Authentication required' });
   }
@@ -61,11 +59,28 @@ function requireApiAccess(req, res, next) {
   // Transitional shop-key identity. Downstream code gets an opaque principal,
   // never the credential itself. Supabase user/session identity can replace this
   // without changing route authorization contracts.
-  if (keyIndex >= 0) {
-    markPrincipal(req, 'shop_key', `shop_key_${keyIndex + 1}`);
-  } else {
-    markPrincipal(req, 'test_key', `test_key_${testKeyIndex + 1}`);
+  markPrincipal(req, 'shop_key', `shop_key_${keyIndex + 1}`);
+  return next();
+}
+
+function requireTestAccess(req, res, next) {
+  if (!authRequired()) {
+    return res.status(503).json({ success: false, error: 'Authentication enforcement is not enabled' });
   }
+  if (!testKeysAllowed()) {
+    return res.status(503).json({ success: false, error: 'Testing access is not enabled' });
+  }
+  const keys = configuredTestKeys();
+  if (!keys.length) {
+    return res.status(503).json({ success: false, error: 'Testing access is not configured' });
+  }
+  const credential = extractCredential(req);
+  const keyIndex = credential ? keys.findIndex(key => safeEqual(credential, key)) : -1;
+  if (!credential || keyIndex < 0) {
+    res.setHeader('WWW-Authenticate', 'Bearer realm="SKSK ProTech test"');
+    return res.status(401).json({ success: false, error: 'Authentication required' });
+  }
+  markPrincipal(req, 'test_key', `test_key_${keyIndex + 1}`);
   return next();
 }
 
@@ -102,4 +117,4 @@ function createRateLimiter(options = {}) {
   };
 }
 
-module.exports = { requireApiAccess, createRateLimiter, authRequired, configuredKeys, configuredTestKeys, testKeysAllowed, extractCredential, markPrincipal };
+module.exports = { requireApiAccess, requireTestAccess, createRateLimiter, authRequired, configuredKeys, configuredTestKeys, testKeysAllowed, extractCredential, markPrincipal };
