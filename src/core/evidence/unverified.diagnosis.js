@@ -99,6 +99,33 @@ function uniqueAlternatives(values = [], mostLikelyCause = '') {
   }).slice(0, 5);
 }
 
+function buildPossibleCauseChain(job = {}, result = {}) {
+  const candidates = [
+    clean(result.primaryCause, 300),
+    ...list(result.secondaryCauses, 8, 300),
+    ...(Array.isArray(result.probability) ? result.probability.map(item => clean(item?.cause, 300)) : [])
+  ].filter(Boolean);
+  const unique = [...new Map(candidates.map(value => [value.toLowerCase(), value])).values()];
+  const pressureDrivers = unique.filter(value => /\bpcv\b|positive crankcase|crankcase pressure|crankcase ventilation/i.test(value));
+  const leakPoints = unique.filter(value => /valve cover|oil filter housing|oil (?:leak|leaking)|gasket (?:leak|breach)|seal (?:leak|failure)/i.test(value));
+  const observations = [
+    ...list(job.intake?.customerStates, 8, 300),
+    ...list(job.intake?.mechanicNotices, 8, 300)
+  ];
+  const consequences = observations.filter(value => /smoke|burning oil|oil.+exhaust|exhaust.+oil|hot (?:exhaust|surface)/i.test(value));
+
+  if (!pressureDrivers.length && leakPoints.length < 2) return null;
+  if (!leakPoints.length) return null;
+
+  return Object.freeze({
+    status: 'HYPOTHESIS_ONLY',
+    pressureDrivers: pressureDrivers.slice(0, 3),
+    leakPoints: leakPoints.slice(0, 5),
+    observedConsequences: consequences.slice(0, 5),
+    warning: 'Possible causal relationships only. Each fault remains independently unverified until physical evidence confirms it.'
+  });
+}
+
 function buildUnverifiedDiagnosis(job = {}, recordedAt = new Date().toISOString()) {
   const result = job.diagnosis?.result;
   if (!result) throw new Error('Unverified diagnosis requires a persisted diagnosis');
@@ -120,6 +147,7 @@ function buildUnverifiedDiagnosis(job = {}, recordedAt = new Date().toISOString(
     mostLikelyCause,
     confidence: normalizeConfidence(result),
     alternatives,
+    possibleCauseChain: buildPossibleCauseChain(job, result),
     whySkskThinksThis: buildRationale(job, result, mostLikelyCause),
     whatRemainsUnverified: remainingVerificationSteps(job, result),
     evidenceUsed: {
@@ -149,5 +177,6 @@ module.exports = {
   selectMostLikelyCause,
   remainingVerificationSteps,
   uniqueAlternatives,
+  buildPossibleCauseChain,
   jobDtcEvidence
 };

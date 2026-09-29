@@ -132,11 +132,15 @@
     const alternatives = (u.alternatives || []).length
       ? `<p class="muted"><b>Other candidates:</b> ${u.alternatives.map(esc).join(' · ')}</p>`
       : '';
+    const chain = u.possibleCauseChain;
+    const causeChainHtml = chain
+      ? `<div class="quickEvidence"><b>Possible cause chain · UNVERIFIED</b>${(chain.pressureDrivers || []).length ? `<div class="muted"><strong>Pressure / upstream candidates:</strong> ${chain.pressureDrivers.map(esc).join(' · ')}</div>` : ''}${(chain.leakPoints || []).length ? `<div class="muted"><strong>Possible leak points:</strong> ${chain.leakPoints.map(esc).join(' · ')}</div>` : ''}${(chain.observedConsequences || []).length ? `<div class="muted"><strong>Observed consequences:</strong> ${chain.observedConsequences.map(esc).join(' · ')}</div>` : ''}<div class="muted">${esc(chain.warning || 'Possible relationships only; physical confirmation is still required.')}</div></div>`
+      : '';
     const savedLine = Number(data.evidenceSavedCount || 0) > 0
       ? `<div class="status ok">Saved ${Number(data.evidenceSavedCount)} new evidence item${Number(data.evidenceSavedCount) === 1 ? '' : 's'} before reassessment.</div>`
       : '';
 
-    out.innerHTML = `<div class="result"><h3>🧠 Unverified Diagnosis · Revision ${currentDiagnosisRevision}</h3>${savedLine}<p><b>Most likely cause:</b> ${esc(u.mostLikelyCause || 'No bounded diagnostic candidate')}</p><p class="muted"><b>Confidence:</b> ${esc(confidence || 'LOW')}</p>${alternatives}<p class="muted"><b>Why SKSK thinks this:</b></p>${why ? `<ul class="muted">${why}</ul>` : '<p class="muted">Based on the persisted diagnostic case and available evidence.</p>'}<p class="muted"><b>What remains unverified:</b></p>${remaining ? `<ul class="muted">${remaining}</ul>` : '<p class="muted">Physical confirmation evidence is still required.</p>'}<div class="status warn">${esc(u.warning || 'This diagnosis has not been physically verified. It does not authorize a repair and does not unlock Estimate.')}</div></div>`;
+    out.innerHTML = `<div class="result"><h3>🧠 Unverified Diagnosis · Revision ${currentDiagnosisRevision}</h3>${savedLine}<p><b>Most likely cause:</b> ${esc(u.mostLikelyCause || 'No bounded diagnostic candidate')}</p><p class="muted"><b>Confidence:</b> ${esc(confidence || 'LOW')}</p>${alternatives}${causeChainHtml}<p class="muted"><b>Why SKSK thinks this:</b></p>${why ? `<ul class="muted">${why}</ul>` : '<p class="muted">Based on the persisted diagnostic case and available evidence.</p>'}<p class="muted"><b>What remains unverified:</b></p>${remaining ? `<ul class="muted">${remaining}</ul>` : '<p class="muted">Physical confirmation evidence is still required.</p>'}<div class="status warn">${esc(u.warning || 'This diagnosis has not been physically verified. It does not authorize a repair and does not unlock Estimate.')}</div></div>`;
   }
 
   const note = document.createElement('div');
