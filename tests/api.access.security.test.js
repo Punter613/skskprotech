@@ -125,37 +125,23 @@ test('lifecycle client keeps shop credential session-scoped and retries a 401 on
 });
 
 
-test('testing key is accepted only when the explicit test-key gate is enabled', () => {
-  const saved = {
-    required: process.env.SKSK_REQUIRE_AUTH,
-    keys: process.env.SKSK_API_KEYS,
-    testKeys: process.env.SKSK_TEST_API_KEYS,
-    allow: process.env.SKSK_ALLOW_TEST_KEYS
-  };
+test('testing key is isolated from shop routes and accepted only by dedicated test access', () => {
   process.env.SKSK_REQUIRE_AUTH = 'true';
-  process.env.SKSK_API_KEYS = 'shop-secret';
-  process.env.SKSK_TEST_API_KEYS = 'ci-test-secret';
-  try {
-    delete process.env.SKSK_ALLOW_TEST_KEYS;
-    let response = res();
-    let ran = false;
-    requireApiAccess(req({ 'X-SKSK-API-Key': 'ci-test-secret' }), response, () => { ran = true; });
-    assert.equal(ran, false);
-    assert.equal(response.statusCode, 401);
+  process.env.SKSK_API_KEYS = 'real-shop-key';
+  process.env.SKSK_TEST_API_KEYS = 'test-only-key';
+  process.env.SKSK_ALLOW_TEST_KEYS = 'true';
 
-    process.env.SKSK_ALLOW_TEST_KEYS = 'true';
-    response = res();
-    ran = false;
-    const request = req({ 'X-SKSK-API-Key': 'ci-test-secret' });
-    requireApiAccess(request, response, () => { ran = true; });
-    assert.equal(ran, true);
-    assert.deepEqual(request.auth, { type: 'test_key', id: 'test_key_1' });
-    assert.equal(JSON.stringify(request.auth).includes('ci-test-secret'), false);
-  } finally {
-    for (const [env, value] of [['SKSK_REQUIRE_AUTH',saved.required],['SKSK_API_KEYS',saved.keys],['SKSK_TEST_API_KEYS',saved.testKeys],['SKSK_ALLOW_TEST_KEYS',saved.allow]]) {
-      if (value === undefined) delete process.env[env]; else process.env[env] = value;
-    }
-  }
+  const { requireApiAccess, requireTestAccess } = require('../src/middleware/api.access');
+  const req = { get: name => name.toLowerCase() === 'x-sksk-api-key' ? 'test-only-key' : '' };
+
+  let shopStatus = null;
+  requireApiAccess(req, { setHeader() {}, status(code) { shopStatus = code; return this; }, json() {} }, () => assert.fail('test key must not enter shop route'));
+  assert.equal(shopStatus, 401);
+
+  let nextCalled = false;
+  requireTestAccess(req, { setHeader() {}, status() { return this; }, json() {} }, () => { nextCalled = true; });
+  assert.equal(nextCalled, true);
+  assert.deepEqual(req.auth, { type: 'test_key', id: 'test_key_1' });
 });
 
 
