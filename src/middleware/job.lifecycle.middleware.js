@@ -122,13 +122,25 @@ function validateDiagnoseInput(body) {
   if (body.vehicle !== undefined && (!body.vehicle || typeof body.vehicle !== 'object' || Array.isArray(body.vehicle))) {
     return 'vehicle must be an object';
   }
+  if (body.vin !== undefined && typeof body.vin !== 'string') {
+    return 'vin must be a string';
+  }
+
+  const vehicle = body.vehicle || {};
+  for (const field of ['vin', 'make', 'model', 'engine']) {
+    if (vehicle[field] !== undefined && typeof vehicle[field] !== 'string') {
+      return `vehicle.${field} must be a string`;
+    }
+  }
+  if (vehicle.year !== undefined && typeof vehicle.year !== 'string' && typeof vehicle.year !== 'number') {
+    return 'vehicle.year must be a string or number';
+  }
 
   const nonBlank = value => String(value ?? '').trim().length > 0;
   const hasListValue = field => Array.isArray(body[field]) && body[field].some(item => {
     if (item && typeof item === 'object') return Object.values(item).some(nonBlank);
     return nonBlank(item);
   });
-  const vehicle = body.vehicle || {};
   const hasVehicleInput = ['vin', 'year', 'make', 'model', 'engine'].some(key => nonBlank(vehicle[key]))
     || (vehicle.componentData && typeof vehicle.componentData === 'object' && Object.keys(vehicle.componentData).length > 0);
   const hasDiagnosticInput = nonBlank(body.vin)
