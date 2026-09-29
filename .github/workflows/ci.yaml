@@ -88,6 +88,9 @@ jobs:
     - name: Miscellaneous Regression Checks
       run: npm run test:misc
 
+    - name: Diagnose Input Validation Checks
+      run: npm run test:diagnose-input
+
     - name: Hardened OpenAPI Contract Lint
       run: npx @stoplight/spectral-cli lint openapi.yaml --ruleset .spectral.yaml --format pretty
 
