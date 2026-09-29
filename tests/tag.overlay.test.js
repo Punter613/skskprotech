@@ -52,3 +52,13 @@ test('safety-layer failure is visible instead of silently swallowed', () => {
   assert.equal(out.tagStatus, 'ERROR');
   assert.equal(out.tagError, 'boom');
 });
+
+
+test('tire treadDepth32nds alias reaches the canonical TAG treadDepth rule', async () => {
+  const tag = await evaluateTag({ componentData: { tires: { treadDepth32nds: 1.5 } } }, 'tire inspection');
+  assert.equal(tag.status, 'CHECKED');
+  assert.equal(tag.overrides.length, 1);
+  assert.equal(tag.overrides[0].component, 'tires');
+  assert.equal(tag.overrides[0].metric, 'treadDepth');
+  assert.equal(tag.overrides[0].severity, 'CRITICAL');
+});
