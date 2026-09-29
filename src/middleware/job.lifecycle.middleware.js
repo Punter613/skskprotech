@@ -108,8 +108,43 @@ function packetFromDiagnosisRequest(req, payload) {
   };
 }
 
+function validateDiagnoseInput(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return 'Diagnosis request body must be a JSON object';
+  }
+
+  const arrayFields = ['symptoms', 'customerStates', 'mechanicNotices', 'notes', 'keywords', 'dtcEvidence', 'codes', 'obdCodes'];
+  for (const field of arrayFields) {
+    if (body[field] !== undefined && !Array.isArray(body[field])) {
+      return `${field} must be an array`;
+    }
+  }
+  if (body.vehicle !== undefined && (!body.vehicle || typeof body.vehicle !== 'object' || Array.isArray(body.vehicle))) {
+    return 'vehicle must be an object';
+  }
+
+  const nonBlank = value => String(value ?? '').trim().length > 0;
+  const hasListValue = field => Array.isArray(body[field]) && body[field].some(item => {
+    if (item && typeof item === 'object') return Object.values(item).some(nonBlank);
+    return nonBlank(item);
+  });
+  const vehicle = body.vehicle || {};
+  const hasVehicleInput = ['vin', 'year', 'make', 'model', 'engine'].some(key => nonBlank(vehicle[key]))
+    || (vehicle.componentData && typeof vehicle.componentData === 'object' && Object.keys(vehicle.componentData).length > 0);
+  const hasDiagnosticInput = nonBlank(body.vin)
+    || hasVehicleInput
+    || ['symptoms', 'customerStates', 'mechanicNotices', 'notes', 'dtcEvidence', 'codes', 'obdCodes'].some(hasListValue);
+
+  return hasDiagnosticInput ? null : 'Provide a VIN, vehicle information, symptom/observation, or DTC evidence';
+}
+
 async function diagnosisLifecycle(req, res, next) {
   if (req.method !== 'POST' || req.path !== '/') return next();
+
+  const validationError = validateDiagnoseInput(req.body);
+  if (validationError) {
+    return res.status(400).json({ success: false, error: validationError, code: 'INVALID_DIAGNOSIS_INPUT' });
+  }
 
   try {
     const dtcEvidence = resolveRequestDtcEvidence(req.body || {});
@@ -217,6 +252,7 @@ async function invoiceLifecycle(req, res, next) {
 }
 
 module.exports = {
+  validateDiagnoseInput,
   diagnosisLifecycle,
   estimateLifecycle,
   invoiceLifecycle,
