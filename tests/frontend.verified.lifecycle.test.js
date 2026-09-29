@@ -70,6 +70,16 @@ test('lifecycle markup does not render a literal newline between Intake and Brai
   assert.doesNotMatch(html, /<\/section>\\\\n<section class="card workspaceCard" id="brainCard"/);
 });
 
+test('lifecycle inline script is valid JavaScript so action handlers can initialize', () => {
+  const start = html.indexOf('<script>');
+  const end = html.indexOf('</script>', start);
+  const match = start >= 0 && end > start ? [null, html.slice(start + '<script>'.length, end)] : null;
+  assert.ok(match, 'expected lifecycle inline script');
+  assert.doesNotThrow(() => new Function(match[1]));
+  assert.ok(match[1].includes("$('quickAsk').onclick=async"), 'expected Ask Brain click handler');
+  assert.ok(match[1].includes("$('diag').onclick=async"), 'expected Run Diagnosis click handler');
+});
+
 test('Run Diagnosis stays primary while read-only Brain assistance is secondary', () => {
   assert.match(html, /id="diag" class="btn primary major"/);
   assert.doesNotMatch(html, /id="quickAsk" class="btn knowledge major"/);
