@@ -71,7 +71,7 @@ test('lifecycle markup does not render a literal newline between Intake and Brai
 });
 
 test('lifecycle inline script is valid JavaScript so action handlers can initialize', () => {
-  const match = html.match(/<script>([\\s\\S]*?)<\\/script>/);
+  const match = html.match(new RegExp('<script>([\\\\s\\\\S]*?)</script>'));
   assert.ok(match, 'expected lifecycle inline script');
   assert.doesNotThrow(() => new Function(match[1]));
   assert.match(match[1], /\\$\\('quickAsk'\\)\\.onclick=async/);
