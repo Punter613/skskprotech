@@ -76,8 +76,8 @@ test('lifecycle inline script is valid JavaScript so action handlers can initial
   const match = start >= 0 && end > start ? [null, html.slice(start + '<script>'.length, end)] : null;
   assert.ok(match, 'expected lifecycle inline script');
   assert.doesNotThrow(() => new Function(match[1]));
-  assert.match(match[1], /\\$\\('quickAsk'\\)\\.onclick=async/);
-  assert.match(match[1], /\\$\\('diag'\\)\\.onclick=async/);
+  assert.ok(match[1].includes("$('quickAsk').onclick=async"), 'expected Ask Brain click handler');
+  assert.ok(match[1].includes("$('diag').onclick=async"), 'expected Run Diagnosis click handler');
 });
 
 test('Run Diagnosis stays primary while read-only Brain assistance is secondary', () => {
