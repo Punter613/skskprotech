@@ -52,6 +52,7 @@ function optionalPositiveNumber(value) {
 
 const CANONICAL_MEASUREMENTS = {
   brakes: ['padThickness', 'rotorRunout', 'brakeFluid'],
+  tires: ['treadDepth'],
   coolant: ['condition'],
   transmission: ['fluidCondition'],
   steering: ['play'],
