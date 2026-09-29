@@ -159,7 +159,7 @@ router.post('/', async (req, res) => {
     const evidencePacket = buildDiagnosticEvidencePacket({
       vin,
       mileage,
-      vehicle: resolvedVehicle,
+      vehicle: tagVehicle,
       customerObservations: customerSymptomContext,
       mechanicObservations: mechanicContext,
       dtcEvidence: normalizedDtcEvidence,
