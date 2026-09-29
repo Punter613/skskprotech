@@ -25,6 +25,10 @@ function extractCredential(req) {
   return String(req.get?.('x-sksk-api-key') || '').trim();
 }
 
+function markPrincipal(req, type, id) {
+  req.auth = { type, id };
+}
+
 function requireApiAccess(req, res, next) {
   if (!authRequired()) return next();
 
@@ -35,11 +39,16 @@ function requireApiAccess(req, res, next) {
   }
 
   const credential = extractCredential(req);
-  if (!credential || !keys.some(key => safeEqual(credential, key))) {
+  const keyIndex = credential ? keys.findIndex(key => safeEqual(credential, key)) : -1;
+  if (!credential || keyIndex < 0) {
     res.setHeader('WWW-Authenticate', 'Bearer realm="SKSK ProTech"');
     return res.status(401).json({ success: false, error: 'Authentication required' });
   }
 
+  // Transitional shop-key identity. Downstream code gets an opaque principal,
+  // never the credential itself. Supabase user/session identity can replace this
+  // without changing route authorization contracts.
+  markPrincipal(req, 'shop_key', `shop_key_${keyIndex + 1}`);
   return next();
 }
 
@@ -76,4 +85,4 @@ function createRateLimiter(options = {}) {
   };
 }
 
-module.exports = { requireApiAccess, createRateLimiter, authRequired, configuredKeys, extractCredential };
+module.exports = { requireApiAccess, createRateLimiter, authRequired, configuredKeys, extractCredential, markPrincipal };
