@@ -86,7 +86,9 @@ test('minimal valid diagnostic inputs still pass the pre-create guard', async ()
   const cases = [
     { vin: 'KNDJC736385765089' },
     { symptoms: ['clunk on acceleration'] },
-    { dtcEvidence: [{ code: 'P0300', source: 'SCAN_TOOL', verified: true }] }
+    { dtcEvidence: [{ code: 'P0300', source: 'SCAN_TOOL', verified: true }] },
+    { vehicle: { year: 2008, make: 'Kia', model: 'Sorento' } },
+    { vehicle: { year: '2008', make: 'Kia', model: 'Sorento' } }
   ];
   await withServer(async base => {
     for (const payload of cases) {
