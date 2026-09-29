@@ -5,6 +5,8 @@ const path = require('path');
 const cors = require('cors');
 
 const app = express();
+const { requestTelemetry, errorTelemetry } = require('../src/middleware/observability');
+app.use(requestTelemetry);
 
 // 1. GLOBAL ACCESS CONTROL & SECURITY HEADERS
 // Allow known SKSK browser clients while keeping environment-driven expansion easy.
@@ -391,17 +393,14 @@ app.use((req, res, next) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error('[Error Intercepted]', err.stack || err.message || err);
-  const isDev = process.env.NODE_ENV === 'development';
-  const message = isDev
-    ? (err.message || 'Server error')
-    : (err.statusCode ? err.message : 'Internal server error');
-
-  res.status(err.statusCode || 500).json({
-    success: false,
-    error: message,
-    ...(isDev && { stack: err.stack })
-  });
+  if (err.statusCode && err.statusCode < 500) {
+    return res.status(err.statusCode).json({
+      success: false,
+      error: process.env.NODE_ENV === 'development' ? (err.message || 'Request error') : err.message,
+      requestId: req.requestId || null
+    });
+  }
+  return errorTelemetry(err, req, res, next);
 });
 
 // 8. LIFECYCLE BACKGROUND SERVICE INITIALIZATION
