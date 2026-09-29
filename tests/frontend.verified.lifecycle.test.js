@@ -62,7 +62,7 @@ test('lifecycle restores explicit VIN decode autofill and shared customer-langua
 test('normalizer keywords narrow both diagnosis evidence and Customer States fallback Quick Ask', () => {
   assert.match(html, /function translatedSymptomContext\(\)/);
   assert.match(html, /keywords:translated\.keywords/);
-  assert.match(html, /const retrievalQuery=\[query,translatedContext,keywordContext,codeContext\]/);
+  assert.match(html, /const retrievalQuery=\[query,customerQuery,mechanicContext,translatedContext,keywordContext,codeContext,diagnosticContext\]/);
   assert.match(html, /symptoms:lines\(\$\('symptoms'\)\.value\)/);
 });
 
