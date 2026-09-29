@@ -1,3 +1,3 @@
 Render preview trigger
-reason: verify CI wiring for TAG and orphan regression suites against exact PR head
-updated: 2026-09-29 PR2 CI safety coverage
+reason: verify diagnosis pre-create input validation against exact PR head
+updated: 2026-09-29 PR3 reject invalid diagnosis before job persistence
