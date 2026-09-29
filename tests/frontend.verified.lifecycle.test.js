@@ -66,6 +66,10 @@ test('normalizer keywords narrow both diagnosis evidence and Customer States fal
   assert.match(html, /symptoms:lines\(\$\('symptoms'\)\.value\)/);
 });
 
+test('lifecycle markup does not render a literal newline between Intake and Brain workspaces', () => {
+  assert.doesNotMatch(html, /<\/section>\\\\n<section class="card workspaceCard" id="brainCard"/);
+});
+
 test('Run Diagnosis stays primary while read-only Brain assistance is secondary', () => {
   assert.match(html, /id="diag" class="btn primary major"/);
   assert.doesNotMatch(html, /id="quickAsk" class="btn knowledge major"/);
