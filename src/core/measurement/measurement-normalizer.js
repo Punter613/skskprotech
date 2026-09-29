@@ -114,6 +114,9 @@ function normalizeVehicleMeasurements(vehicleProfile = {}, options = {}) {
   const transmission = ensureComponent(componentData, 'transmission');
   setNumericIfMissing(transmission, 'fluidCondition', [transmission.darknessScore, transmission.darkness]);
 
+  const tires = ensureComponent(componentData, 'tires');
+  setNumericIfMissing(tires, 'treadDepth', [tires.treadDepth32nds]);
+
   const steering = ensureComponent(componentData, 'steering');
   setNumericIfMissing(steering, 'play', [steering.playInches]);
 
