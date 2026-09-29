@@ -10,7 +10,7 @@
     "knowledge:plan": "node scripts/plan-common-vehicle-ingestion.js",
     "lint": "node scripts/check-js-syntax.js",
     "test": "npm run test:ci",
-    "test:ci": "npm run test:guards && npm run test:providers && npm run test:lifecycle && npm run test:measurements && npm run test:evidence && npm run test:quick-ask && npm run test:diagnose-pipeline && npm run test:evidence-packet && npm run test:verified-case && npm run test:estimate-verified-truth && npm run test:repair-resolution && npm run test:invoice-handoff && npm run test:frontend-lifecycle && npm run test:final-invoice && npm run test:commercial-handoff && npm run test:return-visits && npm run test:tag && npm run test:misc",
+    "test:ci": "npm run test:guards && npm run test:providers && npm run test:lifecycle && npm run test:measurements && npm run test:evidence && npm run test:quick-ask && npm run test:diagnose-pipeline && npm run test:evidence-packet && npm run test:verified-case && npm run test:estimate-verified-truth && npm run test:repair-resolution && npm run test:invoice-handoff && npm run test:frontend-lifecycle && npm run test:final-invoice && npm run test:commercial-handoff && npm run test:return-visits && npm run test:tag && npm run test:misc && npm run test:diagnose-input",
     "test:guards": "node --test tests/completed.work.guard.edge-cases.test.js tests/diagnostic.stage.guard.edge-cases.test.js",
     "test:providers": "node --test tests/diagnose.schema.parity.test.js tests/provider.groq.contract.test.js tests/provider.router.fallback.test.js tests/provider.gemini.timeout.test.js tests/specialist.router.provider.test.js tests/provider.failure-boundary.test.js",
     "test:lifecycle": "node --test tests/lifecycle.http.test.js tests/test.result.placeholder.punctuation.test.js tests/diagnostic.reassessment.test.js tests/atomic.evidence.reassessment.test.js tests/dtc.provenance.lifecycle.test.js tests/dtc.provenance.legacy-migration.test.js tests/customer.estimate.center.test.js tests/component.applicability.test.js tests/work.order.authorization.test.js tests/work.order.truth.edge.test.js",
@@ -33,7 +33,8 @@
     "test:commercial-handoff": "node --test tests/verified.commercial.handoff.test.js",
     "test:return-visits": "node --test tests/return.visit.lifecycle.test.js",
     "test:tag": "node --test tests/tag.overlay.test.js tests/tag.status.ui.test.js tests/diagnose.tag.route.test.js",
-    "test:misc": "node --test tests/automotive.normalization.regression.test.js tests/automotive.normalization.test.js tests/confirmed.repair.outcome.supabase.test.js tests/confirmed.repair.outcome.test.js tests/deterministic.thresholds.test.js tests/economic.engine.usage-metric.test.js tests/observation-normalizer.test.js tests/orchestrator.canUseAI.test.js tests/repair.authorization.guard.test.js tests/repair.authorization.job-mapping.test.js tests/repair.authorization.middleware.test.js tests/retired.full-estimate.route.test.js"
+    "test:misc": "node --test tests/automotive.normalization.regression.test.js tests/automotive.normalization.test.js tests/confirmed.repair.outcome.supabase.test.js tests/confirmed.repair.outcome.test.js tests/deterministic.thresholds.test.js tests/economic.engine.usage-metric.test.js tests/observation-normalizer.test.js tests/orchestrator.canUseAI.test.js tests/repair.authorization.guard.test.js tests/repair.authorization.job-mapping.test.js tests/repair.authorization.middleware.test.js tests/retired.full-estimate.route.test.js",
+    "test:diagnose-input": "node --test tests/diagnose.input.validation.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",
