@@ -62,3 +62,12 @@ test('tire treadDepth32nds alias reaches the canonical TAG treadDepth rule', asy
   assert.equal(tag.overrides[0].metric, 'treadDepth');
   assert.equal(tag.overrides[0].severity, 'CRITICAL');
 });
+
+
+test('diagnose route builds AI evidence from tagVehicle so trusted componentData is not dropped', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const source = fs.readFileSync(path.join(__dirname, '../src/routes/diagnose.js'), 'utf8');
+  assert.match(source, /const tagVehicle = \{ \.\.\.resolvedVehicle, componentData: vehicle\?\.componentData \}/);
+  assert.match(source, /buildDiagnosticEvidencePacket\(\{[\s\S]*?vehicle: tagVehicle,/);
+});
