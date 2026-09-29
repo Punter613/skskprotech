@@ -1,1 +1,1 @@
-auth hardening: gated testing key identity and fail-closed coverage
+authenticated production smoke: secret-backed test-key lane
