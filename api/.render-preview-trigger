@@ -1,1 +1,1 @@
-supabase least privilege: close unused anon and authenticated database surface
+auth hardening: gated testing key identity and fail-closed coverage
