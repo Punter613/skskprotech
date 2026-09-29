@@ -201,3 +201,40 @@ test('concurrent mobile retries serialize so evidence and diagnosis revision are
   assert.equal(first.job.diagnosis.revision, 2);
   assert.equal(second.job.diagnosis.revision, 2);
 });
+
+
+test('unverified diagnosis groups concurrent oil-leak candidates without verifying causal links', async () => {
+  resetJobs();
+  const job = await createJob({
+    jobId: 'SKSK-CAUSE-CHAIN-SORENTO',
+    vehicle: { year: 2008, make: 'Kia', model: 'Sorento', engine: '3.8L V6' },
+    customerStates: ['Smoke from under the hood when engine gets hot'],
+    mechanicNotices: ['Appears oil is dripping onto the exhaust'],
+    obdCodes: []
+  });
+  await recordDiagnosis(job.jobId, {
+    primaryCause: 'Oil leaking onto the exhaust system from valve cover gasket',
+    secondaryCauses: [
+      'Faulty PCV valve allowing excess crankcase pressure',
+      'Oil filter housing gasket leak'
+    ],
+    probability: [
+      { cause: 'Valve cover gasket oil leak', likelihood: 50 },
+      { cause: 'Faulty PCV valve allowing excess crankcase pressure', likelihood: 30 },
+      { cause: 'Oil filter housing gasket leak', likelihood: 20 }
+    ],
+    recommendedTests: ['Inspect leak source and crankcase ventilation'],
+    diagnosticConfidence: { percentage: 40, rating: 'LOW' }
+  });
+
+  const persisted = await getJob(job.jobId);
+  const { buildUnverifiedDiagnosis } = require('../src/core/evidence/unverified.diagnosis');
+  const out = buildUnverifiedDiagnosis(persisted);
+  assert.equal(out.possibleCauseChain.status, 'HYPOTHESIS_ONLY');
+  assert.match(out.possibleCauseChain.pressureDrivers.join(' '), /PCV/i);
+  assert.match(out.possibleCauseChain.leakPoints.join(' '), /valve cover/i);
+  assert.match(out.possibleCauseChain.leakPoints.join(' '), /oil filter housing/i);
+  assert.match(out.possibleCauseChain.observedConsequences.join(' '), /smoke|exhaust/i);
+  assert.equal(out.physicallyVerified, false);
+  assert.equal(out.estimateReady, false);
+});
