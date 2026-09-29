@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { requireApiAccess, createRateLimiter } = require('../src/middleware/api.access');
 
 function req(headers = {}, ip = '127.0.0.1') {
@@ -98,4 +100,22 @@ test('AI limiter returns 429 after the configured burst', () => {
   assert.equal(response.statusCode, 429);
   assert.match(response.body.error, /Too many AI requests/);
   assert.ok(response.headers['Retry-After']);
+});
+
+test('production server mounts access control before costly AI handlers', () => {
+  const server = fs.readFileSync(path.join(__dirname, '../api/server.js'), 'utf8');
+  assert.ok(server.includes("app.use('/api/diagnose', ...protectAi, diagnosisLifecycle, diagnose);"));
+  assert.ok(server.includes("app.use('/api/quick-ask', ...protectAi, quickAskRouter);"));
+  assert.ok(server.includes("app.use('/api/translate', ...protectAi, require('../src/routes/translate'));"));
+  assert.ok(server.includes("app.use('/api/intelligence', ...protectAi, require('../src/routes/intelligence.routes'));"));
+  assert.ok(server.includes("'X-SKSK-API-Key'"));
+});
+
+test('lifecycle client keeps shop credential session-scoped and retries a 401 once', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../public/lifecycle.html'), 'utf8');
+  assert.ok(html.includes("sessionStorage.getItem('skskApiKey')"));
+  assert.ok(html.includes("headers['X-SKSK-API-Key']=key"));
+  assert.ok(html.includes("r.status===401&&!retried"));
+  assert.ok(html.includes("sessionStorage.setItem('skskApiKey'"));
+  assert.equal(html.includes("localStorage.setItem('skskApiKey'"), false);
 });
