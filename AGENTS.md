@@ -7,7 +7,7 @@
 
 ## Testing
 - Use `scripts/generate_random_test.js` to run randomized end-to-end tests on the `/api/full-estimate` pipeline.
-- Use `tests/testForemanPipeline.js` for AI structure validation.
+- Use `tests/testForemanPipeline.js` for AI structure validation. This test requires `GROQ_API_KEY` and is intentionally excluded from credential-free CI.
 
 ## Merge Gate — Runtime Verification Required
 - Nothing merges to `main` based on diff review alone.

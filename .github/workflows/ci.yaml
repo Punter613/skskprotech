@@ -73,6 +73,21 @@ jobs:
     - name: Verified Lifecycle Frontend Checks
       run: npm run test:frontend-lifecycle
 
+    - name: Final Work Invoice Checks
+      run: npm run test:final-invoice
+
+    - name: Commercial Handoff Checks
+      run: npm run test:commercial-handoff
+
+    - name: Return Visit Lifecycle Checks
+      run: npm run test:return-visits
+
+    - name: TAG Safety Regression Checks
+      run: npm run test:tag
+
+    - name: Miscellaneous Regression Checks
+      run: npm run test:misc
+
     - name: Hardened OpenAPI Contract Lint
       run: npx @stoplight/spectral-cli lint openapi.yaml --ruleset .spectral.yaml --format pretty
 
