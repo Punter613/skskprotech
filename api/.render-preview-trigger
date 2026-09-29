@@ -1,3 +1,3 @@
 Render preview trigger
-reason: verify diagnosis pre-create input validation against exact PR head
-updated: 2026-09-29 PR3 reject invalid diagnosis before job persistence
+reason: verify non-breaking npm audit lockfile remediation against exact PR head
+updated: 2026-09-29 PR4 dependency audit fix
