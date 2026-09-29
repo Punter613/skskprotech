@@ -210,3 +210,16 @@ test('workspace transitions follow technician actions instead of accumulating ca
   assert.doesNotMatch(html, /estimateCard'\)\.scrollIntoView/);
   assert.doesNotMatch(html, /invoiceCard'\)\.scrollIntoView/);
 });
+
+
+test('optional mechanic measurements preserve TAG trust and blank-value boundaries', () => {
+  assert.match(html, /Optional mechanic measurements/);
+  assert.match(html, /Brake pad thickness \(mm\)/);
+  assert.match(html, /Tire tread depth \(32nds\)/);
+  assert.match(html, /function mechanicComponentData\(\)/);
+  assert.ok(html.includes("if(raw==='')continue"));
+  assert.match(html, /Object\.keys\(data\)\.length\?data:null/);
+  assert.match(html, /\.\.\.\(componentData\?\{componentData\}:\{\}\)/);
+  assert.match(html, /TAG:<\/b> not checked, no measurements entered/);
+  assert.match(html, /treadDepth32nds/);
+});

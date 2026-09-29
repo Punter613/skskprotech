@@ -8,6 +8,7 @@ const { findKnownPatterns } = require('../knowledge/failure.patterns');
 const { getLocalProcedure } = require('../knowledge/procedure.data');
 const { applyCompletedWorkGuard } = require('../core/orchestrator/completed.work.guard');
 const { applyDiagnosticStageGuard } = require('../core/orchestrator/diagnostic.stage.guard');
+const { evaluateTag, applyTagOverlay } = require('../core/orchestrator/tag.overlay');
 const { recordGuardCatch } = require('../core/learning/guard.catch.recorder');
 const { buildDiagnosticEvidencePacket, compactDiagnosticEvidencePacket } = require('../core/evidence/diagnostic.evidence.packet');
 const { publicSourceHealth } = require('../core/evidence/source.resilience');
@@ -115,6 +116,11 @@ router.post('/', async (req, res) => {
     catch (pipelineErr) { executionTrace.log('PIPELINE_WARN', `Pipeline skipped: ${pipelineErr.message}`); }
     const { profile, vinBuildProfile, localSafetyTriggered, safetyNotes, matchedPatterns, assemblyData, dynamicRisk, confidence, symptomTelemetry } = compiledData;
 
+    const tagVehicle = { ...resolvedVehicle, componentData: vehicle?.componentData };
+    const tagResult = await evaluateTag(tagVehicle, [...targetSymptoms, ...targetCodes].join('. '));
+    if (tagResult.status === 'ERROR') executionTrace.log('TAG_ERROR', tagResult.error);
+    else if (tagResult.overrides.length) executionTrace.log('TAG_OVERRIDE', `${tagResult.overrides.length} safety rule(s) triggered`);
+
     const localProfile = getVehicleRiskProfile(resolvedVehicle, vin);
     const platformHits = findKnownPatterns(localProfile, targetSymptoms, targetCodes);
     if (platformHits && platformHits.length > 0) {
@@ -123,7 +129,7 @@ router.post('/', async (req, res) => {
       const rawTips = procedureSpecs && procedureSpecs.criticalSpecs ? [procedureSpecs.criticalSpecs.torqueSequence, procedureSpecs.criticalSpecs.antiseizeNote] : [];
       const cleanTips = rawTips.filter(Boolean); if (!cleanTips.length) cleanTips.push('Always verify clearance specifications against factory block data prior to teardown.');
       const localResult = safeResult({ urgency: 'immediate', safetyRisk: true, primaryCause: hit.patternName.toUpperCase(), notes: `Offline deterministic match active. ${hit.primaryCause}`.trim(), diagnosticConfidence: confidence || { percentage: 95, rating: 'HIGH' }, localVehicleTelemetry: withDynamicRisk(localProfile, dynamicRisk), probability: [{ cause: hit.patternName, likelihood: hit.likelihood }], recommendedTests: procedureSpecs ? procedureSpecs.clearanceSteps : [], repairSteps: [], proTips: cleanTips, dtcProvenance: { ...dtcProvenance, records: publicDtcEvidence(normalizedDtcEvidence) } });
-      return res.json({ success: true, result: localResult, traceLog: { traceId: executionTrace.traceId, logs: executionTrace.logs } });
+      return res.json({ success: true, result: applyTagOverlay(localResult, tagResult), traceLog: { traceId: executionTrace.traceId, logs: executionTrace.logs } });
     }
 
     const inputMake = (resolvedVehicle.make || '').toLowerCase(); const inputModel = (resolvedVehicle.model || '').toLowerCase(); const profileId = profile ? profile.vehicleId : '';
@@ -153,7 +159,7 @@ router.post('/', async (req, res) => {
     const evidencePacket = buildDiagnosticEvidencePacket({
       vin,
       mileage,
-      vehicle: resolvedVehicle,
+      vehicle: tagVehicle,
       customerObservations: customerSymptomContext,
       mechanicObservations: mechanicContext,
       dtcEvidence: normalizedDtcEvidence,
@@ -255,7 +261,7 @@ MULTI-CONDITION REASONING: When a symptom occurs under distinct operating condit
     if (localSafetyTriggered) { finalResult.safetyRisk = true; finalResult.urgency = 'immediate'; finalResult.notes = `${finalResult.notes || ''} ${safetyNotes || ''}`.trim(); }
     if (symptomTelemetry?.hasMismatchedSignals) finalResult.notes = `${finalResult.notes || ''} Multiple symptom classes detected; verify whether one fault or multiple faults are present.`.trim();
     executionTrace.log('COMPLETE', 'Diagnostic result assembled.');
-    return res.json({ success: true, result: finalResult, traceLog: { traceId: executionTrace.traceId, logs: executionTrace.logs } });
+    return res.json({ success: true, result: applyTagOverlay(finalResult, tagResult), traceLog: { traceId: executionTrace.traceId, logs: executionTrace.logs } });
   } catch (err) {
     console.error('[Diagnose] Error:', err); executionTrace.log('FATAL', err.message || 'Unknown diagnosis error');
     return res.status(500).json({ success: false, error: 'Diagnosis failed', details: err.message || 'Unknown error', trace: executionTrace.traceId });

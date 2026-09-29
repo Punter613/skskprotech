@@ -24,6 +24,7 @@ function build(overrides = {}) {
       drivetrain: '4WD',
       componentData: {
         brakes: { padThicknessMm: 0, brakeFluidAgeMonths: '18' },
+        tires: { treadDepth32nds: '1.5' },
         electrical: { batteryVoltageV: '12.2' }
       }
     },
@@ -58,6 +59,7 @@ test('canonical packet separates observations, completed work, verified DTCs, pr
   assert.equal(packet.measurements.trust, 'TRUSTED_PRE_TAG_INPUT');
   assert.equal(packet.measurements.values.brakes.padThickness, 0, 'real zero must survive');
   assert.equal(packet.measurements.values.brakes.brakeFluid, 18);
+  assert.equal(packet.measurements.values.tires.treadDepth, 1.5);
   assert.equal(packet.measurements.values.electrical.batteryVoltage, 12.2);
 });
 

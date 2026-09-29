@@ -26,7 +26,8 @@ test('battery falls back to lastServiceDate when ageMonths absent', () => {
     lastServiceDate: sixMonthsAgo.toISOString(),
     componentData: {}
   });
-  assert.ok(usage >= 5.9 && usage <= 6.1, `expected ~6 months, got ${usage}`);
+  // setMonth(-6) uses calendar months while the engine converts elapsed time using 30-day months.
+  assert.ok(usage >= 5.7 && usage <= 6.3, `expected ~6 months, got ${usage}`);
 });
 
 test('battery falls back to default 12 when no ageMonths and no lastServiceDate', () => {
