@@ -84,7 +84,7 @@ const partsLookupRouter = require('../src/routes/partsLookup');
 const fleetRouter = require('../src/routes/fleet');
 const vehicleRouter = require('../src/routes/vehicle');
 const quickAskRouter = require('../src/routes/quick.ask');
-const { requireApiAccess, createRateLimiter } = require('../src/middleware/api.access');
+const { requireApiAccess, requireTestAccess, createRateLimiter } = require('../src/middleware/api.access');
 const aiRateLimit = createRateLimiter();
 const protectAi = [requireApiAccess, aiRateLimit];
 
@@ -152,6 +152,7 @@ function evidenceRetrievalProfile() {
 }
 
 // 6. HEALTH & SYSTEM MONITORING TELEMETRY
+app.get('/health/auth-test', requireTestAccess, (req, res) => res.json({ ok: true, principal: req.auth?.type || null }));
 app.get('/health', async (req, res) => {
   const health = { ok: true, timestamp: new Date().toISOString() };
   try {
