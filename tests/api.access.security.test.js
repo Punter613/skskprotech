@@ -54,9 +54,13 @@ test('AI access accepts bearer and explicit SKSK key headers', () => {
     ]) {
       const response = res();
       let ran = false;
-      requireApiAccess(req(headers), response, () => { ran = true; });
+      const request = req(headers);
+      requireApiAccess(request, response, () => { ran = true; });
       assert.equal(ran, true);
       assert.equal(response.statusCode, 200);
+      assert.equal(request.auth.type, 'shop_key');
+      assert.match(request.auth.id, /^shop_key_[12]$/);
+      assert.equal(JSON.stringify(request.auth).includes('secret'), false);
     }
   } finally {
     if (oldRequired === undefined) delete process.env.SKSK_REQUIRE_AUTH; else process.env.SKSK_REQUIRE_AUTH = oldRequired;
