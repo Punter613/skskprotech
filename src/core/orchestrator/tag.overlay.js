@@ -30,6 +30,17 @@ async function evaluateTag(vehicle = {}, input = '') {
 
 const URGENCY_RANK = { monitor: 0, soon: 1, immediate: 2 };
 
+// Structured view of which deterministic bound was crossed; UI never parses detail text.
+function describeViolation(override = {}) {
+  const t = override.threshold || {};
+  const v = override.value;
+  const out = { unit: t.unit };
+  if (typeof v === 'number' && t.min !== undefined && v < t.min) return { ...out, comparison: 'below_minimum', limit: t.min };
+  if (typeof v === 'number' && t.max !== undefined && v > t.max) return { ...out, comparison: 'above_maximum', limit: t.max };
+  if (t.value !== undefined && v === t.value) return { ...out, comparison: 'matches_flagged_value', limit: t.value };
+  return out;
+}
+
 function applyTagOverlay(result = {}, tag = { status: 'NO_MEASUREMENTS', overrides: [] }) {
   const out = { ...result, tagStatus: tag.status };
   if (tag.status === 'ERROR') out.tagError = tag.error;
@@ -48,7 +59,8 @@ function applyTagOverlay(result = {}, tag = { status: 'NO_MEASUREMENTS', overrid
     value: override.value,
     requiredAction: override.action,
     severity: override.severity,
-    detail: override.detail
+    detail: override.detail,
+    ...describeViolation(override)
   }));
 
   const summary = tag.overrides

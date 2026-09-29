@@ -62,3 +62,30 @@ test('tire treadDepth32nds alias reaches the canonical TAG treadDepth rule', asy
   assert.equal(tag.overrides[0].metric, 'treadDepth');
   assert.equal(tag.overrides[0].severity, 'CRITICAL');
 });
+
+
+test('tagOverrides carry structured unit/comparison/limit for the UI', async () => {
+  const tag = await evaluateTag({ componentData: { tires: { treadDepth32nds: 1.5 } } }, '');
+  const o = applyTagOverlay({ urgency: 'monitor' }, tag).tagOverrides[0];
+  assert.equal(o.unit, '32nds');
+  assert.equal(o.comparison, 'below_minimum');
+  assert.equal(o.limit, 2);
+  assert.equal(o.requiredAction, 'MANDATORY_REPLACE');
+});
+
+
+test('matches_flagged_value is reported only when the value equals the flagged threshold', () => {
+  const mk = value => applyTagOverlay({}, {
+    status: 'CHECKED',
+    overrides: [{ component: 'transmission', metric: 'slipDetected', value, action: 'MANDATORY_DIAGNOSE',
+      severity: 'CRITICAL', detail: 'x', threshold: { value: true, action: 'MANDATORY_DIAGNOSE', severity: 'CRITICAL' } }]
+  }).tagOverrides[0];
+
+  const hit = mk(true);
+  assert.equal(hit.comparison, 'matches_flagged_value');
+  assert.equal(hit.limit, true);
+
+  const miss = mk(false);
+  assert.equal(miss.comparison, undefined);
+  assert.equal(miss.limit, undefined);
+});

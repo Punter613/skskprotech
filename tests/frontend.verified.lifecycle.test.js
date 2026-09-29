@@ -220,6 +220,7 @@ test('optional mechanic measurements preserve TAG trust and blank-value boundari
   assert.ok(html.includes("if(raw==='')continue"));
   assert.match(html, /Object\.keys\(data\)\.length\?data:null/);
   assert.match(html, /\.\.\.\(componentData\?\{componentData\}:\{\}\)/);
-  assert.match(html, /TAG:<\/b> not checked, no measurements entered/);
+  assert.match(html, /TAG: not checked, no measurements entered/);
+  assert.match(html, /TagStatus\.render\(lastDiagnosis/);
   assert.match(html, /treadDepth32nds/);
 });
