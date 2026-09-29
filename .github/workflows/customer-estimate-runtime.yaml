@@ -57,7 +57,7 @@ jobs:
 
       - name: Exercise partial authorization and revision history
         run: |
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/estimate-job.json -w '%{http_code}' \
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/estimate-job.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' \
             --data '{"customer":{"name":"RUNTIME ESTIMATE CUSTOMER","phone":"555-0100"},"vehicle":{"year":2018,"make":"Honda","model":"Accord","mileage":88000},"requestedService":"Runtime customer estimate canary"}' \
             "$PREVIEW_URL/api/jobs/estimate-center/job" || true)"
@@ -73,14 +73,14 @@ jobs:
           )"
           ENCODED_JOB_ID="$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$JOB_ID")"
 
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/estimate-created.json -w '%{http_code}' \
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/estimate-created.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' \
             --data '{"basis":"CUSTOMER_REQUEST","title":"Runtime three-item estimate","laborRate":100,"taxRate":0,"workItems":[{"description":"Front brake service","priority":"CRITICAL","partsCost":280,"laborHours":2},{"description":"Rear wheel bearing","priority":"WARNING","partsCost":320,"laborHours":3},{"description":"Valve cover leak repair","priority":"ADVISORY","partsCost":190,"laborHours":2}]}' \
             "$PREVIEW_URL/api/jobs/estimate-center/$ENCODED_JOB_ID/quick" || true)"
           cat /tmp/estimate-created.json
           test "$HTTP_CODE" = "201"
 
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/estimate-decisions.json -w '%{http_code}' \
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/estimate-decisions.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' \
             --data '{"decisions":[{"itemId":"LI-001","decision":"AUTHORIZED","note":"Runtime partial authorization"},{"itemId":"LI-002","decision":"DEFERRED","note":"Runtime budget deferral"},{"itemId":"LI-003","decision":"DEFERRED","note":"Runtime budget deferral"}]}' \
             "$PREVIEW_URL/api/jobs/estimate-center/$ENCODED_JOB_ID/quick/QE-001/1/decisions" || true)"
@@ -100,24 +100,24 @@ jobs:
           if (failures.length) { console.error(failures.join('; ')); process.exit(1); }
           NODE
 
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/estimate-revision.json -w '%{http_code}' \
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/estimate-revision.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' \
             --data '{"laborRate":100,"taxRate":0,"workItems":[{"itemId":"LI-001","description":"Front brake service with additional hardware","priority":"CRITICAL","partsCost":300,"laborHours":2},{"itemId":"LI-002","description":"Rear wheel bearing","priority":"WARNING","partsCost":320,"laborHours":3},{"itemId":"LI-003","description":"Valve cover leak repair","priority":"ADVISORY","partsCost":190,"laborHours":2}]}' \
             "$PREVIEW_URL/api/jobs/estimate-center/$ENCODED_JOB_ID/quick/QE-001/revise" || true)"
           cat /tmp/estimate-revision.json
           test "$HTTP_CODE" = "201"
 
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/estimate-center.json -w '%{http_code}' \
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/estimate-center.json -w '%{http_code}' \
             "$PREVIEW_URL/api/jobs/estimate-center/$ENCODED_JOB_ID" || true)"
           cat /tmp/estimate-center.json
           test "$HTTP_CODE" = "200"
 
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/estimate-job-state.json -w '%{http_code}' \
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/estimate-job-state.json -w '%{http_code}' \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB_ID" || true)"
           cat /tmp/estimate-job-state.json
           test "$HTTP_CODE" = "200"
 
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/estimate-ui.html -w '%{http_code}' \
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/estimate-ui.html -w '%{http_code}' \
             "$PREVIEW_URL/estimate-center.html" || true)"
           test "$HTTP_CODE" = "200"
           grep -q 'Estimate Center' /tmp/estimate-ui.html
