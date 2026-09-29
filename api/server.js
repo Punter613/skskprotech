@@ -154,7 +154,10 @@ app.get('/health', async (req, res) => {
   const health = { ok: true, timestamp: new Date().toISOString() };
   try {
     const db = require('../src/db');
-    health.db = db.supabase ? 'connected' : 'not configured';
+    const database = await db.probeDatabase();
+    health.db = database.ok ? 'connected' : (database.configured ? 'error' : 'not configured');
+    health.database = { ok: database.ok, configured: database.configured, latencyMs: database.latencyMs ?? null };
+    if (db.persistenceRequired() && !database.ok) health.ok = false;
   } catch {
     health.db = 'error';
   }

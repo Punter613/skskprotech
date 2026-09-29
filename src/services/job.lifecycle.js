@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { supabase } = require('../db');
+const { supabase, persistenceRequired, assertPersistenceConfigured } = require('../db');
 const {
   buildVerifiedEstimateSnapshot,
   assertVerifiedEstimateSnapshot
@@ -124,6 +124,7 @@ function memoryStore() {
 }
 
 async function persist(job) {
+  assertPersistenceConfigured();
   memoryStore()[job.jobId] = job;
   if (!supabase) return job;
 
@@ -144,9 +145,16 @@ async function persist(job) {
 
   try {
     const { error } = await supabase.from('service_jobs').upsert(row, { onConflict: 'job_id' });
-    if (error) console.warn('[JobLifecycle] Supabase persist failed, memory copy retained:', error.message);
+    if (error) throw error;
   } catch (err) {
-    console.warn('[JobLifecycle] Supabase persist threw, memory copy retained:', err.message);
+    console.error('[JobLifecycle] Supabase persist failed:', err.message || err);
+    if (persistenceRequired()) {
+      const persistenceError = new Error('Persistent job storage is unavailable');
+      persistenceError.code = 'PERSISTENCE_WRITE_FAILED';
+      persistenceError.cause = err;
+      throw persistenceError;
+    }
+    console.warn('[JobLifecycle] Development fallback retained in memory only');
   }
   return job;
 }
