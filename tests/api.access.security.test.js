@@ -157,3 +157,17 @@ test('testing key is accepted only when the explicit test-key gate is enabled', 
     }
   }
 });
+
+
+test('production server protects stateful shop routes with the shared auth contract', () => {
+  const server = fs.readFileSync(path.join(__dirname, '../api/server.js'), 'utf8');
+  for (const route of [
+    "app.use('/api/scrape', requireApiAccess, scrapeRouter);",
+    "app.use('/api/parts', requireApiAccess, partsRouter);",
+    "app.use('/api/jobs', requireApiAccess, jobsRouter);",
+    "app.use('/api/estimateHeuristic', requireApiAccess, estimateLifecycle, estimateHeuristic);",
+    "app.use('/api/invoice', requireApiAccess, invoiceLifecycle, invoice);",
+    "app.use('/api/fleet', requireApiAccess, fleetRouter);",
+    "app.use('/api/buyer', requireApiAccess, require('../src/routes/buyer'));"
+  ]) assert.ok(server.includes(route), route);
+});
