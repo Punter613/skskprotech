@@ -19,6 +19,14 @@ test('public root enters the verified lifecycle UI', () => {
   assert.match(html, /6 AUTHORIZE\+/);
 });
 
+test('Cloudflare lifecycle resolves the canonical production backend while same-origin deployments stay local', () => {
+  assert.match(html, /location\\.hostname===['"]skskprotech\\.pages\\.dev['"]/);
+  assert.match(html, /location\\.hostname\\.endsWith\\(['"]\\.skskprotech\\.pages\\.dev['"]\\)/);
+  assert.match(html, /https:\\/\\/p613-backend\\.onrender\\.com/);
+  assert.match(html, /meta\\[name=["']sksk-api-base["']\\]/);
+  assert.match(html, /return ''/);
+});
+
 test('frontend captures engine trim and sends only verified DTC context through automatic retrieval', () => {
   assert.match(html, /<label>Engine \/ Trim<\/label><input id="engine"/);
   const enginePayloadUses = html.match(/engine:\$\('engine'\)\.value\.trim\(\)/g) || [];
