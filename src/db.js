@@ -11,6 +11,37 @@ if (supabaseUrl && supabaseKey) {
 
 const CURRENT_MANUAL_SCHEMA = 5;
 
+function persistenceRequired() {
+  return process.env.NODE_ENV === 'production' || process.env.SKSK_REQUIRE_PERSISTENCE === 'true';
+}
+
+async function probeDatabase() {
+  if (!supabase) {
+    return { ok: false, configured: false, error: 'Supabase is not configured' };
+  }
+  const startedAt = Date.now();
+  try {
+    const { error } = await supabase.from('service_jobs').select('job_id').limit(1);
+    if (error) throw error;
+    return { ok: true, configured: true, latencyMs: Date.now() - startedAt };
+  } catch (error) {
+    return {
+      ok: false,
+      configured: true,
+      latencyMs: Date.now() - startedAt,
+      error: error?.message || String(error)
+    };
+  }
+}
+
+function assertPersistenceConfigured() {
+  if (persistenceRequired() && !supabase) {
+    const error = new Error('Persistent storage is required but Supabase is not configured');
+    error.code = 'PERSISTENCE_UNAVAILABLE';
+    throw error;
+  }
+}
+
 function normalizeDriveType(vehicle = {}) {
   const raw = String(vehicle.drivetrain || vehicle.driveType || vehicle.drive || '').toLowerCase();
   if (/\b4wd\b|\b4x4\b|four[ -]?wheel drive/.test(raw)) return '4wd';
@@ -189,5 +220,8 @@ module.exports = {
   extractManualPathHint,
   escapeLikePattern,
   CURRENT_MANUAL_SCHEMA,
-  normalizeDriveType
+  normalizeDriveType,
+  persistenceRequired,
+  probeDatabase,
+  assertPersistenceConfigured
 };
