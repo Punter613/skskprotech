@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { buildVerifiedCase } = require('../src/core/evidence/verified.case');
 const { buildVerifiedEstimateSnapshot } = require('../src/core/evidence/verified.estimate.snapshot');
+const { verifiedOperations } = require('../src/core/evidence/verified.repair.resolution');
 const { createJob, patchJob, getJob } = require('../src/services/job.lifecycle');
 const { handoffVerifiedEstimate } = require('../src/services/customer.estimate.center');
 
@@ -15,7 +16,8 @@ async function seededVerifiedEstimate(){
   const job = await createJob({ customer:{name:'Acceptance Customer'}, vehicle:{year:2008,make:'Kia',model:'Sorento'} });
   const packet={schemaVersion:1,stage:'DIAGNOSE',vehicle:job.vehicle,observations:{customer:['clunk'],mechanic:[],completedWork:[]},dtcs:[],measurements:{trust:'TRUSTED_PRE_TAG_INPUT',values:{}},deterministic:{vehicleProfile:{}},evidence:{oem:[],tsbs:[],sources:[],available:false},contradictions:[]};
   const verifiedCase=buildVerifiedCase({jobId:job.jobId,status:'VERIFIED',vehicle:job.vehicle,diagnosis:{result:{primaryCause:'Engine mount failure',probability:[]},evidencePacket:packet,revision:1},tests:[{id:'T1',name:'mount load test',result:'excessive movement',evidenceRole:'CONFIRMS',confirmedFault:'Engine mount failure'}],verification:{confirmed:true,confirmedCause:'Engine mount failure',conclusion:'Physical movement isolated to mount',evidenceTestIds:['T1'],diagnosisRevision:1,verifiedAt:new Date().toISOString()}});
-  const repairResolution={schemaVersion:1,stage:'REPAIR_RESOLVED',verifiedCaseFingerprint:verifiedCase.fingerprint,repairScope:verifiedCase.repairScope,operations:[{operationId:'VERIFY_OP_001_ENGINE_MOUNT_FAILURE',cause:'Engine mount failure',description:'Repair verified fault: Engine mount failure'}],labor:{operationId:'VERIFY_OP_001_ENGINE_MOUNT_FAILURE',hours:2,hourlyRate:100,hoursSource:'MECHANIC_INPUT',rateSource:'MECHANIC_INPUT'},parts:[{operationId:'VERIFY_OP_001_ENGINE_MOUNT_FAILURE',description:'Engine mount',quantity:1,unitPrice:200,total:200}],partsTotal:200,pricingAuthority:'MECHANIC',diagnosticAuthority:'VERIFIED_CASE'};
+  const operations=verifiedOperations(verifiedCase.repairScope); const opId=operations[0].operationId;
+  const repairResolution={schemaVersion:1,stage:'REPAIR_RESOLVED',verifiedCaseFingerprint:verifiedCase.fingerprint,repairScope:verifiedCase.repairScope,operations,labor:{operationId:opId,hours:2,hourlyRate:100,hoursSource:'MECHANIC_INPUT',rateSource:'MECHANIC_INPUT'},parts:[{operationId:opId,description:'Engine mount',quantity:1,unitPrice:200,total:200}],partsTotal:200,pricingAuthority:'MECHANIC',diagnosticAuthority:'VERIFIED_CASE'};
   const { fingerprint }=require('../src/core/evidence/verified.case'); repairResolution.fingerprint=fingerprint(repairResolution);
   const estimate=buildVerifiedEstimateSnapshot({...job,verifiedCase},{diagnosis:'Verified fault: Engine mount failure',priority:'high',estimatedHours:2,laborCost:200,partsCost:200,total:400,repairResolution});
   await patchJob(job.jobId,{status:'ESTIMATED',verifiedCase,estimate});
