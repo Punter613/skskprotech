@@ -1,1 +1,1 @@
-frontend production API wiring; force Render exact-head preview
+runtime-performance hardening: make Render preview exercise PR #159 timeout budgets
