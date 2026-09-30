@@ -22,7 +22,7 @@ function res() {
   };
 }
 
-test('AI access rejects missing and invalid credentials before route execution', () => {
+test('AI access rejects missing and invalid credentials before route execution', async () => {
   const oldRequired = process.env.SKSK_REQUIRE_AUTH;
   const oldKeys = process.env.SKSK_API_KEYS;
   process.env.SKSK_REQUIRE_AUTH = 'true';
@@ -31,7 +31,7 @@ test('AI access rejects missing and invalid credentials before route execution',
     for (const headers of [{}, { Authorization: 'Bearer wrong' }]) {
       const response = res();
       let ran = false;
-      requireApiAccess(req(headers), response, () => { ran = true; });
+      await requireApiAccess(req(headers), response, () => { ran = true; });
       assert.equal(ran, false);
       assert.equal(response.statusCode, 401);
       assert.equal(response.body.error, 'Authentication required');
@@ -42,7 +42,7 @@ test('AI access rejects missing and invalid credentials before route execution',
   }
 });
 
-test('AI access accepts bearer and explicit SKSK key headers', () => {
+test('AI access accepts bearer and explicit SKSK key headers', async () => {
   const oldRequired = process.env.SKSK_REQUIRE_AUTH;
   const oldKeys = process.env.SKSK_API_KEYS;
   process.env.SKSK_REQUIRE_AUTH = 'true';
@@ -55,7 +55,7 @@ test('AI access accepts bearer and explicit SKSK key headers', () => {
       const response = res();
       let ran = false;
       const request = req(headers);
-      requireApiAccess(request, response, () => { ran = true; });
+      await requireApiAccess(request, response, () => { ran = true; });
       assert.equal(ran, true);
       assert.equal(response.statusCode, 200);
       assert.equal(request.auth.type, 'shop_key');
@@ -68,7 +68,7 @@ test('AI access accepts bearer and explicit SKSK key headers', () => {
   }
 });
 
-test('required auth fails closed when server key configuration is missing', () => {
+test('required auth fails closed when server key configuration is missing', async () => {
   const oldRequired = process.env.SKSK_REQUIRE_AUTH;
   const oldKeys = process.env.SKSK_API_KEYS;
   const oldKey = process.env.SKSK_API_KEY;
@@ -78,7 +78,7 @@ test('required auth fails closed when server key configuration is missing', () =
   try {
     const response = res();
     let ran = false;
-    requireApiAccess(req({ Authorization: 'Bearer anything' }), response, () => { ran = true; });
+    await requireApiAccess(req({ Authorization: 'Bearer anything' }), response, () => { ran = true; });
     assert.equal(ran, false);
     assert.equal(response.statusCode, 503);
   } finally {
@@ -128,7 +128,7 @@ test('shared frontend auth keeps shop credential session-scoped and retries a 40
 });
 
 
-test('testing key is isolated from shop routes and accepted only by dedicated test access', () => {
+test('testing key is isolated from shop routes and accepted only by dedicated test access', async () => {
   process.env.SKSK_REQUIRE_AUTH = 'true';
   process.env.SKSK_API_KEYS = 'real-shop-key';
   process.env.SKSK_TEST_API_KEYS = 'test-only-key';
@@ -138,7 +138,7 @@ test('testing key is isolated from shop routes and accepted only by dedicated te
   const req = { get: name => name.toLowerCase() === 'x-sksk-api-key' ? 'test-only-key' : '' };
 
   let shopStatus = null;
-  requireApiAccess(req, { setHeader() {}, status(code) { shopStatus = code; return this; }, json() {} }, () => assert.fail('test key must not enter shop route'));
+  await requireApiAccess(req, { setHeader() {}, status(code) { shopStatus = code; return this; }, json() {} }, () => assert.fail('test key must not enter shop route'));
   assert.equal(shopStatus, 401);
 
   let nextCalled = false;
