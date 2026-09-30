@@ -1,7 +1,7 @@
 'use strict';
 
 const { supabase } = require('../db');
-const { invalidateJobCache } = require('./job.lifecycle');
+const { getJob, invalidateJobCache } = require('./job.lifecycle');
 
 function memoryStore() {
   global.__jobOutcomeEvents = global.__jobOutcomeEvents || {};
@@ -46,7 +46,9 @@ function assertLegalTransition(currentStatus, eventType) {
 // "wiped on redeploy" bug that feedback_examples had before it moved to
 // Supabase. If Supabase is configured, the write must actually land there
 // or the caller needs to know it didn't.
-async function recordOutcomeEvent(event) {
+async function recordOutcomeEvent(event, shopId = '') {
+  const ownedJob = await getJob(event?.jobId, shopId);
+  if (!ownedJob) throw new Error(`Job ${event?.jobId} not found`);
   if (supabase) {
     const { data, error } = await supabase.rpc('record_job_outcome_event', {
       p_job_id: event.jobId,
@@ -68,7 +70,7 @@ async function recordOutcomeEvent(event) {
     // embedded payload.status) atomically. Drop any stale local cache so
     // the next getJob() call re-reads the now-correct row instead of
     // returning what it cached before this write.
-    invalidateJobCache(event.jobId);
+    invalidateJobCache(event.jobId, shopId);
     return { row: data, event };
   }
 
@@ -86,7 +88,9 @@ async function recordOutcomeEvent(event) {
   return { row: event, event };
 }
 
-async function getJobOutcomeEvents(jobId) {
+async function getJobOutcomeEvents(jobId, shopId = '') {
+  const ownedJob = await getJob(jobId, shopId);
+  if (!ownedJob) return [];
   if (supabase) {
     const { data, error } = await supabase
       .from('job_outcome_events')
