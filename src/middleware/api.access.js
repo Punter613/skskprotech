@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const net = require('net');
 
 function configuredKeys() {
   return String(process.env.SKSK_API_KEYS || process.env.SKSK_API_KEY || '')
@@ -87,12 +88,61 @@ function requireTestAccess(req, res, next) {
 function createRateLimiter(options = {}) {
   const windowMs = Number(options.windowMs || process.env.AI_RATE_LIMIT_WINDOW_MS || 60_000);
   const max = Number(options.max || process.env.AI_RATE_LIMIT_MAX || 20);
+  const maxBuckets = Math.max(2, Number(options.maxBuckets || process.env.AI_RATE_LIMIT_MAX_BUCKETS || 10_000));
+  const sweepMs = Math.max(10, Number(options.sweepMs || process.env.AI_RATE_LIMIT_SWEEP_MS || Math.min(windowMs, 60_000)));
   const buckets = new Map();
+  const overflowKey = '__overflow__';
 
-  return function rateLimit(req, res, next) {
-    const now = Date.now();
+  function pruneExpired(now = Date.now()) {
+    for (const [key, bucket] of buckets) {
+      if (now >= bucket.resetAt) buckets.delete(key);
+    }
+  }
+
+  function validatedCredentialKey(req) {
     const credential = extractCredential(req);
-    const key = credential ? crypto.createHash('sha256').update(credential).digest('hex') : String(req.ip || 'unknown');
+    if (!credential) return null;
+    const keys = configuredKeys();
+    const keyIndex = keys.findIndex(key => safeEqual(credential, key));
+    if (keyIndex < 0) return null;
+    return `credential:${crypto.createHash('sha256').update(credential).digest('hex')}`;
+  }
+
+  function normalizeIpBucket(ip) {
+    const value = String(ip || 'unknown').trim();
+    const mappedIpv4 = value.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i);
+    if (mappedIpv4 && net.isIP(mappedIpv4[1]) === 4) return mappedIpv4[1];
+    if (net.isIP(value) !== 6) return value;
+    const expanded = value.split(':');
+    const missing = 8 - (expanded.filter(Boolean).length);
+    const groups = [];
+    for (const part of expanded) {
+      if (part === '') {
+        if (!groups.length || groups[groups.length - 1] !== '') groups.push('');
+      } else {
+        groups.push(part.padStart(4, '0').toLowerCase());
+      }
+    }
+    const gap = groups.indexOf('');
+    if (gap >= 0) groups.splice(gap, 1, ...Array(missing + 1).fill('0000'));
+    return groups.slice(0, 4).join(':') + '::/64';
+  }
+
+  function bucketKey(req, now) {
+    const credentialKey = validatedCredentialKey(req);
+    if (credentialKey) return credentialKey;
+    const candidate = `ip:${normalizeIpBucket(req.ip)}`;
+    if (buckets.has(candidate)) return candidate;
+    if (buckets.size >= maxBuckets - 1) return overflowKey;
+    return candidate;
+  }
+
+  const sweepTimer = setInterval(() => pruneExpired(), sweepMs);
+  sweepTimer.unref?.();
+
+  function rateLimit(req, res, next) {
+    const now = Date.now();
+    const key = bucketKey(req, now);
     const current = buckets.get(key);
 
     if (!current || now >= current.resetAt) {
@@ -114,7 +164,12 @@ function createRateLimiter(options = {}) {
     }
 
     return next();
-  };
+  }
+
+  rateLimit.bucketCount = () => buckets.size;
+  rateLimit.pruneExpired = pruneExpired;
+  rateLimit.close = () => clearInterval(sweepTimer);
+  return rateLimit;
 }
 
 module.exports = { requireApiAccess, requireTestAccess, createRateLimiter, authRequired, configuredKeys, configuredTestKeys, testKeysAllowed, extractCredential, markPrincipal };

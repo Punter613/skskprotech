@@ -157,3 +157,121 @@ test('production server protects stateful shop routes with the shared auth contr
     "app.use('/api/buyer', requireApiAccess, require('../src/routes/buyer'));"
   ]) assert.ok(server.includes(route), route);
 });
+
+
+test('rate limiter HTTP boundary resists fake credentials and forwarded-for prefix spoofing', async () => {
+  const express = require('express');
+  const oldKeys = process.env.SKSK_API_KEYS;
+  process.env.SKSK_API_KEYS = 'valid-shop-key';
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 3, maxBuckets: 32, sweepMs: 60_000 });
+  const app = express();
+  app.set('trust proxy', 1);
+  app.get('/limited', limiter, (request, response) => response.json({ ok: true, ip: request.ip }));
+  const server = await new Promise(resolve => {
+    const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
+  });
+  const base = `http://127.0.0.1:${server.address().port}/limited`;
+  try {
+    const fakeStatuses = [];
+    for (let i = 0; i < 4; i++) {
+      const response = await fetch(base, { headers: { Authorization: `Bearer fake-${i}`, 'X-Forwarded-For': `spoof-${i}, 203.0.113.9` } });
+      fakeStatuses.push(response.status);
+    }
+    assert.deepEqual(fakeStatuses, [200, 200, 200, 429]);
+
+    const validStatuses = [];
+    for (let i = 0; i < 3; i++) {
+      const response = await fetch(base, { headers: { Authorization: 'Bearer valid-shop-key', 'X-Forwarded-For': 'different-prefix, 203.0.113.9' } });
+      validStatuses.push(response.status);
+    }
+    assert.deepEqual(validStatuses, [200, 200, 200], 'validated shop key must have its own bucket');
+  } finally {
+    limiter.close();
+    await new Promise(resolve => server.close(resolve));
+    if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+  }
+});
+
+test('rate limiter prunes expired buckets and keeps its map bounded', async () => {
+  const oldKeys = process.env.SKSK_API_KEYS;
+  delete process.env.SKSK_API_KEYS;
+  const limiter = createRateLimiter({ windowMs: 20, max: 100, maxBuckets: 5, sweepMs: 10 });
+  try {
+    for (let i = 0; i < 30; i++) {
+      limiter(req({}, `198.51.100.${i}`), res(), () => {});
+    }
+    assert.ok(limiter.bucketCount() <= 5, `bucket count ${limiter.bucketCount()} exceeded cap`);
+    await new Promise(resolve => setTimeout(resolve, 35));
+    limiter.pruneExpired();
+    assert.equal(limiter.bucketCount(), 0);
+  } finally {
+    limiter.close();
+    if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+  }
+});
+
+test('production server trusts exactly one proxy hop', () => {
+  const server = fs.readFileSync(path.join(__dirname, '../api/server.js'), 'utf8');
+  assert.ok(server.includes("app.set('trust proxy', 1);"));
+  assert.equal(server.includes("app.set('trust proxy', true);"), false);
+});
+
+
+test('valid credentials bypass overflow contention and IPv6 addresses share a /64 bucket', () => {
+  const oldKeys = process.env.SKSK_API_KEYS;
+  process.env.SKSK_API_KEYS = 'valid-shop-key';
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 3, maxBuckets: 6, sweepMs: 60_000 });
+  try {
+    for (let i = 1; i <= 10; i++) limiter(req({}, `198.51.100.${i}`), res(), () => {});
+    assert.ok(limiter.bucketCount() <= 6);
+
+    for (let i = 0; i < 3; i++) {
+      const response = res();
+      let ran = false;
+      limiter(req({ Authorization: 'Bearer valid-shop-key' }, '203.0.113.250'), response, () => { ran = true; });
+      assert.equal(ran, true, 'validated credential must not be forced into overflow');
+      assert.equal(response.statusCode, 200);
+    }
+
+    const ipv6Limiter = createRateLimiter({ windowMs: 60_000, max: 3, maxBuckets: 20, sweepMs: 60_000 });
+    try {
+      const addresses = ['2001:db8:abcd:12::1', '2001:db8:abcd:12::2', '2001:db8:abcd:12:ffff::1'];
+      const statuses = [];
+      for (const ip of addresses) {
+        const response = res(); let ran = false;
+        ipv6Limiter(req({}, ip), response, () => { ran = true; });
+        statuses.push(ran ? 200 : response.statusCode);
+      }
+      const blocked = res(); let ran = false;
+      ipv6Limiter(req({}, '2001:db8:abcd:12:1234::9'), blocked, () => { ran = true; });
+      statuses.push(ran ? 200 : blocked.statusCode);
+      assert.deepEqual(statuses, [200, 200, 200, 429], 'same IPv6 /64 must share one bucket');
+      assert.equal(ipv6Limiter.bucketCount(), 1);
+    } finally {
+      ipv6Limiter.close();
+    }
+  } finally {
+    limiter.close();
+    if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+  }
+});
+
+
+test('IPv4-mapped IPv6 shares equivalent IPv4 buckets without collapsing clients', () => {
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 2, maxBuckets: 20, sweepMs: 60_000 });
+  try {
+    for (const ip of ['::ffff:203.0.113.1', '203.0.113.1']) {
+      const response = res(); let ran = false;
+      limiter(req({}, ip), response, () => { ran = true; });
+      assert.equal(ran, true);
+    }
+    const blocked = res(); let blockedRan = false;
+    limiter(req({}, '::ffff:203.0.113.1'), blocked, () => { blockedRan = true; });
+    assert.equal(blockedRan, false);
+    assert.equal(blocked.statusCode, 429);
+    const distinct = res(); let distinctRan = false;
+    limiter(req({}, '::ffff:203.0.113.2'), distinct, () => { distinctRan = true; });
+    assert.equal(distinctRan, true);
+    assert.equal(limiter.bucketCount(), 2);
+  } finally { limiter.close(); }
+});

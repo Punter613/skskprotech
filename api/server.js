@@ -5,6 +5,7 @@ const path = require('path');
 const cors = require('cors');
 
 const app = express();
+app.set('trust proxy', 1);
 const { requestTelemetry, errorTelemetry } = require('../src/middleware/observability');
 app.use(requestTelemetry);
 
