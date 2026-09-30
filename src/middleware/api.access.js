@@ -2,7 +2,7 @@
 
 const crypto = require('crypto');
 const net = require('net');
-const { verifySupabaseAccessToken } = require('../auth/supabase.identity');
+const { configured: supabaseIdentityConfigured, verifySupabaseAccessToken } = require('../auth/supabase.identity');
 
 function configuredKeys() {
   return String(process.env.SKSK_API_KEYS || process.env.SKSK_API_KEY || '')
@@ -46,8 +46,8 @@ async function requireApiAccess(req, res, next) {
   if (!authRequired()) return next();
 
   const keys = configuredKeys();
-  if (!keys.length) {
-    console.error('[Access] SKSK_REQUIRE_AUTH=true but no API key is configured');
+  if (!keys.length && !supabaseIdentityConfigured()) {
+    console.error('[Access] SKSK_REQUIRE_AUTH=true but neither shop keys nor Supabase identity are configured');
     return res.status(503).json({ success: false, error: 'API access is not configured' });
   }
 
@@ -147,7 +147,16 @@ function createRateLimiter(options = {}) {
     return groups.slice(0, 4).join(':') + '::/64';
   }
 
+  function authenticatedPrincipalKey(req) {
+    const principal = req.auth;
+    if (!principal?.type || !principal?.id) return null;
+    const scope = principal.shopId ? `:${principal.shopId}` : '';
+    return `principal:${principal.type}:${principal.id}${scope}`;
+  }
+
   function bucketKey(req, now) {
+    const principalKey = authenticatedPrincipalKey(req);
+    if (principalKey) return principalKey;
     const credentialKey = validatedCredentialKey(req);
     if (credentialKey) return credentialKey;
     const candidate = `ip:${normalizeIpBucket(req.ip)}`;
