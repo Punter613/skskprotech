@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const net = require('net');
+const { verifySupabaseAccessToken } = require('../auth/supabase.identity');
 
 function configuredKeys() {
   return String(process.env.SKSK_API_KEYS || process.env.SKSK_API_KEY || '')
@@ -37,11 +38,11 @@ function extractCredential(req) {
   return String(req.get?.('x-sksk-api-key') || '').trim();
 }
 
-function markPrincipal(req, type, id) {
-  req.auth = { type, id };
+function markPrincipal(req, type, id, claims = {}) {
+  req.auth = { type, id, ...claims };
 }
 
-function requireApiAccess(req, res, next) {
+async function requireApiAccess(req, res, next) {
   if (!authRequired()) return next();
 
   const keys = configuredKeys();
@@ -52,16 +53,33 @@ function requireApiAccess(req, res, next) {
 
   const credential = extractCredential(req);
   const keyIndex = credential ? keys.findIndex(key => safeEqual(credential, key)) : -1;
-  if (!credential || keyIndex < 0) {
-    res.setHeader('WWW-Authenticate', 'Bearer realm="SKSK ProTech"');
-    return res.status(401).json({ success: false, error: 'Authentication required' });
+  if (credential && keyIndex >= 0) {
+    // Transitional shop-key identity remains supported during browser migration.
+    markPrincipal(req, 'shop_key', `shop_key_${keyIndex + 1}`);
+    return next();
   }
 
-  // Transitional shop-key identity. Downstream code gets an opaque principal,
-  // never the credential itself. Supabase user/session identity can replace this
-  // without changing route authorization contracts.
-  markPrincipal(req, 'shop_key', `shop_key_${keyIndex + 1}`);
-  return next();
+  // Bearer tokens that are not transitional shop keys may be Supabase user
+  // sessions. Verification is server-side via auth.getUser; JWT claims are never
+  // trusted merely because they decode.
+  const authorization = String(req.get?.('authorization') || '');
+  if (/^Bearer\s+/i.test(authorization) && credential) {
+    try {
+      const principal = await verifySupabaseAccessToken(credential);
+      if (principal) {
+        req.auth = principal;
+        return next();
+      }
+    } catch (error) {
+      if (error?.code === 'SHOP_MEMBERSHIP_REQUIRED') {
+        return res.status(403).json({ success: false, error: 'Shop membership required' });
+      }
+      console.warn('[Access] User-session verification failed:', error?.message || error);
+    }
+  }
+
+  res.setHeader('WWW-Authenticate', 'Bearer realm="SKSK ProTech"');
+  return res.status(401).json({ success: false, error: 'Authentication required' });
 }
 
 function requireTestAccess(req, res, next) {
