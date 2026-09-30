@@ -304,22 +304,22 @@ async function patchJob(jobId, patch = {}, shopId = '') {
   return persist(updated, shopId);
 }
 
-async function recordDiagnosis(jobId, diagnosis, traceLog = null) {
+async function recordDiagnosis(jobId, diagnosis, traceLog = null, shopId = '') {
   return patchJob(jobId, {
     status: 'TESTING',
     diagnosis: { result: diagnosis, traceLog, revision: 1, recordedAt: nowIso() }
-  });
+  }, shopId);
 }
 
-async function recordDiagnosisFailure(jobId, error) {
+async function recordDiagnosisFailure(jobId, error, shopId = '') {
   return patchJob(jobId, {
     status: 'DIAG_FAILED',
     diagnosis: { error: String(error || 'Diagnosis failed'), recordedAt: nowIso() }
-  });
+  }, shopId);
 }
 
-async function recordUnverifiedDiagnosis(jobId) {
-  const job = await getJob(jobId);
+async function recordUnverifiedDiagnosis(jobId, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   if (!job.diagnosis?.result) throw new Error('Diagnosis must exist before requesting an unverified diagnosis');
   if (!['TESTING', 'DIAGNOSING'].includes(job.status)) {
@@ -333,12 +333,12 @@ async function recordUnverifiedDiagnosis(jobId) {
     stale: false
   };
   job.updatedAt = nowIso();
-  await persist(job);
+  await persist(job, shopId);
   return job;
 }
 
-async function addTest(jobId, test = {}) {
-  const job = await getJob(jobId);
+async function addTest(jobId, test = {}, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   if (!['TESTING', 'DIAGNOSING'].includes(job.status)) {
     throw new Error(`Tests cannot be added while job is ${job.status}`);
@@ -387,12 +387,12 @@ async function addTest(jobId, test = {}) {
   }
   job.status = 'TESTING';
   job.updatedAt = recordedAt;
-  await persist(job);
+  await persist(job, shopId);
   return entry;
 }
 
-async function verifyJob(jobId, verification = {}) {
-  const job = await getJob(jobId);
+async function verifyJob(jobId, verification = {}, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   if (!job.diagnosis?.result) throw new Error('Diagnosis must exist before verification');
   assertValidDiagnosticResult(job.diagnosis.result, 'Verification requires a valid persisted diagnostic candidate');
@@ -411,7 +411,7 @@ async function verifyJob(jobId, verification = {}) {
     };
     job.status = 'TESTING';
     job.updatedAt = nowIso();
-    await persist(job);
+    await persist(job, shopId);
     return job;
   }
 
@@ -462,30 +462,30 @@ async function verifyJob(jobId, verification = {}) {
   }
   job.status = 'VERIFIED';
   job.updatedAt = nowIso();
-  await persist(job);
+  await persist(job, shopId);
   return job;
 }
 
-async function attachEstimate(jobId, estimate) {
-  const job = await getJob(jobId);
+async function attachEstimate(jobId, estimate, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   if (job.status !== 'VERIFIED') throw new Error('Estimate requires a VERIFIED diagnosis');
   job.estimate = buildVerifiedEstimateSnapshot(job, estimate);
   job.status = 'ESTIMATED';
   job.updatedAt = nowIso();
-  await persist(job);
+  await persist(job, shopId);
   return job.estimate;
 }
 
-async function attachInvoice(jobId, invoice) {
-  const job = await getJob(jobId);
+async function attachInvoice(jobId, invoice, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   if (!job.estimate) throw new Error('Invoice requires an estimate');
   assertVerifiedEstimateSnapshot(job.estimate, job);
   job.invoice = { ...invoice, invoiceNumber: jobId, jobId, estimateFingerprint: job.estimate.fingerprint, createdAt: nowIso() };
   job.status = 'INVOICED';
   job.updatedAt = nowIso();
-  await persist(job);
+  await persist(job, shopId);
   return job.invoice;
 }
 
