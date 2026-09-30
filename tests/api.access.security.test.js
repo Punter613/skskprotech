@@ -141,6 +141,47 @@ test('AI limiter isolates authenticated principals without hashing raw bearer se
   }
 });
 
+
+test('same verified user shares one AI bucket across IP addresses', () => {
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 2, maxBuckets: 20, sweepMs: 60_000 });
+  try {
+    for (const ip of ['203.0.113.10', '198.51.100.20']) {
+      const request = req({ Authorization: 'Bearer session-token' }, ip);
+      request.auth = { type: 'supabase_user', id: 'user_same', shopId: 'shop-a' };
+      const response = res(); let ran = false;
+      limiter(request, response, () => { ran = true; });
+      assert.equal(ran, true);
+    }
+    const request = req({ Authorization: 'Bearer session-token' }, '192.0.2.30');
+    request.auth = { type: 'supabase_user', id: 'user_same', shopId: 'shop-a' };
+    const blocked = res(); let ran = false;
+    limiter(request, blocked, () => { ran = true; });
+    assert.equal(ran, false);
+    assert.equal(blocked.statusCode, 429);
+    assert.equal(limiter.bucketCount(), 1);
+  } finally { limiter.close(); }
+});
+
+test('same authenticated shop-key principal shares one AI bucket across IP addresses', () => {
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 2, maxBuckets: 20, sweepMs: 60_000 });
+  try {
+    for (const ip of ['203.0.113.40', '198.51.100.50']) {
+      const request = req({ Authorization: 'Bearer transitional-key' }, ip);
+      request.auth = { type: 'shop_key', id: 'shop_key_1' };
+      const response = res(); let ran = false;
+      limiter(request, response, () => { ran = true; });
+      assert.equal(ran, true);
+    }
+    const request = req({ Authorization: 'Bearer transitional-key' }, '192.0.2.60');
+    request.auth = { type: 'shop_key', id: 'shop_key_1' };
+    const blocked = res(); let ran = false;
+    limiter(request, blocked, () => { ran = true; });
+    assert.equal(ran, false);
+    assert.equal(blocked.statusCode, 429);
+    assert.equal(limiter.bucketCount(), 1);
+  } finally { limiter.close(); }
+});
+
 test('AI limiter returns 429 after the configured burst', () => {
   const limiter = createRateLimiter({ windowMs: 60_000, max: 2 });
   const request = req({ Authorization: 'Bearer shop-secret' });
