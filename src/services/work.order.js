@@ -348,8 +348,8 @@ function assertRequestIdCompatible(order = {}, estimateId, revision) {
   }
 }
 
-async function createWorkOrderUnlocked(jobId, input = {}) {
-  const job = await getJob(jobId);
+async function createWorkOrderUnlocked(jobId, input = {}, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) throw fail('Lifecycle number not found.', 'LIFECYCLE_NOT_FOUND', 404);
 
   const estimateId = clean(input.estimateId, 80);
@@ -397,29 +397,29 @@ async function createWorkOrderUnlocked(jobId, input = {}) {
   return { created: true, workOrder: clone(workOrder) };
 }
 
-async function createWorkOrder(jobId, input = {}) {
-  return withWorkOrderMutationLock(jobId, () => createWorkOrderUnlocked(jobId, input));
+async function createWorkOrder(jobId, input = {}, shopId = '') {
+  return withWorkOrderMutationLock(jobId, () => createWorkOrderUnlocked(jobId, input, shopId));
 }
 
-async function getWorkOrder(jobId, workOrderId) {
-  const job = await getJob(jobId);
+async function getWorkOrder(jobId, workOrderId, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   const order = workOrders(job).find(item => item.workOrderId === workOrderId) || null;
   if (order) assertScopeIntegrity(order);
   return clone(order);
 }
 
-async function listWorkOrders(jobId) {
-  const job = await getJob(jobId);
+async function listWorkOrders(jobId, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   const orders = workOrders(job);
   orders.forEach(assertScopeIntegrity);
   return clone(orders);
 }
 
-async function updateWorkItemState(jobId, workOrderId, workItemId, input = {}) {
+async function updateWorkItemState(jobId, workOrderId, workItemId, input = {}, shopId = '') {
   return withWorkOrderMutationLock(jobId, async () => {
-    const job = await getJob(jobId);
+    const job = await getJob(jobId, shopId);
     if (!job) throw fail('Lifecycle number not found.', 'LIFECYCLE_NOT_FOUND', 404);
     const orders = workOrders(job);
     const orderIndex = orders.findIndex(item => item.workOrderId === workOrderId);
@@ -479,7 +479,7 @@ async function updateWorkItemState(jobId, workOrderId, workItemId, input = {}) {
         ...(job.workOrderCenter || {}),
         workOrders: nextOrders
       }
-    });
+    }, shopId);
     if (!persisted) throw fail('Work Order state could not be persisted.', 'WORK_ORDER_PERSIST_FAILED');
     return clone(order);
   });
