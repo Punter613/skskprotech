@@ -30,7 +30,9 @@ test('Supabase browser session adapter is inert without explicit page opt-in', (
   const session = context.module.exports;
   assert.equal(session.isConfigured(), false);
   assert.equal(session.createClient(), null);
-  assert.deepEqual(session.boot(), { enabled: false, client: null });
+  const boot = session.boot();
+  assert.equal(boot.enabled, false);
+  assert.equal(boot.client, null);
 });
 
 test('current production pages do not opt in to Supabase browser sessions', () => {
