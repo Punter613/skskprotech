@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const net = require('net');
 
 function configuredKeys() {
   return String(process.env.SKSK_API_KEYS || process.env.SKSK_API_KEY || '')
@@ -107,11 +108,29 @@ function createRateLimiter(options = {}) {
     return `credential:${crypto.createHash('sha256').update(credential).digest('hex')}`;
   }
 
+  function normalizeIpBucket(ip) {
+    const value = String(ip || 'unknown').trim();
+    if (net.isIP(value) !== 6) return value;
+    const expanded = value.split(':');
+    const missing = 8 - (expanded.filter(Boolean).length);
+    const groups = [];
+    for (const part of expanded) {
+      if (part === '') {
+        if (!groups.length || groups[groups.length - 1] !== '') groups.push('');
+      } else {
+        groups.push(part.padStart(4, '0').toLowerCase());
+      }
+    }
+    const gap = groups.indexOf('');
+    if (gap >= 0) groups.splice(gap, 1, ...Array(missing + 1).fill('0000'));
+    return groups.slice(0, 4).join(':') + '::/64';
+  }
+
   function bucketKey(req, now) {
     const credentialKey = validatedCredentialKey(req);
-    const candidate = credentialKey || `ip:${String(req.ip || 'unknown')}`;
+    if (credentialKey) return credentialKey;
+    const candidate = `ip:${normalizeIpBucket(req.ip)}`;
     if (buckets.has(candidate)) return candidate;
-    pruneExpired(now);
     if (buckets.size >= maxBuckets - 1) return overflowKey;
     return candidate;
   }
