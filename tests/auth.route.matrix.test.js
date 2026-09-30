@@ -16,7 +16,9 @@ const protectedMounts = [
   '/api/fleet',
   '/api/quick-ask',
   '/api/intelligence',
-  '/api/buyer'
+  '/api/buyer',
+  '/api/parts-lookup',
+  '/api/vehicle'
 ];
 
 function startMatrixServer() {
@@ -77,7 +79,7 @@ test('matrix stays aligned with production protected mounts and documents intent
     assert.match(line, /requireApiAccess|\.\.\.protectAi/, `${route} must remain auth-protected`);
   }
 
-  for (const route of ['/api/full-estimate', '/api/parts-lookup', '/api/vehicle']) {
+  for (const route of ['/api/full-estimate']) {
     const line = server.split('\n').find(value => value.includes(`app.use('${route}'`));
     assert.ok(line, `missing reviewed open mount for ${route}`);
     assert.doesNotMatch(line, /requireApiAccess|\.\.\.protectAi/, `${route} open-route policy changed; review explicitly`);
