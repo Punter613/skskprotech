@@ -47,8 +47,8 @@ jobs:
         run: |
           code="$(curl --connect-timeout 10 --max-time 45 -sS -o /tmp/test-key.json -w '%{http_code}' -H "X-SKSK-API-Key: $SKSK_TEST_API_KEY" "$BASE_URL/health/auth-test")"
           cat /tmp/test-key.json
-          if [ "$code" != "400" ]; then
-            echo "::error::Expected authenticated malformed diagnosis to reach validation and return 400; got $code"
+          if [ "$code" != "200" ]; then
+            echo "::error::Expected authenticated test probe to return 200; got $code"
             exit 1
           fi
 
