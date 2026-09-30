@@ -1115,6 +1115,8 @@
 
     <div class="footer">SKSK ProTech &nbsp;·&nbsp; Professional. Sharp. Built to move fast.</div>
 
+    <script src="/js/sksk-auth.js"></script>
+
     <script>
         const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://p613-backend.onrender.com';
 
@@ -1131,7 +1133,7 @@
             const ctrl = new AbortController();
             const t = setTimeout(() => ctrl.abort(), ms);
             try {
-                return await fetch(url, {
+                return await SKSKAuth.request(url, {
                     ...opts,
                     signal: ctrl.signal
                 });
