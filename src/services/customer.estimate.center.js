@@ -186,22 +186,22 @@ function latestEstimate(job, estimateId) {
     .sort((a, b) => Number(b.revision) - Number(a.revision))[0] || null;
 }
 
-async function createEstimateOnlyLifecycle(input = {}) {
+async function createEstimateOnlyLifecycle(input = {}, shopId = '') {
   // The estimate-only endpoint always creates a fresh lifecycle. Ignore any
   // request-body jobId so a caller cannot overwrite an existing persisted job.
-  let job = await createJob({ ...input, jobId: undefined });
+  let job = await createJob({ ...input, jobId: undefined }, shopId);
   job = await patchJob(job.jobId, {
     intake: {
       ...(job.intake || {}),
       estimateOnly: true,
       requestedService: clean(input.requestedService || input.title, 600)
     }
-  });
+  }, shopId);
   return job;
 }
 
-async function createQuickEstimate(jobId, input = {}) {
-  const job = await getJob(jobId);
+async function createQuickEstimate(jobId, input = {}, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   const estimate = buildQuickEstimate(job, input);
   await patchJob(jobId, {
@@ -209,12 +209,12 @@ async function createQuickEstimate(jobId, input = {}) {
       ...(job.customerEstimateCenter || {}),
       quickEstimates: [...quickEstimates(job), estimate]
     }
-  });
+  }, shopId);
   return estimate;
 }
 
-async function handoffVerifiedEstimate(jobId) {
-  const job = await getJob(jobId);
+async function handoffVerifiedEstimate(jobId, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   if (!job.estimate || !job.verifiedCase) throw new Error('Verified repair estimate is required before customer authorization handoff');
 
@@ -242,7 +242,7 @@ async function handoffVerifiedEstimate(jobId) {
       laborRate: resolution.labor?.hourlyRate || 0,
       notes: `Verified diagnostic scope. VERIFIED_CASE ${snapshot.verifiedCaseFingerprint}.`
     }]
-  });
+  }, shopId);
   estimate.sourceVerifiedEstimateFingerprint = sourceFingerprint;
   estimate.verifiedCaseFingerprint = snapshot.verifiedCaseFingerprint;
   estimate.repairResolutionFingerprint = snapshot.repairResolutionFingerprint;
@@ -253,12 +253,12 @@ async function handoffVerifiedEstimate(jobId) {
       ...(job.customerEstimateCenter || {}),
       quickEstimates: [...quickEstimates(job), estimate]
     }
-  });
+  }, shopId);
   return { created: true, estimate };
 }
 
-async function reviseQuickEstimate(jobId, estimateId, input = {}) {
-  const job = await getJob(jobId);
+async function reviseQuickEstimate(jobId, estimateId, input = {}, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   const previous = latestEstimate(job, estimateId);
   if (!previous) throw new Error('Quick estimate not found');
@@ -272,7 +272,7 @@ async function reviseQuickEstimate(jobId, estimateId, input = {}) {
     laborRate: input.laborRate,
     taxRate: input.taxRate,
     workItems: sourceItems
-  }, { estimateId, revision });
+  }, { estimateId, revision }, shopId);
 
   const now = new Date().toISOString();
   const versions = quickEstimates(job).map(version => {
@@ -280,19 +280,19 @@ async function reviseQuickEstimate(jobId, estimateId, input = {}) {
       return { ...version, status: 'SUPERSEDED', supersededAt: now, supersededBy: estimate.documentNumber, updatedAt: now };
     }
     return version;
-  });
+  }, shopId);
 
   await patchJob(jobId, {
     customerEstimateCenter: {
       ...(job.customerEstimateCenter || {}),
       quickEstimates: [...versions, estimate]
     }
-  });
+  }, shopId);
   return estimate;
 }
 
-async function presentQuickEstimate(jobId, estimateId, revision) {
-  const job = await getJob(jobId);
+async function presentQuickEstimate(jobId, estimateId, revision, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   const target = findEstimateRevision(job, estimateId, revision);
   if (!target) throw new Error('Quick estimate revision not found');
@@ -311,14 +311,14 @@ async function presentQuickEstimate(jobId, estimateId, revision) {
       return updatedEstimate;
     }
     return version;
-  });
+  }, shopId);
 
-  await patchJob(jobId, { customerEstimateCenter: { ...(job.customerEstimateCenter || {}), quickEstimates: versions } });
+  await patchJob(jobId, { customerEstimateCenter: { ...(job.customerEstimateCenter || {}), quickEstimates: versions } }, shopId);
   return updatedEstimate;
 }
 
-async function recordCustomerDecisions(jobId, estimateId, revision, decisions = []) {
-  const job = await getJob(jobId);
+async function recordCustomerDecisions(jobId, estimateId, revision, decisions = [], shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   const target = findEstimateRevision(job, estimateId, revision);
   if (!target) throw new Error('Quick estimate revision not found');
@@ -346,7 +346,7 @@ async function recordCustomerDecisions(jobId, estimateId, revision, decisions = 
       decisionAt: now,
       decisionNote: clean(requested.note || requested.decisionNote, 600)
     };
-  });
+  }, shopId);
   const totals = totalsForItems(workItems);
   const status = statusFromDecisions(workItems, target.presentedAt ? 'PRESENTED' : 'DRAFT');
   const hasCustomerDecision = workItems.some(item => item.decision !== 'PROPOSED');
@@ -364,9 +364,9 @@ async function recordCustomerDecisions(jobId, estimateId, revision, decisions = 
       return updatedEstimate;
     }
     return version;
-  });
+  }, shopId);
 
-  await patchJob(jobId, { customerEstimateCenter: { ...(job.customerEstimateCenter || {}), quickEstimates: versions } });
+  await patchJob(jobId, { customerEstimateCenter: { ...(job.customerEstimateCenter || {}), quickEstimates: versions } }, shopId);
   return updatedEstimate;
 }
 
