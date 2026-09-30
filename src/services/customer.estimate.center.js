@@ -242,7 +242,7 @@ async function handoffVerifiedEstimate(jobId, shopId = '') {
       laborRate: resolution.labor?.hourlyRate || 0,
       notes: `Verified diagnostic scope. VERIFIED_CASE ${snapshot.verifiedCaseFingerprint}.`
     }]
-  }, shopId);
+  });
   estimate.sourceVerifiedEstimateFingerprint = sourceFingerprint;
   estimate.verifiedCaseFingerprint = snapshot.verifiedCaseFingerprint;
   estimate.repairResolutionFingerprint = snapshot.repairResolutionFingerprint;
@@ -272,7 +272,7 @@ async function reviseQuickEstimate(jobId, estimateId, input = {}, shopId = '') {
     laborRate: input.laborRate,
     taxRate: input.taxRate,
     workItems: sourceItems
-  }, { estimateId, revision }, shopId);
+  }, { estimateId, revision });
 
   const now = new Date().toISOString();
   const versions = quickEstimates(job).map(version => {
@@ -280,7 +280,7 @@ async function reviseQuickEstimate(jobId, estimateId, input = {}, shopId = '') {
       return { ...version, status: 'SUPERSEDED', supersededAt: now, supersededBy: estimate.documentNumber, updatedAt: now };
     }
     return version;
-  }, shopId);
+  });
 
   await patchJob(jobId, {
     customerEstimateCenter: {
@@ -311,7 +311,7 @@ async function presentQuickEstimate(jobId, estimateId, revision, shopId = '') {
       return updatedEstimate;
     }
     return version;
-  }, shopId);
+  });
 
   await patchJob(jobId, { customerEstimateCenter: { ...(job.customerEstimateCenter || {}), quickEstimates: versions } }, shopId);
   return updatedEstimate;
@@ -346,7 +346,7 @@ async function recordCustomerDecisions(jobId, estimateId, revision, decisions = 
       decisionAt: now,
       decisionNote: clean(requested.note || requested.decisionNote, 600)
     };
-  }, shopId);
+  });
   const totals = totalsForItems(workItems);
   const status = statusFromDecisions(workItems, target.presentedAt ? 'PRESENTED' : 'DRAFT');
   const hasCustomerDecision = workItems.some(item => item.decision !== 'PROPOSED');
@@ -364,7 +364,7 @@ async function recordCustomerDecisions(jobId, estimateId, revision, decisions = 
       return updatedEstimate;
     }
     return version;
-  }, shopId);
+  });
 
   await patchJob(jobId, { customerEstimateCenter: { ...(job.customerEstimateCenter || {}), quickEstimates: versions } }, shopId);
   return updatedEstimate;
