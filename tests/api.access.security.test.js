@@ -255,3 +255,23 @@ test('valid credentials bypass overflow contention and IPv6 addresses share a /6
     if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
   }
 });
+
+
+test('IPv4-mapped IPv6 shares equivalent IPv4 buckets without collapsing clients', () => {
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 2, maxBuckets: 20, sweepMs: 60_000 });
+  try {
+    for (const ip of ['::ffff:203.0.113.1', '203.0.113.1']) {
+      const response = res(); let ran = false;
+      limiter(req({}, ip), response, () => { ran = true; });
+      assert.equal(ran, true);
+    }
+    const blocked = res(); let blockedRan = false;
+    limiter(req({}, '::ffff:203.0.113.1'), blocked, () => { blockedRan = true; });
+    assert.equal(blockedRan, false);
+    assert.equal(blocked.statusCode, 429);
+    const distinct = res(); let distinctRan = false;
+    limiter(req({}, '::ffff:203.0.113.2'), distinct, () => { distinctRan = true; });
+    assert.equal(distinctRan, true);
+    assert.equal(limiter.bucketCount(), 2);
+  } finally { limiter.close(); }
+});
