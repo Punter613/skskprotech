@@ -160,7 +160,7 @@ async function diagnosisLifecycle(req, res, next) {
 
   try {
     const dtcEvidence = resolveRequestDtcEvidence(req.body || {});
-    let job = await createJob(req.body || {});
+    let job = await createJob(req.body || {}, req.shopId);
 
     // Sanitize provenance immediately, before the Diagnose route runs. This
     // means even a failed diagnosis job cannot leave raw typed/placeholder DTCs
@@ -171,7 +171,7 @@ async function diagnosisLifecycle(req, res, next) {
         dtcEvidence: publicDtcEvidence(dtcEvidence),
         obdCodes: trustedDtcCodes(dtcEvidence)
       }
-    });
+    }, req.shopId);
 
     req.jobLifecycle = job;
     req.body = { ...(req.body || {}), jobId: job.jobId };
@@ -180,7 +180,7 @@ async function diagnosisLifecycle(req, res, next) {
       const payload = await applyDiagnosisConfigurationBoundary(req, originalPayload);
       if (payload?.success && payload?.result) {
         await recordDiagnosis(job.jobId, payload.result, payload.traceLog || null);
-        const persisted = await getJob(job.jobId);
+        const persisted = await getJob(job.jobId, req.shopId);
         const evidencePacket = packetFromDiagnosisRequest(req, payload);
         await patchJob(job.jobId, {
           intake: {
@@ -189,7 +189,7 @@ async function diagnosisLifecycle(req, res, next) {
             obdCodes: trustedDtcCodes(dtcEvidence)
           },
           diagnosis: { ...(persisted?.diagnosis || {}), evidencePacket }
-        });
+        }, req.shopId);
         return { ...payload, jobId: job.jobId, invoiceNumber: job.jobId };
       }
       await recordDiagnosisFailure(job.jobId, payload?.details || payload?.error || 'Diagnosis failed');
@@ -207,7 +207,7 @@ async function estimateLifecycle(req, res, next) {
   if (!jobId) return next();
 
   try {
-    const job = await getJob(jobId);
+    const job = await getJob(jobId, req.shopId);
     if (!job) return res.status(404).json({ success: false, error: 'Job not found', jobId });
     if (job.status !== 'VERIFIED') {
       return res.status(409).json({
