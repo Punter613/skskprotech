@@ -157,3 +157,61 @@ test('production server protects stateful shop routes with the shared auth contr
     "app.use('/api/buyer', requireApiAccess, require('../src/routes/buyer'));"
   ]) assert.ok(server.includes(route), route);
 });
+
+
+test('rate limiter HTTP boundary resists fake credentials and forwarded-for prefix spoofing', async () => {
+  const express = require('express');
+  const oldKeys = process.env.SKSK_API_KEYS;
+  process.env.SKSK_API_KEYS = 'valid-shop-key';
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 3, maxBuckets: 32, sweepMs: 60_000 });
+  const app = express();
+  app.set('trust proxy', 1);
+  app.get('/limited', limiter, (request, response) => response.json({ ok: true, ip: request.ip }));
+  const server = await new Promise(resolve => {
+    const listening = app.listen(0, '127.0.0.1', () => resolve(listening));
+  });
+  const base = `http://127.0.0.1:${server.address().port}/limited`;
+  try {
+    const fakeStatuses = [];
+    for (let i = 0; i < 4; i++) {
+      const response = await fetch(base, { headers: { Authorization: `Bearer fake-${i}`, 'X-Forwarded-For': `spoof-${i}, 203.0.113.9` } });
+      fakeStatuses.push(response.status);
+    }
+    assert.deepEqual(fakeStatuses, [200, 200, 200, 429]);
+
+    const validStatuses = [];
+    for (let i = 0; i < 3; i++) {
+      const response = await fetch(base, { headers: { Authorization: 'Bearer valid-shop-key', 'X-Forwarded-For': 'different-prefix, 203.0.113.9' } });
+      validStatuses.push(response.status);
+    }
+    assert.deepEqual(validStatuses, [200, 200, 200], 'validated shop key must have its own bucket');
+  } finally {
+    limiter.close();
+    await new Promise(resolve => server.close(resolve));
+    if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+  }
+});
+
+test('rate limiter prunes expired buckets and keeps its map bounded', async () => {
+  const oldKeys = process.env.SKSK_API_KEYS;
+  delete process.env.SKSK_API_KEYS;
+  const limiter = createRateLimiter({ windowMs: 20, max: 100, maxBuckets: 5, sweepMs: 10 });
+  try {
+    for (let i = 0; i < 30; i++) {
+      limiter(req({}, `198.51.100.${i}`), res(), () => {});
+    }
+    assert.ok(limiter.bucketCount() <= 5, `bucket count ${limiter.bucketCount()} exceeded cap`);
+    await new Promise(resolve => setTimeout(resolve, 35));
+    limiter.pruneExpired();
+    assert.equal(limiter.bucketCount(), 0);
+  } finally {
+    limiter.close();
+    if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+  }
+});
+
+test('production server trusts exactly one proxy hop', () => {
+  const server = fs.readFileSync(path.join(__dirname, '../api/server.js'), 'utf8');
+  assert.ok(server.includes("app.set('trust proxy', 1);"));
+  assert.equal(server.includes("app.set('trust proxy', true);"), false);
+});
