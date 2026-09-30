@@ -21,7 +21,7 @@ function fail(res, error, extra = {}) {
 
 router.get('/', async (req, res) => {
   try {
-    const workOrders = await listWorkOrders(req.params.id);
+    const workOrders = await listWorkOrders(req.params.id, req.shopId);
     if (!workOrders) {
       return res.status(404).json({
         success: false,
@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const result = await createWorkOrder(req.params.id, req.body || {});
+    const result = await createWorkOrder(req.params.id, req.body || {}, req.shopId);
     return res.status(result.created ? 201 : 200).json({
       success: true,
       created: result.created,
@@ -52,7 +52,7 @@ router.post('/', async (req, res) => {
 
 router.get('/:workOrderId', async (req, res) => {
   try {
-    const workOrder = await getWorkOrder(req.params.id, req.params.workOrderId);
+    const workOrder = await getWorkOrder(req.params.id, req.params.workOrderId, req.shopId);
     if (!workOrder) {
       return res.status(404).json({
         success: false,
@@ -73,7 +73,7 @@ router.get('/:workOrderId', async (req, res) => {
 
 router.post('/:workOrderId/items/:workItemId/state', async (req, res) => {
   try {
-    const job = await getJob(req.params.id);
+    const job = await getJob(req.params.id, req.shopId);
     if (!job) {
       return res.status(404).json({
         success: false,
@@ -97,7 +97,8 @@ router.post('/:workOrderId/items/:workItemId/state', async (req, res) => {
       req.params.id,
       req.params.workOrderId,
       req.params.workItemId,
-      req.body || {}
+      req.body || {},
+      req.shopId
     );
     return res.json({
       success: true,
