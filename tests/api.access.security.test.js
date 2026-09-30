@@ -115,13 +115,16 @@ test('production server mounts access control before costly AI handlers', () => 
   assert.ok(server.includes("'X-SKSK-API-Key'"));
 });
 
-test('lifecycle client keeps shop credential session-scoped and retries a 401 once', () => {
+test('shared frontend auth keeps shop credential session-scoped and retries a 401 once', () => {
   const html = fs.readFileSync(path.join(__dirname, '../public/lifecycle.html'), 'utf8');
-  assert.ok(html.includes("sessionStorage.getItem('skskApiKey')"));
-  assert.ok(html.includes("headers['X-SKSK-API-Key']=key"));
-  assert.ok(html.includes("r.status===401&&!retried"));
-  assert.ok(html.includes("sessionStorage.setItem('skskApiKey'"));
-  assert.equal(html.includes("localStorage.setItem('skskApiKey'"), false);
+  const auth = fs.readFileSync(path.join(__dirname, '../public/js/sksk-auth.js'), 'utf8');
+  assert.ok(html.includes('<script src="/js/sksk-auth.js"></script>'));
+  assert.ok(html.includes('SKSKAuth.request(API+path'));
+  assert.ok(auth.includes("global.sessionStorage.getItem(STORAGE_KEY)"));
+  assert.ok(auth.includes("next.set(KEY_HEADER, key)"));
+  assert.ok(auth.includes("response.status !== 401 || (state && state.retried)"));
+  assert.ok(auth.includes("global.sessionStorage.setItem(STORAGE_KEY, key)"));
+  assert.equal(auth.includes('localStorage'), false);
 });
 
 
