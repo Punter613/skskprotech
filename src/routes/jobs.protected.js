@@ -109,7 +109,7 @@ router.post('/:id/verify', async (req, res, next) => {
       });
     }
 
-    const job = await getJob(req.params.id);
+    const job = await getJob(req.params.id, req.shopId);
     if (!job) {
       return res.status(404).json({ success: false, error: 'Job not found', jobId: req.params.id });
     }

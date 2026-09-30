@@ -68,6 +68,7 @@ async function requireApiAccess(req, res, next) {
       const principal = await verifySupabaseAccessToken(credential);
       if (principal) {
         req.auth = principal;
+        req.shopId = principal.shopId;
         return next();
       }
     } catch (error) {
