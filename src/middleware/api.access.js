@@ -110,7 +110,7 @@ function createRateLimiter(options = {}) {
 
   function normalizeIpBucket(ip) {
     const value = String(ip || 'unknown').trim();
-    const mappedIpv4 = value.match(/^::ffff:(\\d{1,3}(?:\\.\\d{1,3}){3})$/i);
+    const mappedIpv4 = value.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i);
     if (mappedIpv4 && net.isIP(mappedIpv4[1]) === 4) return mappedIpv4[1];
     if (net.isIP(value) !== 6) return value;
     const expanded = value.split(':');
