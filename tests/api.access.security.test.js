@@ -215,3 +215,43 @@ test('production server trusts exactly one proxy hop', () => {
   assert.ok(server.includes("app.set('trust proxy', 1);"));
   assert.equal(server.includes("app.set('trust proxy', true);"), false);
 });
+
+
+test('valid credentials bypass overflow contention and IPv6 addresses share a /64 bucket', () => {
+  const oldKeys = process.env.SKSK_API_KEYS;
+  process.env.SKSK_API_KEYS = 'valid-shop-key';
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 3, maxBuckets: 6, sweepMs: 60_000 });
+  try {
+    for (let i = 1; i <= 10; i++) limiter(req({}, `198.51.100.${i}`), res(), () => {});
+    assert.ok(limiter.bucketCount() <= 6);
+
+    for (let i = 0; i < 3; i++) {
+      const response = res();
+      let ran = false;
+      limiter(req({ Authorization: 'Bearer valid-shop-key' }, '203.0.113.250'), response, () => { ran = true; });
+      assert.equal(ran, true, 'validated credential must not be forced into overflow');
+      assert.equal(response.statusCode, 200);
+    }
+
+    const ipv6Limiter = createRateLimiter({ windowMs: 60_000, max: 3, maxBuckets: 20, sweepMs: 60_000 });
+    try {
+      const addresses = ['2001:db8:abcd:12::1', '2001:db8:abcd:12::2', '2001:db8:abcd:12:ffff::1'];
+      const statuses = [];
+      for (const ip of addresses) {
+        const response = res(); let ran = false;
+        ipv6Limiter(req({}, ip), response, () => { ran = true; });
+        statuses.push(ran ? 200 : response.statusCode);
+      }
+      const blocked = res(); let ran = false;
+      ipv6Limiter(req({}, '2001:db8:abcd:12:1234::9'), blocked, () => { ran = true; });
+      statuses.push(ran ? 200 : blocked.statusCode);
+      assert.deepEqual(statuses, [200, 200, 200, 429], 'same IPv6 /64 must share one bucket');
+      assert.equal(ipv6Limiter.bucketCount(), 1);
+    } finally {
+      ipv6Limiter.close();
+    }
+  } finally {
+    limiter.close();
+    if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+  }
+});
