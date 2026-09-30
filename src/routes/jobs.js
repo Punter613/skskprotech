@@ -20,7 +20,7 @@ const {
 const { recordOutcomeEvent, getJobOutcomeEvents } = require('../services/job.outcome.events');
 
 router.get('/:id', async (req, res) => {
-  const job = await getJob(req.params.id);
+  const job = await getJob(req.params.id, req.shopId);
 
   if (!job) {
     return res.status(404).json({ success: false, error: 'Job not found' });
@@ -39,7 +39,7 @@ router.get('/:id', async (req, res) => {
 
 router.post('/:id/unverified-diagnosis', async (req, res) => {
   try {
-    let current = await getJob(req.params.id);
+    let current = await getJob(req.params.id, req.shopId);
     if (!current) return res.status(404).json({ success: false, error: 'Job not found' });
 
     const provenanceRefreshRequired = needsDtcProvenanceReassessment(current);
@@ -79,7 +79,7 @@ router.post('/:id/unverified-diagnosis', async (req, res) => {
               reassessmentReason: reason || reassessed.reassessment?.reason || 'REASSESSMENT',
               recordedAt: new Date().toISOString()
             }
-          });
+          }, req.shopId);
         }
       } catch (reassessmentError) {
         if (provenanceRefreshRequired) {
@@ -96,7 +96,7 @@ router.post('/:id/unverified-diagnosis', async (req, res) => {
       throw new Error('This diagnosis predates DTC provenance enforcement. Re-run Diagnose before relying on an unverified diagnosis.');
     }
 
-    const job = await recordUnverifiedDiagnosis(req.params.id);
+    const job = await recordUnverifiedDiagnosis(req.params.id, req.shopId);
     if (!job) return res.status(404).json({ success: false, error: 'Job not found' });
 
     return res.json({
@@ -124,10 +124,10 @@ router.post('/:id/unverified-diagnosis', async (req, res) => {
 
 router.post('/:id/tests', async (req, res) => {
   try {
-    const job = await getJob(req.params.id);
+    const job = await getJob(req.params.id, req.shopId);
     if (!job) return res.status(404).json({ success: false, error: 'Job not found' });
 
-    const test = await addTest(req.params.id, req.body || {});
+    const test = await addTest(req.params.id, req.body || {}, req.shopId);
     return res.status(201).json({ success: true, jobId: req.params.id, status: 'TESTING', test });
   } catch (err) {
     return res.status(409).json({ success: false, error: err.message, jobId: req.params.id });
@@ -136,12 +136,12 @@ router.post('/:id/tests', async (req, res) => {
 
 router.post('/:id/verify', async (req, res) => {
   try {
-    let job = await verifyJob(req.params.id, req.body || {});
+    let job = await verifyJob(req.params.id, req.body || {}, req.shopId);
     if (!job) return res.status(404).json({ success: false, error: 'Job not found' });
 
     if (job.status === 'VERIFIED') {
       const verifiedCase = buildVerifiedCase(job);
-      job = await patchJob(job.jobId, { verifiedCase });
+      job = await patchJob(job.jobId, { verifiedCase }, req.shopId);
     }
 
     return res.json({
@@ -166,13 +166,13 @@ router.post('/:id/verify', async (req, res) => {
 
 router.post('/:id/repair-completed', async (req, res) => {
   try {
-    const job = await getJob(req.params.id);
+    const job = await getJob(req.params.id, req.shopId);
     if (!job) return res.status(404).json({ success: false, error: 'Job not found' });
 
     const { operationIds, completedBy, notes } = req.body || {};
     const event = buildRepairCompletedEvent({ job, operationIds, completedBy, notes });
-    await recordOutcomeEvent(event);
-    const updated = await getJob(req.params.id);
+    await recordOutcomeEvent(event, req.shopId);
+    const updated = await getJob(req.params.id, req.shopId);
 
     return res.status(201).json({
       success: true,
@@ -187,10 +187,10 @@ router.post('/:id/repair-completed', async (req, res) => {
 
 router.post('/:id/outcome', async (req, res) => {
   try {
-    const job = await getJob(req.params.id);
+    const job = await getJob(req.params.id, req.shopId);
     if (!job) return res.status(404).json({ success: false, error: 'Job not found' });
 
-    const events = await getJobOutcomeEvents(req.params.id);
+    const events = await getJobOutcomeEvents(req.params.id, req.shopId);
     const completionEvent = events.filter(e => e.eventType === 'REPAIR_COMPLETED').slice(-1)[0];
     if (!completionEvent) {
       return res.status(409).json({ success: false, error: 'No REPAIR_COMPLETED event recorded for this job yet', jobId: req.params.id });
@@ -204,13 +204,13 @@ router.post('/:id/outcome', async (req, res) => {
       recordedBy,
       supersedesEventFingerprint
     });
-    await recordOutcomeEvent(event);
-    const updated = await getJob(req.params.id);
+    await recordOutcomeEvent(event, req.shopId);
+    const updated = await getJob(req.params.id, req.shopId);
 
     let learningIngested = false;
     let learningError = null;
     try {
-      const allEvents = await getJobOutcomeEvents(req.params.id);
+      const allEvents = await getJobOutcomeEvents(req.params.id, req.shopId);
       const activeOutcome = deriveActiveOutcomeEvent(allEvents);
       if (activeOutcome && activeOutcome.fingerprint === event.fingerprint) {
         const confirmedRepairCase = buildConfirmedRepairCase(job, allEvents);
@@ -243,7 +243,7 @@ router.post('/:id/outcome', async (req, res) => {
 
 router.get('/:id/outcome-events', async (req, res) => {
   try {
-    const events = await getJobOutcomeEvents(req.params.id);
+    const events = await getJobOutcomeEvents(req.params.id, req.shopId);
     return res.json({ success: true, jobId: req.params.id, events });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message, jobId: req.params.id });

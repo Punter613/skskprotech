@@ -179,7 +179,7 @@ async function diagnosisLifecycle(req, res, next) {
     wrapJson(res, async originalPayload => {
       const payload = await applyDiagnosisConfigurationBoundary(req, originalPayload);
       if (payload?.success && payload?.result) {
-        await recordDiagnosis(job.jobId, payload.result, payload.traceLog || null);
+        await recordDiagnosis(job.jobId, payload.result, payload.traceLog || null, req.shopId);
         const persisted = await getJob(job.jobId, req.shopId);
         const evidencePacket = packetFromDiagnosisRequest(req, payload);
         await patchJob(job.jobId, {
@@ -192,7 +192,7 @@ async function diagnosisLifecycle(req, res, next) {
         }, req.shopId);
         return { ...payload, jobId: job.jobId, invoiceNumber: job.jobId };
       }
-      await recordDiagnosisFailure(job.jobId, payload?.details || payload?.error || 'Diagnosis failed');
+      await recordDiagnosisFailure(job.jobId, payload?.details || payload?.error || 'Diagnosis failed', req.shopId);
       return { ...payload, jobId: job.jobId, invoiceNumber: job.jobId };
     });
     next();
@@ -221,7 +221,7 @@ async function estimateLifecycle(req, res, next) {
     req.body = hydrateEstimateInput(job, req.body || {});
     wrapJson(res, async payload => {
       if (payload?.success && payload?.estimate) {
-        const estimate = await attachEstimate(jobId, payload.estimate);
+        const estimate = await attachEstimate(jobId, payload.estimate, req.shopId);
         return { ...payload, jobId, estimate };
       }
       return { ...payload, jobId };
@@ -238,7 +238,7 @@ async function invoiceLifecycle(req, res, next) {
   if (!jobId) return next();
 
   try {
-    const job = await getJob(jobId);
+    const job = await getJob(jobId, req.shopId);
     if (!job) return res.status(404).json({ success: false, error: 'Job not found', jobId });
 
     // Canonical lifecycle jobs must complete the commercial workflow:

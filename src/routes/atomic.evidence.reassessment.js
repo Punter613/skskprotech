@@ -69,7 +69,7 @@ function previewReassessmentOptions(req) {
 
 router.post('/:id/tests/batch', async (req, res) => {
   try {
-    const result = await persistEvidenceBatch(req.params.id, req.body?.evidence || req.body?.tests || []);
+    const result = await persistEvidenceBatch(req.params.id, req.body?.evidence || req.body?.tests || [], req.shopId);
     return res.status(result.saved.length ? 201 : 200).json({
       success: true,
       jobId: req.params.id,
@@ -95,7 +95,8 @@ router.post('/:id/unverified-diagnosis', async (req, res) => {
     const result = await atomicUnverifiedDiagnosis(
       req.params.id,
       req.body?.evidence || [],
-      previewReassessmentOptions(req)
+      previewReassessmentOptions(req),
+      req.shopId
     );
     const job = result.job;
     return res.json({

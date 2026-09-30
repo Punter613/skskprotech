@@ -123,8 +123,8 @@ function staleUnverifiedPatch(job, recordedAt) {
   };
 }
 
-async function persistEvidenceBatchUnlocked(jobId, evidence = []) {
-  let job = await getJob(jobId);
+async function persistEvidenceBatchUnlocked(jobId, evidence = [], shopId = '') {
+  let job = await getJob(jobId, shopId);
   if (!job) throw Object.assign(new Error('Job not found'), { statusCode: 404 });
   if (!['TESTING', 'DIAGNOSING'].includes(job.status)) {
     throw new Error(`Tests cannot be added while job is ${job.status}`);
@@ -168,18 +168,18 @@ async function persistEvidenceBatchUnlocked(jobId, evidence = []) {
     tests: [...(job.tests || []), ...entries],
     diagnosis: staleDiagnosisPatch(job, staleAt),
     unverifiedDiagnosis: staleUnverifiedPatch(job, staleAt)
-  });
+  }, shopId);
   if (!job) throw new Error('Evidence persistence failed');
 
   saved.push(...entries);
   return { job, saved, reused };
 }
 
-async function persistEvidenceBatch(jobId, evidence = []) {
-  return withJobMutationLock(jobId, () => persistEvidenceBatchUnlocked(jobId, evidence));
+async function persistEvidenceBatch(jobId, evidence = [], shopId = '') {
+  return withJobMutationLock(jobId, () => persistEvidenceBatchUnlocked(jobId, evidence, shopId));
 }
 
-async function applyReassessment(jobId, current, reason, reassessDiagnosisFn) {
+async function applyReassessment(jobId, current, reason, reassessDiagnosisFn, shopId = '') {
   const provenanceRefreshRequired = needsDtcProvenanceReassessment(current);
   const reassessed = await reassessDiagnosisFn(current);
   if (!reassessed) throw new Error('Diagnostic reassessment produced no replacement diagnosis');
@@ -223,7 +223,7 @@ async function applyReassessment(jobId, current, reason, reassessDiagnosisFn) {
       staleReason: null,
       staleAt: null
     }
-  });
+  }, shopId);
 }
 
 function failClosedAfterEvidence(error, saveResult, reason) {
@@ -243,9 +243,9 @@ function failClosedAfterEvidence(error, saveResult, reason) {
   return failure;
 }
 
-async function atomicUnverifiedDiagnosis(jobId, evidence = [], options = {}) {
+async function atomicUnverifiedDiagnosis(jobId, evidence = [], options = {}, shopId = '') {
   return withJobMutationLock(jobId, async () => {
-    const saveResult = await persistEvidenceBatchUnlocked(jobId, evidence);
+    const saveResult = await persistEvidenceBatchUnlocked(jobId, evidence, shopId);
     let current = saveResult.job;
     if (!current?.diagnosis?.result) throw new Error('Diagnosis must exist before requesting an unverified diagnosis');
 
@@ -256,7 +256,7 @@ async function atomicUnverifiedDiagnosis(jobId, evidence = [], options = {}) {
 
     if (reason) {
       try {
-        current = await applyReassessment(jobId, current, reason, reassessDiagnosisFn);
+        current = await applyReassessment(jobId, current, reason, reassessDiagnosisFn, shopId);
       } catch (error) {
         if (newEvidenceAvailable) {
           console.warn(`[atomic-reassessment] evidence persisted but reassessment failed for ${jobId}:`, error.message);
@@ -278,7 +278,7 @@ async function atomicUnverifiedDiagnosis(jobId, evidence = [], options = {}) {
       throw failClosedAfterEvidence(new Error('Diagnosis remains stale after reassessment'), saveResult, reason);
     }
 
-    const job = await recordUnverifiedDiagnosis(jobId);
+    const job = await recordUnverifiedDiagnosis(jobId, shopId);
     if (!job) throw Object.assign(new Error('Job not found'), { statusCode: 404 });
 
     return {
