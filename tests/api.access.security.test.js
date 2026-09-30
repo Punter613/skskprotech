@@ -88,6 +88,100 @@ test('required auth fails closed when server key configuration is missing', asyn
   }
 });
 
+test('required auth does not require a legacy shop key when Supabase identity is configured', async () => {
+  const saved = {
+    required: process.env.SKSK_REQUIRE_AUTH,
+    keys: process.env.SKSK_API_KEYS,
+    key: process.env.SKSK_API_KEY,
+    url: process.env.SUPABASE_URL,
+    anon: process.env.SUPABASE_ANON_KEY
+  };
+  process.env.SKSK_REQUIRE_AUTH = 'true';
+  delete process.env.SKSK_API_KEYS;
+  delete process.env.SKSK_API_KEY;
+  process.env.SUPABASE_URL = 'https://example.supabase.co';
+  process.env.SUPABASE_ANON_KEY = 'anon-test-key';
+  try {
+    const response = res();
+    let ran = false;
+    await requireApiAccess(req({}), response, () => { ran = true; });
+    assert.equal(ran, false);
+    assert.equal(response.statusCode, 401, 'configured identity should reach authentication, not configuration failure');
+  } finally {
+    for (const [name, value] of [['SKSK_REQUIRE_AUTH', saved.required], ['SKSK_API_KEYS', saved.keys], ['SKSK_API_KEY', saved.key], ['SUPABASE_URL', saved.url], ['SUPABASE_ANON_KEY', saved.anon]]) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  }
+});
+
+test('AI limiter isolates authenticated principals without hashing raw bearer sessions', () => {
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 2, maxBuckets: 20, sweepMs: 60_000 });
+  try {
+    const userA = req({ Authorization: 'Bearer bearer-a' }, '203.0.113.10');
+    userA.auth = { type: 'supabase_user', id: 'user_a', shopId: 'shop-a' };
+    const userB = req({ Authorization: 'Bearer bearer-b' }, '203.0.113.10');
+    userB.auth = { type: 'supabase_user', id: 'user_b', shopId: 'shop-a' };
+
+    for (let i = 0; i < 2; i++) {
+      const response = res(); let ran = false;
+      limiter(userA, response, () => { ran = true; });
+      assert.equal(ran, true);
+    }
+    const blocked = res(); let blockedRan = false;
+    limiter(userA, blocked, () => { blockedRan = true; });
+    assert.equal(blockedRan, false);
+    assert.equal(blocked.statusCode, 429);
+
+    const separate = res(); let separateRan = false;
+    limiter(userB, separate, () => { separateRan = true; });
+    assert.equal(separateRan, true, 'another verified principal on the same IP must have its own bucket');
+    assert.equal(limiter.bucketCount(), 2);
+  } finally {
+    limiter.close();
+  }
+});
+
+
+test('same verified user shares one AI bucket across IP addresses', () => {
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 2, maxBuckets: 20, sweepMs: 60_000 });
+  try {
+    for (const ip of ['203.0.113.10', '198.51.100.20']) {
+      const request = req({ Authorization: 'Bearer session-token' }, ip);
+      request.auth = { type: 'supabase_user', id: 'user_same', shopId: 'shop-a' };
+      const response = res(); let ran = false;
+      limiter(request, response, () => { ran = true; });
+      assert.equal(ran, true);
+    }
+    const request = req({ Authorization: 'Bearer session-token' }, '192.0.2.30');
+    request.auth = { type: 'supabase_user', id: 'user_same', shopId: 'shop-a' };
+    const blocked = res(); let ran = false;
+    limiter(request, blocked, () => { ran = true; });
+    assert.equal(ran, false);
+    assert.equal(blocked.statusCode, 429);
+    assert.equal(limiter.bucketCount(), 1);
+  } finally { limiter.close(); }
+});
+
+test('same authenticated shop-key principal shares one AI bucket across IP addresses', () => {
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 2, maxBuckets: 20, sweepMs: 60_000 });
+  try {
+    for (const ip of ['203.0.113.40', '198.51.100.50']) {
+      const request = req({ Authorization: 'Bearer transitional-key' }, ip);
+      request.auth = { type: 'shop_key', id: 'shop_key_1' };
+      const response = res(); let ran = false;
+      limiter(request, response, () => { ran = true; });
+      assert.equal(ran, true);
+    }
+    const request = req({ Authorization: 'Bearer transitional-key' }, '192.0.2.60');
+    request.auth = { type: 'shop_key', id: 'shop_key_1' };
+    const blocked = res(); let ran = false;
+    limiter(request, blocked, () => { ran = true; });
+    assert.equal(ran, false);
+    assert.equal(blocked.statusCode, 429);
+    assert.equal(limiter.bucketCount(), 1);
+  } finally { limiter.close(); }
+});
+
 test('AI limiter returns 429 after the configured burst', () => {
   const limiter = createRateLimiter({ windowMs: 60_000, max: 2 });
   const request = req({ Authorization: 'Bearer shop-secret' });
