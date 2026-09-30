@@ -40,6 +40,7 @@
 <section class="card workspaceCard" id="invoiceCard" data-workspace-card="Invoice" hidden><div class="title">Customer Authorization → Work Order → Final Invoice</div><p class="muted">A verified estimate is not permission to perform or bill work. Send the persisted verified repair into the Estimate Center for explicit customer authorization. Only authorized scope can enter a Work Order, and only authorized + completed work can become the final invoice.</p><button class="btn primary" id="invoice">➡️ Continue to Customer Authorization</button><div class="status" id="invoiceStatus">Waiting for canonical verified estimate.</div><div id="invoiceOut"></div></section>
 </div>
 <script src="/js/tag-status.js"></script>
+<script src="/js/sksk-auth.js"></script>
 <script>
 const API=(()=>{
   const configured=document.querySelector('meta[name="sksk-api-base"]')?.content?.trim();
@@ -47,7 +48,7 @@ const API=(()=>{
   if(location.hostname==='skskprotech.pages.dev'||location.hostname.endsWith('.skskprotech.pages.dev'))return 'https://p613-backend.onrender.com';
   return '';
 })();let jobId=null,lastDiagnosis=null,lastEstimate=null,testCount=0,savedTests=[],currentDiagnosisRevision=1;const $=id=>document.getElementById(id);const list=v=>String(v||'').split(',').map(x=>x.trim()).filter(Boolean);const lines=v=>String(v||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function post(path,body,retried=false){const key=sessionStorage.getItem('skskApiKey')||'';const headers={'Content-Type':'application/json','Accept':'application/json'};if(key)headers['X-SKSK-API-Key']=key;const r=await fetch(API+path,{method:'POST',headers,body:JSON.stringify(body)});const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={error:t}}if(r.status===401&&!retried){const entered=window.prompt('SKSK shop access key');if(entered&&entered.trim()){sessionStorage.setItem('skskApiKey',entered.trim());return post(path,body,true)}}if(!r.ok)throw new Error(d.error||d.message||`HTTP ${r.status}`);return d}
+async function post(path,body){const r=await SKSKAuth.request(API+path,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(body)});const t=await r.text();let d;try{d=JSON.parse(t)}catch{d={error:t}}if(!r.ok)throw new Error(d.error||d.message||`HTTP ${r.status}`);return d}
 function setStatus(id,msg,kind=''){const el=$(id);el.textContent=msg;el.className=`status ${kind}`.trim()}
 const workspaceOrder=['Diag','Brain','Test','Verify','Estimate','Invoice'];let furthestStage=0;
 function showWorkspace(name){const target=$(`${name.toLowerCase()}Card`)||$({Diag:'diagCard',Brain:'brainCard',Test:'testCard',Verify:'verifyCard',Estimate:'estimateCard',Invoice:'invoiceCard'}[name]);if(!target||target.hidden)return;document.querySelectorAll('[data-workspace-card]').forEach(card=>card.classList.remove('workspaceActive'));target.classList.add('workspaceActive');workspaceOrder.forEach(n=>$('s'+n)?.classList.toggle('active',n===name));window.scrollTo({top:0,behavior:'smooth'})}
