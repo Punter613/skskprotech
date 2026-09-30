@@ -20,7 +20,7 @@ function fail(res, status, error, extra = {}) {
 
 router.post('/job', async (req, res) => {
   try {
-    const job = await createEstimateOnlyLifecycle(req.body || {});
+    const job = await createEstimateOnlyLifecycle(req.body || {}, req.shopId);
     return res.status(201).json({
       success: true,
       lifecycleNumber: job.jobId,
@@ -36,7 +36,7 @@ router.post('/job', async (req, res) => {
 
 router.post('/:id/return-visit', async (req, res) => {
   try {
-    const job = await createReturnVisit(req.params.id, req.body || {});
+    const job = await createReturnVisit(req.params.id, req.body || {}, req.shopId);
     if (!job) return fail(res, 404, 'Prior lifecycle number not found', { lifecycleNumber: req.params.id });
     return res.status(201).json({
       success: true,
@@ -52,9 +52,9 @@ router.post('/:id/return-visit', async (req, res) => {
 });
 
 router.get('/:id', async (req, res) => {
-  const job = await getJob(req.params.id);
+  const job = await getJob(req.params.id, req.shopId);
   if (!job) return fail(res, 404, 'Lifecycle number not found', { lifecycleNumber: req.params.id });
-  const returnVisits = await findReturnVisits(job.jobId);
+  const returnVisits = await findReturnVisits(job.jobId, req.shopId);
   return res.json({
     success: true,
     ...estimateCenterSummary(job),
@@ -72,7 +72,7 @@ router.get('/:id', async (req, res) => {
 
 router.post('/:id/from-verified-estimate', async (req, res) => {
   try {
-    const result = await handoffVerifiedEstimate(req.params.id);
+    const result = await handoffVerifiedEstimate(req.params.id, req.shopId);
     if (!result) return fail(res, 404, 'Lifecycle number not found', { lifecycleNumber: req.params.id });
     return res.status(result.created ? 201 : 200).json({
       success: true,
@@ -87,7 +87,7 @@ router.post('/:id/from-verified-estimate', async (req, res) => {
 
 router.post('/:id/quick', async (req, res) => {
   try {
-    const estimate = await createQuickEstimate(req.params.id, req.body || {});
+    const estimate = await createQuickEstimate(req.params.id, req.body || {}, req.shopId);
     if (!estimate) return fail(res, 404, 'Lifecycle number not found', { lifecycleNumber: req.params.id });
     return res.status(201).json({ success: true, lifecycleNumber: req.params.id, estimate });
   } catch (err) {
@@ -97,7 +97,7 @@ router.post('/:id/quick', async (req, res) => {
 
 router.post('/:id/quick/:estimateId/revise', async (req, res) => {
   try {
-    const estimate = await reviseQuickEstimate(req.params.id, req.params.estimateId, req.body || {});
+    const estimate = await reviseQuickEstimate(req.params.id, req.params.estimateId, req.body || {}, req.shopId);
     if (!estimate) return fail(res, 404, 'Lifecycle number not found', { lifecycleNumber: req.params.id });
     return res.status(201).json({ success: true, lifecycleNumber: req.params.id, estimate });
   } catch (err) {
@@ -107,7 +107,7 @@ router.post('/:id/quick/:estimateId/revise', async (req, res) => {
 
 router.post('/:id/quick/:estimateId/:revision/present', async (req, res) => {
   try {
-    const estimate = await presentQuickEstimate(req.params.id, req.params.estimateId, req.params.revision);
+    const estimate = await presentQuickEstimate(req.params.id, req.params.estimateId, req.params.revision, req.shopId);
     if (!estimate) return fail(res, 404, 'Lifecycle number not found', { lifecycleNumber: req.params.id });
     return res.json({ success: true, lifecycleNumber: req.params.id, estimate });
   } catch (err) {
@@ -121,7 +121,8 @@ router.post('/:id/quick/:estimateId/:revision/decisions', async (req, res) => {
       req.params.id,
       req.params.estimateId,
       req.params.revision,
-      req.body?.decisions || []
+      req.body?.decisions || [],
+      req.shopId
     );
     if (!estimate) return fail(res, 404, 'Lifecycle number not found', { lifecycleNumber: req.params.id });
     return res.json({
