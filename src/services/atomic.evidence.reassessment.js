@@ -123,8 +123,8 @@ function staleUnverifiedPatch(job, recordedAt) {
   };
 }
 
-async function persistEvidenceBatchUnlocked(jobId, evidence = []) {
-  let job = await getJob(jobId);
+async function persistEvidenceBatchUnlocked(jobId, evidence = [], shopId = '') {
+  let job = await getJob(jobId, shopId);
   if (!job) throw Object.assign(new Error('Job not found'), { statusCode: 404 });
   if (!['TESTING', 'DIAGNOSING'].includes(job.status)) {
     throw new Error(`Tests cannot be added while job is ${job.status}`);
@@ -168,15 +168,15 @@ async function persistEvidenceBatchUnlocked(jobId, evidence = []) {
     tests: [...(job.tests || []), ...entries],
     diagnosis: staleDiagnosisPatch(job, staleAt),
     unverifiedDiagnosis: staleUnverifiedPatch(job, staleAt)
-  });
+  }, shopId);
   if (!job) throw new Error('Evidence persistence failed');
 
   saved.push(...entries);
   return { job, saved, reused };
 }
 
-async function persistEvidenceBatch(jobId, evidence = []) {
-  return withJobMutationLock(jobId, () => persistEvidenceBatchUnlocked(jobId, evidence));
+async function persistEvidenceBatch(jobId, evidence = [], shopId = '') {
+  return withJobMutationLock(jobId, () => persistEvidenceBatchUnlocked(jobId, evidence, shopId));
 }
 
 async function applyReassessment(jobId, current, reason, reassessDiagnosisFn) {
@@ -243,7 +243,7 @@ function failClosedAfterEvidence(error, saveResult, reason) {
   return failure;
 }
 
-async function atomicUnverifiedDiagnosis(jobId, evidence = [], options = {}) {
+async function atomicUnverifiedDiagnosis(jobId, evidence = [], options = {}, shopId = '') {
   return withJobMutationLock(jobId, async () => {
     const saveResult = await persistEvidenceBatchUnlocked(jobId, evidence);
     let current = saveResult.job;
@@ -278,7 +278,7 @@ async function atomicUnverifiedDiagnosis(jobId, evidence = [], options = {}) {
       throw failClosedAfterEvidence(new Error('Diagnosis remains stale after reassessment'), saveResult, reason);
     }
 
-    const job = await recordUnverifiedDiagnosis(jobId);
+    const job = await recordUnverifiedDiagnosis(jobId, shopId);
     if (!job) throw Object.assign(new Error('Job not found'), { statusCode: 404 });
 
     return {
