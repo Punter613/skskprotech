@@ -16,7 +16,7 @@ function fail(res, error, lifecycleNumber) {
 
 router.get('/:id/final-invoice', async (req, res) => {
   try {
-    const invoice = await getFinalInvoice(req.params.id);
+    const invoice = await getFinalInvoice(req.params.id, req.shopId);
     if (!invoice) {
       return res.status(404).json({
         success: false,
@@ -33,7 +33,7 @@ router.get('/:id/final-invoice', async (req, res) => {
 
 router.post('/:id/final-invoice', async (req, res) => {
   try {
-    const result = await createFinalInvoice(req.params.id, req.body || {});
+    const result = await createFinalInvoice(req.params.id, req.body || {}, req.shopId);
     return res.status(result.created ? 201 : 200).json({
       success: true,
       lifecycleNumber: req.params.id,
