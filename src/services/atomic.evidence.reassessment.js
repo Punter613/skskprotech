@@ -179,7 +179,7 @@ async function persistEvidenceBatch(jobId, evidence = [], shopId = '') {
   return withJobMutationLock(jobId, () => persistEvidenceBatchUnlocked(jobId, evidence, shopId));
 }
 
-async function applyReassessment(jobId, current, reason, reassessDiagnosisFn) {
+async function applyReassessment(jobId, current, reason, reassessDiagnosisFn, shopId = '') {
   const provenanceRefreshRequired = needsDtcProvenanceReassessment(current);
   const reassessed = await reassessDiagnosisFn(current);
   if (!reassessed) throw new Error('Diagnostic reassessment produced no replacement diagnosis');
@@ -245,7 +245,7 @@ function failClosedAfterEvidence(error, saveResult, reason) {
 
 async function atomicUnverifiedDiagnosis(jobId, evidence = [], options = {}, shopId = '') {
   return withJobMutationLock(jobId, async () => {
-    const saveResult = await persistEvidenceBatchUnlocked(jobId, evidence);
+    const saveResult = await persistEvidenceBatchUnlocked(jobId, evidence, shopId);
     let current = saveResult.job;
     if (!current?.diagnosis?.result) throw new Error('Diagnosis must exist before requesting an unverified diagnosis');
 
@@ -256,7 +256,7 @@ async function atomicUnverifiedDiagnosis(jobId, evidence = [], options = {}, sho
 
     if (reason) {
       try {
-        current = await applyReassessment(jobId, current, reason, reassessDiagnosisFn);
+        current = await applyReassessment(jobId, current, reason, reassessDiagnosisFn, shopId);
       } catch (error) {
         if (newEvidenceAvailable) {
           console.warn(`[atomic-reassessment] evidence persisted but reassessment failed for ${jobId}:`, error.message);
