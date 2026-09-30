@@ -4,9 +4,22 @@ const db = require('../db');
 const { processSingleEstimate } = require('../services/estimator');
 
 async function requireTenant(req, res, next) {
-  const tenantId = req.headers['x-tenant-id'];
-  if (!tenantId) return res.status(401).json({ error: 'Missing corporate account context.' });
+  // Verified user sessions are bound to the shop assigned by trusted server-side
+  // identity metadata. Never let a browser header override that membership.
+  const authenticatedShopId = req.auth?.type === 'supabase_user'
+    ? String(req.auth.shopId || '').trim()
+    : '';
+
+  // Transitional shop keys do not yet carry tenant membership. Keep the legacy
+  // header only for that migration path; remove it when shop keys are retired.
+  const legacyTenantId = req.auth?.type === 'shop_key'
+    ? String(req.headers['x-tenant-id'] || '').trim()
+    : '';
+
+  const tenantId = authenticatedShopId || legacyTenantId;
+  if (!tenantId) return res.status(403).json({ error: 'Authenticated shop context is required.' });
   if (!db.supabase) return res.status(503).json({ error: 'Fleet storage not configured (SUPABASE_URL/KEY missing).' });
+
   req.tenantId = tenantId;
   next();
 }
