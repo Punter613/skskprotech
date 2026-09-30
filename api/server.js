@@ -105,9 +105,9 @@ app.use('/api/estimateHeuristic', requireApiAccess, estimateLifecycle, estimateH
 app.use('/api/invoice', requireApiAccess, invoiceLifecycle, invoice);
 
 app.use('/api/translate', ...protectAi, require('../src/routes/translate'));
-app.use('/api/parts-lookup', partsLookupRouter);
+app.use('/api/parts-lookup', requireApiAccess, partsLookupRouter);
 app.use('/api/fleet', requireApiAccess, fleetRouter);
-app.use('/api/vehicle', vehicleRouter);
+app.use('/api/vehicle', requireApiAccess, vehicleRouter);
 app.use('/api/quick-ask', ...protectAi, quickAskRouter);
 app.use(oemRouter);
 
