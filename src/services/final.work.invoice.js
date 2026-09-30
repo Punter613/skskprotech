@@ -279,9 +279,9 @@ function attachBillingMarkers(orders, invoice) {
   });
 }
 
-async function createFinalInvoice(jobId, input = {}) {
+async function createFinalInvoice(jobId, input = {}, shopId = '') {
   return withWorkOrderMutationLock(jobId, async () => {
-    const job = await getJob(jobId);
+    const job = await getJob(jobId, shopId);
     if (!job) throw fail('Lifecycle number not found.', 'LIFECYCLE_NOT_FOUND', 404);
 
     if (job.invoice) {
@@ -302,14 +302,14 @@ async function createFinalInvoice(jobId, input = {}) {
         ...(job.workOrderCenter || {}),
         workOrders: updatedOrders
       }
-    });
+    }, shopId);
     if (!persisted) throw fail('Final invoice could not be persisted.', 'FINAL_INVOICE_PERSIST_FAILED');
     return { created: true, invoice: clone(invoice) };
   });
 }
 
-async function getFinalInvoice(jobId) {
-  const job = await getJob(jobId);
+async function getFinalInvoice(jobId, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   if (!job.invoice || job.invoice.type !== FINAL_INVOICE_TYPE) return null;
   assertInvoiceIntegrity(job.invoice);
