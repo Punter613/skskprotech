@@ -392,7 +392,7 @@ async function createWorkOrderUnlocked(jobId, input = {}, shopId = '') {
       ...(job.workOrderCenter || {}),
       workOrders: [...workOrders(job), workOrder]
     }
-  });
+  }, shopId);
   if (!persisted) throw fail('Work Order could not be persisted.', 'WORK_ORDER_PERSIST_FAILED');
   return { created: true, workOrder: clone(workOrder) };
 }
