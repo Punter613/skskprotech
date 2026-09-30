@@ -155,7 +155,7 @@
       body.innerHTML = `<tr><td colspan="6" class="empty-state">Loading...</td></tr>`;
 
       try {
-        const res = await SKSKAuth.request(${API_BASE}/api/fleet/roster`, {
+        const res = await SKSKAuth.request(`${API_BASE}/api/fleet/roster`, {
           headers: { 'x-tenant-id': tenantId }
         });
         const data = await res.json();
@@ -189,7 +189,7 @@
       status.textContent = 'Adding...';
 
       try {
-        const res = await SKSKAuth.request(${API_BASE}/api/fleet/add`, {
+        const res = await SKSKAuth.request(`${API_BASE}/api/fleet/add`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
           body: JSON.stringify({ vin, year, make, model, mileage })
@@ -219,7 +219,7 @@
       status.textContent = `Running AI estimate on ${vins.length} unit(s)...`;
 
       try {
-        const res = await SKSKAuth.request(${API_BASE}/api/fleet/bulk-estimate`, {
+        const res = await SKSKAuth.request(`${API_BASE}/api/fleet/bulk-estimate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
           body: JSON.stringify({ vins, labor_rate: 85 })
