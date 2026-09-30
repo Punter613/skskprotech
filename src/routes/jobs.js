@@ -171,7 +171,7 @@ router.post('/:id/repair-completed', async (req, res) => {
 
     const { operationIds, completedBy, notes } = req.body || {};
     const event = buildRepairCompletedEvent({ job, operationIds, completedBy, notes });
-    await recordOutcomeEvent(event);
+    await recordOutcomeEvent(event, req.shopId);
     const updated = await getJob(req.params.id, req.shopId);
 
     return res.status(201).json({
@@ -190,7 +190,7 @@ router.post('/:id/outcome', async (req, res) => {
     const job = await getJob(req.params.id, req.shopId);
     if (!job) return res.status(404).json({ success: false, error: 'Job not found' });
 
-    const events = await getJobOutcomeEvents(req.params.id);
+    const events = await getJobOutcomeEvents(req.params.id, req.shopId);
     const completionEvent = events.filter(e => e.eventType === 'REPAIR_COMPLETED').slice(-1)[0];
     if (!completionEvent) {
       return res.status(409).json({ success: false, error: 'No REPAIR_COMPLETED event recorded for this job yet', jobId: req.params.id });
@@ -204,13 +204,13 @@ router.post('/:id/outcome', async (req, res) => {
       recordedBy,
       supersedesEventFingerprint
     });
-    await recordOutcomeEvent(event);
+    await recordOutcomeEvent(event, req.shopId);
     const updated = await getJob(req.params.id, req.shopId);
 
     let learningIngested = false;
     let learningError = null;
     try {
-      const allEvents = await getJobOutcomeEvents(req.params.id);
+      const allEvents = await getJobOutcomeEvents(req.params.id, req.shopId);
       const activeOutcome = deriveActiveOutcomeEvent(allEvents);
       if (activeOutcome && activeOutcome.fingerprint === event.fingerprint) {
         const confirmedRepairCase = buildConfirmedRepairCase(job, allEvents);
@@ -243,7 +243,7 @@ router.post('/:id/outcome', async (req, res) => {
 
 router.get('/:id/outcome-events', async (req, res) => {
   try {
-    const events = await getJobOutcomeEvents(req.params.id);
+    const events = await getJobOutcomeEvents(req.params.id, req.shopId);
     return res.json({ success: true, jobId: req.params.id, events });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message, jobId: req.params.id });
