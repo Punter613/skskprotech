@@ -10,10 +10,10 @@ const middleware = fs.readFileSync(path.join(__dirname, '../src/middleware/job.l
 const protectedJobs = fs.readFileSync(path.join(__dirname, '../src/routes/jobs.protected.js'), 'utf8');
 const migration = fs.readFileSync(path.join(__dirname, '../supabase/migrations/20260930040500_tenant_scope_service_jobs.sql'), 'utf8');
 
-test('service jobs persist authenticated shop ownership', () => {
-  assert.ok(lifecycle.includes('shop_id: ownerShopId || null'));
-  assert.ok(lifecycle.includes(".select('payload, shop_id')"));
-  assert.ok(lifecycle.includes("String(data.shop_id || '').trim() !== ownerShopId"));
+test('service jobs persist authenticated shop ownership in migration-safe payload', () => {
+  assert.ok(lifecycle.includes("shopId: ownerShopId || ''"));
+  assert.ok(lifecycle.includes(".select('payload')"));
+  assert.ok(lifecycle.includes('jobBelongsToShop(job, ownerShopId)'));
   assert.ok(migration.includes('add column if not exists shop_id text'));
   assert.ok(migration.includes('(shop_id, job_id)'));
 });
