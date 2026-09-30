@@ -34,62 +34,8 @@ jobs:
         node scripts/test-estimate-contract.js
         node scripts/test-gemini-fallback.js
 
-    - name: Deterministic Guard Regression Checks
-      run: npm run test:guards
-
-    - name: Provider Routing Regression Checks
-      run: npm run test:providers
-
-    - name: Lifecycle HTTP Regression Checks
-      run: npm run test:lifecycle
-
-    - name: Measurement Normalization Regression Checks
-      run: npm run test:measurements
-
-    - name: Evidence Retrieval Regression Checks
-      run: npm run test:evidence
-
-    - name: Quick Ask Retrieval Boundary Checks
-      run: npm run test:quick-ask
-
-    - name: Diagnose Pipeline Contract Checks
-      run: npm run test:diagnose-pipeline
-
-    - name: Diagnostic Evidence Packet Checks
-      run: npm run test:evidence-packet
-
-    - name: Verified Case Handoff Checks
-      run: npm run test:verified-case
-
-    - name: Estimate Verified Truth Checks
-      run: npm run test:estimate-verified-truth
-
-    - name: Verified Repair Resolution Checks
-      run: npm run test:repair-resolution
-
-    - name: Verified Estimate Invoice Handoff Checks
-      run: npm run test:invoice-handoff
-
-    - name: Verified Lifecycle Frontend Checks
-      run: npm run test:frontend-lifecycle
-
-    - name: Final Work Invoice Checks
-      run: npm run test:final-invoice
-
-    - name: Commercial Handoff Checks
-      run: npm run test:commercial-handoff
-
-    - name: Return Visit Lifecycle Checks
-      run: npm run test:return-visits
-
-    - name: TAG Safety Regression Checks
-      run: npm run test:tag
-
-    - name: Miscellaneous Regression Checks
-      run: npm run test:misc
-
-    - name: Diagnose Input Validation Checks
-      run: npm run test:diagnose-input
+    - name: Canonical Repository Test Suite
+      run: npm run test:ci
 
     - name: Hardened OpenAPI Contract Lint
       run: npx @stoplight/spectral-cli lint openapi.yaml --ruleset .spectral.yaml --format pretty
