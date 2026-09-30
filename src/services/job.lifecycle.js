@@ -123,13 +123,31 @@ function memoryStore() {
   return global.__jobs;
 }
 
-async function persist(job) {
+function normalizeShopId(shopId) {
+  return String(shopId || '').trim();
+}
+
+function cacheKey(jobId, shopId = '') {
+  const shop = normalizeShopId(shopId);
+  return shop ? `${shop}::${jobId}` : jobId;
+}
+
+function jobBelongsToShop(job, shopId = '') {
+  const shop = normalizeShopId(shopId);
+  if (!shop) return true;
+  return normalizeShopId(job?.shopId) === shop;
+}
+
+async function persist(job, shopId = '') {
   assertPersistenceConfigured();
-  memoryStore()[job.jobId] = job;
+  const ownerShopId = normalizeShopId(shopId || job.shopId);
+  if (ownerShopId) job.shopId = ownerShopId;
+  memoryStore()[cacheKey(job.jobId, ownerShopId)] = job;
   if (!supabase) return job;
 
   const row = {
     job_id: job.jobId,
+    shop_id: ownerShopId || null,
     status: job.status,
     customer_name: job.customer.name || null,
     customer_phone: job.customer.phone || null,
@@ -159,36 +177,47 @@ async function persist(job) {
   return job;
 }
 
-async function getJob(jobId) {
+async function getJob(jobId, shopId = '') {
   if (!jobId) return null;
-  const memory = memoryStore()[jobId];
-  if (memory) return memory;
+  const ownerShopId = normalizeShopId(shopId);
+  const memory = memoryStore()[cacheKey(jobId, ownerShopId)];
+  if (memory && jobBelongsToShop(memory, ownerShopId)) return memory;
   if (!supabase) return null;
 
   try {
     const { data, error } = await supabase
       .from('service_jobs')
-      .select('payload')
+      .select('payload, shop_id')
       .eq('job_id', jobId)
       .maybeSingle();
     if (error || !data?.payload) return null;
-    memoryStore()[jobId] = data.payload;
-    return data.payload;
+    if (ownerShopId && String(data.shop_id || '').trim() !== ownerShopId) return null;
+    const job = { ...data.payload, shopId: data.payload.shopId || data.shop_id || '' };
+    memoryStore()[cacheKey(jobId, ownerShopId || job.shopId)] = job;
+    return job;
   } catch {
     return null;
   }
 }
 
-function invalidateJobCache(jobId) {
-  delete memoryStore()[jobId];
+function invalidateJobCache(jobId, shopId = '') {
+  const shop = normalizeShopId(shopId);
+  if (shop) delete memoryStore()[cacheKey(jobId, shop)];
+  else {
+    for (const key of Object.keys(memoryStore())) {
+      if (key === jobId || key.endsWith(`::${jobId}`)) delete memoryStore()[key];
+    }
+  }
 }
 
-async function createJob(input = {}) {
+async function createJob(input = {}, shopId = '') {
   const jobId = input.jobId || makeJobId();
+  const ownerShopId = normalizeShopId(shopId || input.shopId);
   const createdAt = nowIso();
   const job = {
     jobId,
     invoiceNumber: jobId,
+    shopId: ownerShopId || '',
     status: 'DIAGNOSING',
     createdAt,
     updatedAt: createdAt,
@@ -206,28 +235,31 @@ async function createJob(input = {}) {
     estimate: null,
     invoice: null
   };
-  return persist(job);
+  return persist(job, ownerShopId);
 }
 
-async function findReturnVisits(priorJobId) {
+async function findReturnVisits(priorJobId, shopId = '') {
   if (!priorJobId) return [];
+  const ownerShopId = normalizeShopId(shopId);
   const seen = new Map();
 
   for (const job of Object.values(memoryStore())) {
-    if (job?.relationship?.type === 'RETURN_VISIT' && job.relationship.priorLifecycleNumber === priorJobId) {
+    if (jobBelongsToShop(job, ownerShopId) && job?.relationship?.type === 'RETURN_VISIT' && job.relationship.priorLifecycleNumber === priorJobId) {
       seen.set(job.jobId, job);
     }
   }
 
   if (supabase) {
     try {
-      const { data, error } = await supabase.from('service_jobs').select('payload');
+      let query = supabase.from('service_jobs').select('payload, shop_id');
+      if (ownerShopId) query = query.eq('shop_id', ownerShopId);
+      const { data, error } = await query;
       if (!error) {
         for (const row of data || []) {
           const job = row?.payload;
           if (job?.relationship?.type === 'RETURN_VISIT' && job.relationship.priorLifecycleNumber === priorJobId) {
             seen.set(job.jobId, job);
-            memoryStore()[job.jobId] = job;
+            memoryStore()[cacheKey(job.jobId, ownerShopId || row.shop_id || job.shopId)] = job;
           }
         }
       }
@@ -239,8 +271,8 @@ async function findReturnVisits(priorJobId) {
   return [...seen.values()].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
 }
 
-async function createReturnVisit(priorJobId, input = {}) {
-  const prior = await getJob(priorJobId);
+async function createReturnVisit(priorJobId, input = {}, shopId = '') {
+  const prior = await getJob(priorJobId, shopId);
   if (!prior) return null;
 
   const rootLifecycleNumber = prior.relationship?.rootLifecycleNumber || prior.jobId;
@@ -253,7 +285,7 @@ async function createReturnVisit(priorJobId, input = {}) {
     customerStates: Array.isArray(input.customerStates) ? input.customerStates : [],
     mechanicNotices: Array.isArray(input.mechanicNotices) ? input.mechanicNotices : [],
     obdCodes: Array.isArray(input.obdCodes) ? input.obdCodes : []
-  });
+  }, shopId);
 
   return patchJob(job.jobId, {
     relationship: {
@@ -262,16 +294,16 @@ async function createReturnVisit(priorJobId, input = {}) {
       rootLifecycleNumber,
       createdFromPriorAt: nowIso()
     }
-  });
+  }, shopId);
 }
 
-async function patchJob(jobId, patch = {}) {
-  const job = await getJob(jobId);
+async function patchJob(jobId, patch = {}, shopId = '') {
+  const job = await getJob(jobId, shopId);
   if (!job) return null;
   const nextStatus = patch.status || job.status;
   if (!VALID_STATES.has(nextStatus)) throw new Error(`Invalid job status: ${nextStatus}`);
   const updated = { ...job, ...patch, status: nextStatus, updatedAt: nowIso() };
-  return persist(updated);
+  return persist(updated, shopId);
 }
 
 async function recordDiagnosis(jobId, diagnosis, traceLog = null) {
