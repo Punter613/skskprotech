@@ -223,7 +223,7 @@ async function applyReassessment(jobId, current, reason, reassessDiagnosisFn) {
       staleReason: null,
       staleAt: null
     }
-  });
+  }, shopId);
 }
 
 function failClosedAfterEvidence(error, saveResult, reason) {
