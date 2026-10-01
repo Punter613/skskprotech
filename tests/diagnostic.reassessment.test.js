@@ -8,7 +8,8 @@ const {
   hasNewEvidenceSinceDiagnosis,
   needsDtcProvenanceReassessment,
   reassessmentReason,
-  sanitizeReassessment
+  sanitizeReassessment,
+  extractJSON
 } = require('../src/services/diagnostic.reassessment');
 const { uniqueAlternatives } = require('../src/core/evidence/unverified.diagnosis');
 
@@ -180,4 +181,15 @@ test('unverified alternatives are deduplicated case-insensitively and exclude pr
     'Third fault'
   ], 'primary fault');
   assert.deepEqual(alternatives, ['Secondary fault', 'Third fault']);
+});
+
+test('reassessment JSON extraction is string/escape aware and fails closed on malformed output', () => {
+  const valid = '{"primaryCause":"Harness fault with literal } and \\"quoted { text\\"","recommendedTests":["Inspect connector"]}';
+  assert.equal(extractJSON(valid).primaryCause, 'Harness fault with literal } and "quoted { text"');
+
+  const fenced = '```json\n{"primaryCause":"Valid fenced candidate"}\n```';
+  assert.equal(extractJSON(fenced).primaryCause, 'Valid fenced candidate');
+
+  assert.equal(extractJSON('prefix {"primaryCause":"unterminated }'), null);
+  assert.equal(extractJSON('not json at all'), null);
 });
