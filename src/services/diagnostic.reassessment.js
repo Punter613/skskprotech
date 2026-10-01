@@ -192,7 +192,12 @@ function applicabilityMechanicObservations(job = {}) {
 }
 
 function sanitizeReassessment(job = {}, previous = {}, candidate = {}, reason = reassessmentReason(job) || 'NEW_TEST_EVIDENCE') {
-  const primaryCause = clean(candidate.primaryCause || candidate.diagnosis || previous.primaryCause || previous.diagnosis, 300);
+  const primaryCause = clean(candidate.primaryCause || candidate.diagnosis, 300);
+  if (!primaryCause) {
+    const error = new Error('Diagnostic reassessment returned no primary cause');
+    error.code = 'DIAG_REASSESSMENT_INCOMPLETE';
+    throw error;
+  }
   const primaryKey = primaryCause.toLowerCase();
   const probability = normalizeProbability(candidate.probability?.length ? candidate.probability : previous.probability);
   const seenSecondary = new Set();
