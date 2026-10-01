@@ -27,11 +27,25 @@ jobs:
           if(!h.database || h.database.ok !== true) throw new Error('database probe is not healthy');
           NODE
 
-      - name: Retired endpoint remains retired
+      - name: Retired full-estimate boundary stays non-live
         run: |
           code="$(curl --connect-timeout 10 --max-time 45 -sS -o /tmp/retired.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{}' "$BASE_URL/api/full-estimate")"
           cat /tmp/retired.json
-          test "$code" = "410"
+          case "$code" in
+            404|410) ;;
+            *)
+              echo "::error::Retired /api/full-estimate must not be a live estimator; got HTTP $code"
+              exit 1
+              ;;
+          esac
+          node - <<'NODE'
+          const fs = require('fs');
+          let body = {};
+          try { body = JSON.parse(fs.readFileSync('/tmp/retired.json', 'utf8')); } catch {}
+          if (body && (body.success === true || body.estimate || body.total != null)) {
+            throw new Error('retired /api/full-estimate returned estimate-shaped success');
+          }
+          NODE
 
       - name: Protected AI route fails safely without spending provider tokens
         run: |
