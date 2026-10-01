@@ -1739,56 +1739,11 @@
             </body></html>`;
         }
 
-        document.getElementById('btnInvoice').addEventListener('click', async () => {
-            const btn = document.getElementById('btnInvoice');
+        document.getElementById('btnInvoice').addEventListener('click', () => {
             const status = document.getElementById('invoiceStatus');
-            setLoading(btn, true);
-            status.className = 'status-simple';
-            status.textContent = 'Building invoice...';
-            try {
-                if (!lastEstimate) {
-                    throw new Error('Run an Estimate first — invoice pulls its numbers from there.');
-                }
-                const payload = {
-                    estimate: lastEstimate,
-                    customerInfo: {
-                        name: document.getElementById('customerName').value.trim(),
-                        phone: document.getElementById('customerPhone').value.trim(),
-                        email: document.getElementById('customerEmail').value.trim()
-                    },
-                    vehicleInfo: {
-                        year: document.getElementById('vehicleYear').value.trim(),
-                        make: document.getElementById('vehicleMake').value.trim(),
-                        model: document.getElementById('vehicleModel').value.trim(),
-                        trim: document.getElementById('vehicleTrim').value.trim(),
-                        vin: document.getElementById('vin').value.trim()
-                    },
-                    laborRate: Number(document.getElementById('laborRate').value || 65),
-                    notes: document.getElementById('invoiceNotes').value.trim()
-                };
-                const res = await fetchWithTimeout(`${API_BASE}/api/invoice/build`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(payload)
-                });
-                const inv = await readBody(res);
-                if (!res.ok) throw new Error(inv.error || `Invoice failed (${res.status})`);
-
-                const w = window.open('', '_blank');
-                w.document.write(renderInvoiceHtml(inv));
-                w.document.close();
-
-                status.className = 'status-simple success';
-                status.textContent = `✅ Invoice ${inv.invoiceNumber} ready in new tab.`;
-            } catch (err) {
-                status.className = 'status-simple error';
-                status.textContent = err.message || 'Invoice failed';
-            } finally {
-                setLoading(btn, false);
-            }
+            status.className = 'status-simple error';
+            status.textContent = 'Final invoices are created only from authorized + completed Work Orders. Continue in Lifecycle.';
+            window.location.href = '/lifecycle';
         });
 
         // ── SHARE ──
