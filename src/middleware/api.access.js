@@ -55,7 +55,9 @@ async function requireApiAccess(req, res, next) {
   const keyIndex = credential ? keys.findIndex(key => safeEqual(credential, key)) : -1;
   if (credential && keyIndex >= 0) {
     // Transitional shop-key identity remains supported during browser migration.
-    markPrincipal(req, 'shop_key', `shop_key_${keyIndex + 1}`);
+    const shopId = `shop_key_${keyIndex + 1}`;
+    markPrincipal(req, 'shop_key', shopId, { shopId });
+    req.shopId = shopId;
     return next();
   }
 

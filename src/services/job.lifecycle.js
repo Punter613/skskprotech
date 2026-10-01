@@ -184,11 +184,11 @@ async function getJob(jobId, shopId = '') {
   if (!supabase) return null;
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('service_jobs')
       .select('payload')
-      .eq('job_id', jobId)
-      .maybeSingle();
+      .eq('job_id', jobId);
+    const { data, error } = await query.maybeSingle();
     if (error || !data?.payload) return null;
     const job = data.payload;
     if (!jobBelongsToShop(job, ownerShopId)) return null;
@@ -250,13 +250,13 @@ async function findReturnVisits(priorJobId, shopId = '') {
 
   if (supabase) {
     try {
-      const { data, error } = await supabase.from('service_jobs').select('payload');
+      let query = supabase.from('service_jobs').select('payload');
+      const { data, error } = await query;
       if (!error) {
         for (const row of data || []) {
           const job = row?.payload;
-          if (job?.relationship?.type === 'RETURN_VISIT' && job.relationship.priorLifecycleNumber === priorJobId) {
+          if (jobBelongsToShop(job, ownerShopId) && job?.relationship?.type === 'RETURN_VISIT' && job.relationship.priorLifecycleNumber === priorJobId) {
             seen.set(job.jobId, job);
-            if (!jobBelongsToShop(job, ownerShopId)) continue;
             memoryStore()[cacheKey(job.jobId, ownerShopId || job.shopId)] = job;
           }
         }

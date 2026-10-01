@@ -16,7 +16,7 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    const job = await getJob(jobId);
+    const job = await getJob(jobId, req.shopId);
     if (!job) {
       return res.status(404).json({ success: false, error: 'Job not found', jobId });
     }

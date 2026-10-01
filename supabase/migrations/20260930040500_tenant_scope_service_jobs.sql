@@ -4,6 +4,11 @@
 alter table if exists public.service_jobs
   add column if not exists shop_id text;
 
+update public.service_jobs
+set shop_id = nullif(trim(payload->>'shopId'), '')
+where shop_id is null
+  and nullif(trim(payload->>'shopId'), '') is not null;
+
 create index if not exists service_jobs_shop_job_idx
   on public.service_jobs (shop_id, job_id);
 
