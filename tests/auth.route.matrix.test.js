@@ -11,7 +11,6 @@ const protectedMounts = [
   '/api/jobs',
   '/api/diagnose',
   '/api/estimateHeuristic',
-  '/api/invoice',
   '/api/translate',
   '/api/fleet',
   '/api/quick-ask',
@@ -78,6 +77,8 @@ test('matrix stays aligned with production protected mounts and documents intent
     assert.ok(line, `missing production mount for ${route}`);
     assert.match(line, /requireApiAccess|\.\.\.protectAi/, `${route} must remain auth-protected`);
   }
+
+  assert.equal(server.includes("app.use('/api/invoice'"), false, 'retired generic invoice route must stay absent');
 
   for (const route of ['/api/full-estimate']) {
     const line = server.split('\n').find(value => value.includes(`app.use('${route}'`));
