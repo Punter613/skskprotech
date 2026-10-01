@@ -476,3 +476,69 @@ test('HTTP lifecycle: later physical VERIFY supersedes but never converts UNVERI
     assert.equal(job.body.job.verifiedCase.verification.confirmedCause, CONFIRMED_COIL_FAULT);
   });
 });
+
+
+test('HTTP lifecycle: Diagnose ignores client-supplied jobId and cannot overwrite an existing lifecycle', async () => {
+  await withServer(async base => {
+    const original = await post(base, '/api/diagnose', fixture);
+    const originalId = original.body.jobId;
+    const recorded = await post(base, `/api/jobs/${originalId}/tests`, confirmingCoilTest());
+    const verified = await post(base, `/api/jobs/${originalId}/verify`, {
+      confirmed: true,
+      confirmedCause: CONFIRMED_COIL_FAULT,
+      conclusion: 'Physical test confirmed the persisted fault.',
+      evidenceTestIds: [recorded.body.test.id]
+    });
+    assert.equal(verified.status, 200);
+    const estimated = await post(base, '/api/estimateHeuristic', { jobId: originalId, laborRate: 65, partsCost: 80 });
+    assert.equal(estimated.status, 200);
+
+    const before = await get(base, `/api/jobs/${originalId}`);
+    const attack = await post(base, '/api/diagnose', {
+      ...fixture,
+      jobId: originalId,
+      customer: { name: 'overwrite attempt' },
+      customerStates: ['different complaint']
+    });
+    assert.equal(attack.status, 200);
+    assert.notEqual(attack.body.jobId, originalId);
+
+    const after = await get(base, `/api/jobs/${originalId}`);
+    assert.equal(after.body.job.status, before.body.job.status);
+    assert.deepEqual(after.body.job.estimate, before.body.job.estimate);
+    assert.deepEqual(after.body.job.verification, before.body.job.verification);
+    assert.deepEqual(after.body.job.verifiedCase, before.body.job.verifiedCase);
+    assert.deepEqual(after.body.job.customer, before.body.job.customer);
+  });
+});
+
+test('HTTP lifecycle: Verify cannot re-enter or mutate an ESTIMATED lifecycle', async () => {
+  await withServer(async base => {
+    const diagnosed = await post(base, '/api/diagnose', fixture);
+    const jobId = diagnosed.body.jobId;
+    const recorded = await post(base, `/api/jobs/${jobId}/tests`, confirmingCoilTest());
+    const verified = await post(base, `/api/jobs/${jobId}/verify`, {
+      confirmed: true,
+      confirmedCause: CONFIRMED_COIL_FAULT,
+      conclusion: 'Physical test confirmed the persisted fault.',
+      evidenceTestIds: [recorded.body.test.id]
+    });
+    assert.equal(verified.status, 200);
+    const estimated = await post(base, '/api/estimateHeuristic', { jobId, laborRate: 65, partsCost: 80 });
+    assert.equal(estimated.status, 200);
+
+    const before = await get(base, `/api/jobs/${jobId}`);
+    const rejected = await post(base, `/api/jobs/${jobId}/verify`, {
+      confirmed: false,
+      conclusion: 'attempt to reopen completed verification'
+    });
+    assert.equal(rejected.status, 409);
+    assert.match(rejected.body.error, /verification is unavailable while job is ESTIMATED/i);
+
+    const after = await get(base, `/api/jobs/${jobId}`);
+    assert.equal(after.body.job.status, 'ESTIMATED');
+    assert.deepEqual(after.body.job.estimate, before.body.job.estimate);
+    assert.deepEqual(after.body.job.verification, before.body.job.verification);
+    assert.deepEqual(after.body.job.verifiedCase, before.body.job.verifiedCase);
+  });
+});
