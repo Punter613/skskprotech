@@ -44,6 +44,8 @@ Completed in Milestone C:
 - stopped tracking generated lemon scraper binaries at bin/lemon_scraper and tools/lemon_scraper/bin/lemon_scraper; source/build automation remains canonical and .gitignore prevents recommit;
 - retired the parallel /api/intelligence analyze/estimate/predict/economic/batch/health/stats orchestrator lane after repository search found no supported browser caller. In particular, /api/intelligence/estimate could run diagnostic -> estimate -> parts without persisted TEST -> VERIFY. The /api/intelligence namespace now retains only learning/audit feedback and guard-catch endpoints, which do not create lifecycle authority.
 
+- retired the generic /api/invoice builder and its direct attachInvoice/hydrateInvoiceInput persistence bridge. The public invoice action now sends the user to Lifecycle, where Final Invoice is created only from authorized + completed Work Orders. Diagnose and /api/estimateHeuristic remain because they are the current canonical persisted Diagnose and VERIFIED-only Estimate handoff.
+
 The /api/full-estimate tombstone is intentionally retained for now because production smoke/auth/operational references still assert the retirement behavior. Delete it only after those callers are migrated to assert absence or the canonical replacement instead.
 
 Deletion condition: no supported page, runtime canary, external tester workflow, or production integration requires the old path, and the replacement has exact-head runtime coverage.

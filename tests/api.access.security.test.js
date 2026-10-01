@@ -249,10 +249,10 @@ test('production server protects stateful shop routes with the shared auth contr
     "app.use('/api/parts', requireApiAccess, partsRouter);",
     "app.use('/api/jobs', requireApiAccess, jobsRouter);",
     "app.use('/api/estimateHeuristic', requireApiAccess, estimateLifecycle, estimateHeuristic);",
-    "app.use('/api/invoice', requireApiAccess, invoiceLifecycle, invoice);",
     "app.use('/api/fleet', requireApiAccess, fleetRouter);",
     "app.use('/api/buyer', requireApiAccess, require('../src/routes/buyer'));"
   ]) assert.ok(server.includes(route), route);
+  assert.equal(server.includes("app.use('/api/invoice'"), false, 'retired generic invoice route must stay unmounted');
 });
 
 

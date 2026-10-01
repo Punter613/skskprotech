@@ -478,17 +478,6 @@ async function attachEstimate(jobId, estimate, shopId = '') {
   return job.estimate;
 }
 
-async function attachInvoice(jobId, invoice, shopId = '') {
-  const job = await getJob(jobId, shopId);
-  if (!job) return null;
-  if (!job.estimate) throw new Error('Invoice requires an estimate');
-  assertVerifiedEstimateSnapshot(job.estimate, job);
-  job.invoice = { ...invoice, invoiceNumber: jobId, jobId, estimateFingerprint: job.estimate.fingerprint, createdAt: nowIso() };
-  job.status = 'INVOICED';
-  job.updatedAt = nowIso();
-  await persist(job, shopId);
-  return job.invoice;
-}
 
 function hydrateEstimateInput(job, incoming = {}) {
   return {
@@ -508,16 +497,6 @@ function hydrateEstimateInput(job, incoming = {}) {
   };
 }
 
-function hydrateInvoiceInput(job, incoming = {}) {
-  const estimate = assertVerifiedEstimateSnapshot(job.estimate, job);
-  return {
-    jobId: job.jobId,
-    estimate,
-    customerInfo: clonePlain(job.customer),
-    vehicleInfo: clonePlain(job.vehicle),
-    notes: typeof incoming.notes === 'string' ? incoming.notes : ''
-  };
-}
 
 function clonePlain(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -536,9 +515,7 @@ module.exports = {
   addTest,
   verifyJob,
   attachEstimate,
-  attachInvoice,
   hydrateEstimateInput,
-  hydrateInvoiceInput,
   invalidateJobCache,
   isMeaningfulTestResult,
   normalizeEvidenceRole,

@@ -75,7 +75,6 @@ app.use(express.urlencoded({ extended: true }));
 // 4. ROUTE INFRASTRUCTURE LANES
 const diagnose = require('../src/routes/diagnose');
 const estimateHeuristic = require('../src/routes/estimate.authorized');
-const invoice = require('../src/routes/invoice');
 const oemRouter = require('../src/routes/oem');
 const scrapeRouter = require('../src/routes/scrape');
 const partsRouter = require('../src/routes/parts');
@@ -91,8 +90,7 @@ const protectAi = [requireApiAccess, aiRateLimit];
 
 const {
   diagnosisLifecycle,
-  estimateLifecycle,
-  invoiceLifecycle
+  estimateLifecycle
 } = require('../src/middleware/job.lifecycle.middleware');
 
 app.use('/api/scrape', requireApiAccess, scrapeRouter);
@@ -102,7 +100,6 @@ app.use('/api/jobs', requireApiAccess, jobsRouter);
 
 app.use('/api/diagnose', ...protectAi, diagnosisLifecycle, diagnose);
 app.use('/api/estimateHeuristic', requireApiAccess, estimateLifecycle, estimateHeuristic);
-app.use('/api/invoice', requireApiAccess, invoiceLifecycle, invoice);
 
 app.use('/api/translate', ...protectAi, require('../src/routes/translate'));
 app.use('/api/parts-lookup', requireApiAccess, partsLookupRouter);

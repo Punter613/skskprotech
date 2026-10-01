@@ -5,9 +5,7 @@ const {
   recordDiagnosis,
   recordDiagnosisFailure,
   attachEstimate,
-  attachInvoice,
-  hydrateEstimateInput,
-  hydrateInvoiceInput
+  hydrateEstimateInput
 } = require('../services/job.lifecycle');
 const { buildDiagnosticEvidencePacket } = require('../core/evidence/diagnostic.evidence.packet');
 const {
@@ -232,42 +230,11 @@ async function estimateLifecycle(req, res, next) {
   }
 }
 
-async function invoiceLifecycle(req, res, next) {
-  if (req.method !== 'POST' || req.path !== '/build') return next();
-  const jobId = req.body?.jobId;
-  if (!jobId) return next();
-
-  try {
-    const job = await getJob(jobId, req.shopId);
-    if (!job) return res.status(404).json({ success: false, error: 'Job not found', jobId });
-
-    // Canonical lifecycle jobs must complete the commercial workflow:
-    // verified estimate -> customer authorization -> work order -> completed work
-    // -> final invoice. The generic invoice builder is intentionally unavailable
-    // once a lifecycle jobId is supplied.
-    return res.status(409).json({
-      success: false,
-      error: 'Lifecycle jobs must be invoiced from completed authorized work.',
-      code: 'COMMERCIAL_WORKFLOW_REQUIRED',
-      jobId,
-      status: job.status,
-      requiredFlow: ['ESTIMATE', 'AUTHORIZATION', 'WORK_ORDER', 'COMPLETION', 'FINAL_INVOICE']
-    });
-  } catch (err) {
-    return res.status(409).json({
-      success: false,
-      error: 'Lifecycle job could not be validated for invoice generation.',
-      code: 'COMMERCIAL_WORKFLOW_REQUIRED',
-      jobId
-    });
-  }
-}
 
 module.exports = {
   validateDiagnoseInput,
   diagnosisLifecycle,
   estimateLifecycle,
-  invoiceLifecycle,
   packetFromDiagnosisRequest,
   applyDiagnosisConfigurationBoundary
 };
