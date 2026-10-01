@@ -12,6 +12,25 @@ const VALID_STATES = new Set([
   'REPAIR_COMPLETED', 'OUTCOME_CONFIRMED'
 ]);
 
+const PATCH_STATUS_TRANSITIONS = Object.freeze({
+  DIAGNOSING: new Set(['DIAGNOSING', 'TESTING', 'DIAG_FAILED']),
+  TESTING: new Set(['TESTING', 'VERIFIED', 'DIAG_FAILED']),
+  VERIFIED: new Set(['VERIFIED', 'TESTING', 'ESTIMATED']),
+  ESTIMATED: new Set(['ESTIMATED', 'TESTING', 'INVOICED']),
+  INVOICED: new Set(['INVOICED']),
+  DIAG_FAILED: new Set(['DIAG_FAILED']),
+  REPAIR_COMPLETED: new Set(['REPAIR_COMPLETED']),
+  OUTCOME_CONFIRMED: new Set(['OUTCOME_CONFIRMED'])
+});
+
+function assertPatchStatusTransition(currentStatus, nextStatus) {
+  if (!VALID_STATES.has(nextStatus)) throw new Error(`Invalid job status: ${nextStatus}`);
+  const allowed = PATCH_STATUS_TRANSITIONS[currentStatus];
+  if (!allowed || !allowed.has(nextStatus)) {
+    throw new Error(`Illegal job status transition: ${currentStatus} -> ${nextStatus}`);
+  }
+}
+
 const PLACEHOLDER_RESULTS = new Set([
   '?', '??', '???', 'unknown', 'tbd', 'pending', 'n/a', 'na',
   'not sure', 'unsure', 'uncertain', 'maybe', 'possibly', 'probably',
@@ -299,7 +318,7 @@ async function patchJob(jobId, patch = {}, shopId = '') {
   const job = await getJob(jobId, shopId);
   if (!job) return null;
   const nextStatus = patch.status || job.status;
-  if (!VALID_STATES.has(nextStatus)) throw new Error(`Invalid job status: ${nextStatus}`);
+  assertPatchStatusTransition(job.status, nextStatus);
   const updated = { ...job, ...patch, status: nextStatus, updatedAt: nowIso() };
   return persist(updated, shopId);
 }
@@ -522,5 +541,7 @@ module.exports = {
   normalizeEvidenceRole,
   isVerificationEligibleTest,
   testConfirmsFault,
-  TEST_EVIDENCE_ROLES
+  TEST_EVIDENCE_ROLES,
+  PATCH_STATUS_TRANSITIONS,
+  assertPatchStatusTransition
 };
