@@ -104,12 +104,10 @@ jobs:
 
         if [ "$MATCHED" != "1" ]; then
           if [ "$REACHABLE" != "1" ]; then
-            echo "::warning::Render PR preview is unavailable at $PREVIEW_URL; runtime smoke skipped. Repository tests and lint passed independently of preview infrastructure."
-            cat /tmp/render-health.json 2>/dev/null || true
-            exit 0
+            echo "::error::Required Render PR preview is unavailable at $PREVIEW_URL. Runtime verification is mandatory for this affected lane; do not merge."
+          else
+            echo "::error::Render preview was reachable but never reached exact PR head $HEAD_SHA."
           fi
-
-          echo "Render preview was reachable but never reached exact PR head $HEAD_SHA."
           cat /tmp/render-health.json 2>/dev/null || true
           exit 1
         fi
