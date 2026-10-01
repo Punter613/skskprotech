@@ -137,31 +137,12 @@ test('Diagnose does not require GROQ_API_KEY before delegating to aiClient/provi
   }
 });
 
-test('intelligence routes fail closed when the orchestrator cannot load', { concurrency: false }, async () => {
+test('parallel intelligence orchestration endpoints stay retired', { concurrency: false }, async () => {
   const routePath = require.resolve('../src/routes/intelligence.routes');
   delete require.cache[routePath];
-
-  const originalLoad = Module._load;
-  const originalConsoleError = console.error;
-  Module._load = function patchedLoad(request, parent, isMain) {
-    if (request === '../core/orchestrator/main.orchestrator' && parent?.filename === routePath) {
-      throw new Error('test orchestrator load failure');
-    }
-    if (request === '../core/economic/economic.engine' && parent?.filename === routePath) {
-      return class TestEconomicEngine {
-        analyze() { return {}; }
-        analyzeBatch() { return []; }
-        getAssumptions() { return {}; }
-      };
-    }
-    return originalLoad.apply(this, arguments);
-  };
-  console.error = () => {};
+  const router = require('../src/routes/intelligence.routes');
 
   try {
-    const router = require('../src/routes/intelligence.routes');
-    Module._load = originalLoad;
-
     await withServer(router, '/api/intelligence', async base => {
       const vehicleProfile = {
         vin: 'TESTVIN1234567890',
@@ -170,27 +151,18 @@ test('intelligence routes fail closed when the orchestrator cannot load', { conc
         year: 2008,
         mileage: 150000
       };
-
-      const analyzed = await readJson(await fetch(`${base}/api/intelligence/analyze`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ input: 'Diagnose a clunk', vehicleProfile })
-      }));
-
-      assert.equal(analyzed.status, 503);
-      assert.equal(analyzed.body.status, 'UNAVAILABLE');
-      assert.equal(analyzed.body.code, 'ORCHESTRATOR_UNAVAILABLE');
-      assert.equal(analyzed.body.fallback?.action, 'HUMAN_HANDOFF');
-      assert.doesNotMatch(JSON.stringify(analyzed.body), /PROXY_SUCCESS/);
-
-      const health = await readJson(await fetch(`${base}/api/intelligence/health`));
-      assert.equal(health.status, 503);
-      assert.equal(health.body.ok, false);
-      assert.equal(health.body.code, 'ORCHESTRATOR_UNAVAILABLE');
+      for (const endpoint of ['analyze', 'estimate', 'predict', 'economic', 'batch']) {
+        const result = await fetch(`${base}/api/intelligence/${endpoint}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ input: 'Diagnose a clunk', vehicleProfile, recommendation: {}, recommendations: [] })
+        });
+        assert.equal(result.status, 404, `${endpoint} must not expose a parallel lifecycle lane`);
+      }
+      assert.equal((await fetch(`${base}/api/intelligence/health`)).status, 404);
+      assert.equal((await fetch(`${base}/api/intelligence/stats`)).status, 404);
     });
   } finally {
-    Module._load = originalLoad;
-    console.error = originalConsoleError;
     delete require.cache[routePath];
   }
 });
