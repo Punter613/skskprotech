@@ -17,6 +17,17 @@ test('shared browser auth bridge owns shop-key storage and one-retry 401 flow', 
   assert.match(auth, /state && state\.retried/);
   assert.match(auth, /Temporary browser bridge only/);
   assert.match(auth, /global\.SKSKAuth = Object\.freeze/);
+  assert.match(auth, /setSessionProvider/);
+  assert.match(auth, /Authorization/);
+  assert.match(auth, /Bearer/);
+});
+
+test('session credential is centralized and takes precedence over temporary shop key', () => {
+  const auth = read('public/js/sksk-auth.js');
+  assert.match(auth, /const token = await sessionToken\(\)/);
+  assert.match(auth, /next\.set\('Authorization', 'Bearer ' \+ token\)/);
+  assert.match(auth, /next\.delete\(KEY_HEADER\)/);
+  assert.match(auth, /const key = getKey\(\)/);
 });
 
 test('main, fleet, and lifecycle pages load the shared auth bridge', () => {
