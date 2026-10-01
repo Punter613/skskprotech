@@ -78,16 +78,36 @@ function reassessmentReason(job = {}) {
 
 function extractJSON(text) {
   if (!text) return null;
-  const normalized = String(text).replace(/```json\s*/gi, '').replace(/```\s*/g, '');
-  const start = normalized.indexOf('{');
+  const raw = String(text).trim();
+
+  try { return JSON.parse(raw); } catch {}
+
+  const unfenced = raw.replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  try { return JSON.parse(unfenced); } catch {}
+
+  const start = unfenced.indexOf('{');
   if (start === -1) return null;
+
   let depth = 0;
-  for (let i = start; i < normalized.length; i++) {
-    if (normalized[i] === '{') depth++;
-    if (normalized[i] === '}') {
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < unfenced.length; i++) {
+    const char = unfenced[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{') depth++;
+    else if (char === '}') {
       depth--;
       if (depth === 0) {
-        try { return JSON.parse(normalized.slice(start, i + 1)); }
+        try { return JSON.parse(unfenced.slice(start, i + 1)); }
         catch { return null; }
       }
     }
@@ -287,5 +307,6 @@ module.exports = {
   jobDtcEvidence,
   trustedJobDtcs,
   vehicleConfigurationBoundaryFromJob,
-  applicabilityMechanicObservations
+  applicabilityMechanicObservations,
+  extractJSON
 };
