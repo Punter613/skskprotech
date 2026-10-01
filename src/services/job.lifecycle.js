@@ -147,7 +147,6 @@ async function persist(job, shopId = '') {
 
   const row = {
     job_id: job.jobId,
-    shop_id: ownerShopId || null,
     status: job.status,
     customer_name: job.customer.name || null,
     customer_phone: job.customer.phone || null,
@@ -189,7 +188,6 @@ async function getJob(jobId, shopId = '') {
       .from('service_jobs')
       .select('payload')
       .eq('job_id', jobId);
-    if (ownerShopId) query = query.eq('shop_id', ownerShopId);
     const { data, error } = await query.maybeSingle();
     if (error || !data?.payload) return null;
     const job = data.payload;
@@ -253,7 +251,6 @@ async function findReturnVisits(priorJobId, shopId = '') {
   if (supabase) {
     try {
       let query = supabase.from('service_jobs').select('payload');
-      if (ownerShopId) query = query.eq('shop_id', ownerShopId);
       const { data, error } = await query;
       if (!error) {
         for (const row of data || []) {
