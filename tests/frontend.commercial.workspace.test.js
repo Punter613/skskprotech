@@ -12,6 +12,10 @@ test('commercial workspace exposes one continuous persisted job rail',()=>{
   assert.match(html,/4 INVOICE/);
   assert.match(html,/function updateCommercialRail\(data\)/);
   assert.match(html,/data\.workOrderDocuments\|\|\[\]/);
+  assert.match(html,/currentEstimates=estimates\.filter\(e=>e\.status!==\'SUPERSEDED\'\)/);
+  assert.match(html,/hasEstimate=currentEstimates\.length>0\|\|!!data\.verifiedEstimate/);
+  assert.match(html,/terminalStates=new Set\(\[\'COMPLETED\',\'BLOCKED\',\'CANCELLED\'\]\)/);
+  assert.match(html,/invoiceEligible=workTerminal&&completedWork/);
   assert.match(html,/invoiced=!!data\.invoice/);
 });
 
