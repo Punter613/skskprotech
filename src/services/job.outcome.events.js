@@ -16,6 +16,11 @@ function memoryJobs() {
   return global.__jobs;
 }
 
+function memoryKey(jobId, shopId = '') {
+  const shop = String(shopId || '').trim();
+  return shop ? `${shop}::${jobId}` : jobId;
+}
+
 function nextStatusFor(eventType) {
   if (eventType === 'REPAIR_COMPLETED') return 'REPAIR_COMPLETED';
   if (eventType === 'OUTCOME_RECORDED') return 'OUTCOME_CONFIRMED';
@@ -75,13 +80,14 @@ async function recordOutcomeEvent(event, shopId = '') {
   }
 
   const jobs = memoryJobs();
-  const job = jobs[event.jobId];
+  const job = jobs[memoryKey(event.jobId, shopId)];
   if (!job) throw new Error(`Job ${event.jobId} not found`);
   assertLegalTransition(job.status, event.eventType);
 
   const events = memoryStore();
-  events[event.jobId] = events[event.jobId] || [];
-  events[event.jobId].push(event);
+  const eventKey = memoryKey(event.jobId, shopId);
+  events[eventKey] = events[eventKey] || [];
+  events[eventKey].push(event);
   job.status = nextStatusFor(event.eventType);
   job.updatedAt = new Date().toISOString();
 
@@ -100,7 +106,7 @@ async function getJobOutcomeEvents(jobId, shopId = '') {
     if (error) throw new Error(`Failed to load outcome events for ${jobId}: ${error.message}`);
     return (data || []).map(fromRow);
   }
-  return memoryStore()[jobId] || [];
+  return memoryStore()[memoryKey(jobId, shopId)] || [];
 }
 
 function fromRow(row) {
