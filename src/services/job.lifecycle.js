@@ -23,8 +23,14 @@ const PATCH_STATUS_TRANSITIONS = Object.freeze({
   OUTCOME_CONFIRMED: new Set(['OUTCOME_CONFIRMED'])
 });
 
-function assertPatchStatusTransition(currentStatus, nextStatus) {
+function assertPatchStatusTransition(currentStatus, nextStatus, job = {}, patch = {}) {
   if (!VALID_STATES.has(nextStatus)) throw new Error(`Invalid job status: ${nextStatus}`);
+  const estimateOnlyFinalInvoice = currentStatus === 'DIAGNOSING'
+    && nextStatus === 'INVOICED'
+    && job?.intake?.estimateOnly === true
+    && patch?.invoice?.type === 'FINAL_INVOICE'
+    && patch?.invoice?.status === 'FINAL';
+  if (estimateOnlyFinalInvoice) return;
   const allowed = PATCH_STATUS_TRANSITIONS[currentStatus];
   if (!allowed || !allowed.has(nextStatus)) {
     throw new Error(`Illegal job status transition: ${currentStatus} -> ${nextStatus}`);
@@ -318,7 +324,7 @@ async function patchJob(jobId, patch = {}, shopId = '') {
   const job = await getJob(jobId, shopId);
   if (!job) return null;
   const nextStatus = patch.status || job.status;
-  assertPatchStatusTransition(job.status, nextStatus);
+  assertPatchStatusTransition(job.status, nextStatus, job, patch);
   const updated = { ...job, ...patch, status: nextStatus, updatedAt: nowIso() };
   return persist(updated, shopId);
 }
