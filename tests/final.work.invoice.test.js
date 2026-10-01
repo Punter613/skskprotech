@@ -177,3 +177,50 @@ test('all-cancelled Work Orders do not produce a zero-dollar final invoice', asy
     error => error?.code === 'COMPLETED_AUTHORIZED_WORK_REQUIRED'
   );
 });
+
+test('final invoice cannot manufacture or upgrade diagnostic truth', async () => {
+  resetJobs();
+  const { jobId, workOrder } = await seedCommercialLifecycle('NO-BACKFLOW');
+  await startAndComplete(jobId, workOrder.workOrderId, 'WOI-001', 'Front brake service completed.');
+  await updateWorkItemState(jobId, workOrder.workOrderId, 'WOI-002', {
+    state: 'CANCELLED',
+    note: 'Alignment cancelled.',
+    recordedBy: 'service desk'
+  });
+
+  const before = await getJob(jobId);
+  assert.equal(before.verification, null);
+  assert.equal(before.verifiedCase, undefined);
+
+  const result = await createFinalInvoice(jobId, { requestId: 'no-diagnostic-backflow' });
+  assert.equal(result.invoice.diagnosticTruthBoundary.policy, 'AUTHORIZATION_AND_COMPLETION_DO_NOT_CREATE_DIAGNOSTIC_PROOF');
+
+  const after = await getJob(jobId);
+  assert.equal(after.verification, null);
+  assert.equal(after.verifiedCase, undefined);
+  assert.equal(after.invoice.lineItems[0].diagnosticTruth.physicallyVerified, false);
+  assert.equal(after.invoice.lineItems[0].diagnosticTruth.scopeMatchEstablished, false);
+});
+
+test('request-body diagnostic claims cannot turn completed commercial work into proof', async () => {
+  resetJobs();
+  const { jobId, workOrder } = await seedCommercialLifecycle('CLAIM-INJECTION');
+  await startAndComplete(jobId, workOrder.workOrderId, 'WOI-001', 'Front brake service completed.');
+  await updateWorkItemState(jobId, workOrder.workOrderId, 'WOI-002', {
+    state: 'CANCELLED',
+    note: 'Alignment cancelled.',
+    recordedBy: 'service desk'
+  });
+
+  const result = await createFinalInvoice(jobId, {
+    requestId: 'claim-injection',
+    diagnosisVerified: true,
+    verifiedCase: { stage: 'VERIFIED', fingerprint: 'request-body-injection' },
+    physicallyVerified: true
+  });
+
+  assert.equal(result.invoice.lineItems[0].diagnosticTruth.physicallyVerified, false);
+  const persisted = await getJob(jobId);
+  assert.equal(persisted.verification, null);
+  assert.equal(persisted.verifiedCase, undefined);
+});
