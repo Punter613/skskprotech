@@ -36,9 +36,14 @@ Rule: commercial truth may inherit diagnostic truth but can never manufacture it
 After Milestones A and B have exact-head runtime proof, inventory every route/module that duplicates the canonical lifecycle. Each retained duplicate must have an owner, replacement, compatibility reason, and deletion test.
 
 Known transitional artifacts to review first:
-- retired /api/full-estimate compatibility/tombstone behavior and any client that still references it;
-- public/js/sksk-frontend.js, currently treated by frontend guards as dead/retired compatibility code;
+- retired /api/full-estimate compatibility/tombstone behavior and remaining test/operational references;
 - any legacy Diagnose/Estimate/Invoice entry point that can reach production state without traversing the canonical lifecycle services.
+
+Completed in Milestone C:
+- removed public/js/sksk-frontend.js after repository search proved there was no supported page/runtime caller; the file still called the retired /api/full-estimate path;
+- stopped tracking generated lemon scraper binaries at bin/lemon_scraper and tools/lemon_scraper/bin/lemon_scraper; source/build automation remains canonical and .gitignore prevents recommit.
+
+The /api/full-estimate tombstone is intentionally retained for now because production smoke/auth/operational references still assert the retirement behavior. Delete it only after those callers are migrated to assert absence or the canonical replacement instead.
 
 Deletion condition: no supported page, runtime canary, external tester workflow, or production integration requires the old path, and the replacement has exact-head runtime coverage.
 
