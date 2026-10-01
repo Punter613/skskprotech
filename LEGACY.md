@@ -1,0 +1,57 @@
+# Legacy and Transitional Path Retirement
+
+This file is the deletion schedule for transitional SKSK paths. Temporary compatibility is allowed only when its replacement and exit condition are explicit.
+
+The canonical lifecycle is:
+
+**Intake → Diagnose → Test → Verify → Estimate → Authorize → Work Order → Completed Work → Final Invoice → Outcome**
+
+See INTENT.md for the permanent truth rules.
+
+## Milestone A — Trust boundary locked
+
+Exit criteria:
+- malformed/unparseable Diagnose output fails closed;
+- one canonical diagnostic-candidate assertion protects Diagnose handoff, VERIFY, unverified-diagnosis construction, and VERIFIED_CASE creation;
+- exact historical placeholder/sentinel exploits remain permanent regressions;
+- reassessment parsing follows the same fail-closed JSON boundary;
+- exact-head runtime gates are green.
+
+Rule: no diagnostic compatibility path may bypass these assertions.
+
+## Milestone B — Commercial truth locked
+
+Exit criteria:
+- Work Orders can contain only persisted customer-authorized scope;
+- completion requires recorded execution evidence;
+- Final Invoice contains only authorized + completed scope;
+- cancelled, blocked, ready, in-progress, merely estimated, or unauthorized lines cannot become final-invoice truth;
+- invoice/payment state cannot create or upgrade diagnostic verification;
+- runtime gates cover the complete authorization → execution → final-invoice handoff.
+
+Rule: commercial truth may inherit diagnostic truth but can never manufacture it.
+
+## Milestone C — One production spine
+
+After Milestones A and B have exact-head runtime proof, inventory every route/module that duplicates the canonical lifecycle. Each retained duplicate must have an owner, replacement, compatibility reason, and deletion test.
+
+Known transitional artifacts to review first:
+- retired /api/full-estimate compatibility/tombstone behavior and any client that still references it;
+- public/js/sksk-frontend.js, currently treated by frontend guards as dead/retired compatibility code;
+- any legacy Diagnose/Estimate/Invoice entry point that can reach production state without traversing the canonical lifecycle services.
+
+Deletion condition: no supported page, runtime canary, external tester workflow, or production integration requires the old path, and the replacement has exact-head runtime coverage.
+
+## Milestone D — Delete, do not archive in production
+
+Remove obsolete routes, shims, dead browser clients, duplicate state transitions, and their compatibility exceptions. Preserve history in Git and documentation rather than keeping executable museum pieces.
+
+For each deletion:
+1. prove no supported caller remains;
+2. delete the path and its allowlist/exception;
+3. make CI fail if the retired path is reintroduced accidentally;
+4. exercise the canonical replacement on the exact PR head.
+
+## Change rule
+
+A new transitional path must be added to this file in the same PR that creates it, with its replacement and deletion milestone. “Temporary” without an exit condition is not an accepted architecture state.
