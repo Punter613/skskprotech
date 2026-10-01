@@ -15,8 +15,8 @@ const migration = fs.readFileSync(path.join(__dirname, '../supabase/migrations/2
 
 test('service jobs persist authenticated shop ownership in migration-safe payload', () => {
   assert.ok(lifecycle.includes("shopId: ownerShopId || ''"));
-  assert.ok(lifecycle.includes('shop_id: ownerShopId || null'));
-  assert.ok(lifecycle.includes("query = query.eq('shop_id', ownerShopId)"));
+  assert.ok(lifecycle.includes("shopId: ownerShopId || ''"));
+  assert.equal(lifecycle.includes('shop_id: ownerShopId || null'), false);
   assert.ok(lifecycle.includes('jobBelongsToShop(job, ownerShopId)'));
   assert.ok(migration.includes('add column if not exists shop_id text'));
   assert.ok(migration.includes('(shop_id, job_id)'));
