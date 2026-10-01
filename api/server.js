@@ -78,7 +78,6 @@ const estimateHeuristic = require('../src/routes/estimate.authorized');
 const oemRouter = require('../src/routes/oem');
 const scrapeRouter = require('../src/routes/scrape');
 const partsRouter = require('../src/routes/parts');
-const fullEstimateRouter = require('../src/routes/full-estimate.protected');
 const jobsRouter = require('../src/routes/jobs.protected');
 const partsLookupRouter = require('../src/routes/partsLookup');
 const fleetRouter = require('../src/routes/fleet');
@@ -95,7 +94,6 @@ const {
 
 app.use('/api/scrape', requireApiAccess, scrapeRouter);
 app.use('/api/parts', requireApiAccess, partsRouter);
-app.use('/api/full-estimate', fullEstimateRouter);
 app.use('/api/jobs', requireApiAccess, jobsRouter);
 
 app.use('/api/diagnose', ...protectAi, diagnosisLifecycle, diagnose);
