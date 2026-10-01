@@ -32,9 +32,9 @@ jobs:
           code="$(curl --connect-timeout 10 --max-time 45 -sS -o /tmp/retired.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{}' "$BASE_URL/api/full-estimate")"
           cat /tmp/retired.json
           case "$code" in
-            404|410) ;;
+            404) ;;
             *)
-              echo "::error::Retired /api/full-estimate must not be a live estimator; got HTTP $code"
+              echo "::error::Retired /api/full-estimate must be absent; expected HTTP 404, got $code"
               exit 1
               ;;
           esac
