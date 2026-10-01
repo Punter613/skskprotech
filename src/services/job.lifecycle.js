@@ -305,6 +305,7 @@ async function patchJob(jobId, patch = {}, shopId = '') {
 }
 
 async function recordDiagnosis(jobId, diagnosis, traceLog = null, shopId = '') {
+  assertValidDiagnosticResult(diagnosis, 'Diagnosis persistence requires a valid diagnostic candidate');
   return patchJob(jobId, {
     status: 'TESTING',
     diagnosis: { result: diagnosis, traceLog, revision: 1, recordedAt: nowIso() }
