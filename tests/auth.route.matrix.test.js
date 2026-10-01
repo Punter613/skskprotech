@@ -80,9 +80,5 @@ test('matrix stays aligned with production protected mounts and documents intent
 
   assert.equal(server.includes("app.use('/api/invoice'"), false, 'retired generic invoice route must stay absent');
 
-  for (const route of ['/api/full-estimate']) {
-    const line = server.split('\n').find(value => value.includes(`app.use('${route}'`));
-    assert.ok(line, `missing reviewed open mount for ${route}`);
-    assert.doesNotMatch(line, /requireApiAccess|\.\.\.protectAi/, `${route} open-route policy changed; review explicitly`);
-  }
+  assert.equal(server.includes("app.use('/api/full-estimate'"), false, 'retired full-estimate route must stay absent');
 });
