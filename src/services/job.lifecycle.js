@@ -147,6 +147,7 @@ async function persist(job, shopId = '') {
 
   const row = {
     job_id: job.jobId,
+    shop_id: ownerShopId || null,
     status: job.status,
     customer_name: job.customer.name || null,
     customer_phone: job.customer.phone || null,
@@ -184,11 +185,12 @@ async function getJob(jobId, shopId = '') {
   if (!supabase) return null;
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('service_jobs')
       .select('payload')
-      .eq('job_id', jobId)
-      .maybeSingle();
+      .eq('job_id', jobId);
+    if (ownerShopId) query = query.eq('shop_id', ownerShopId);
+    const { data, error } = await query.maybeSingle();
     if (error || !data?.payload) return null;
     const job = data.payload;
     if (!jobBelongsToShop(job, ownerShopId)) return null;
@@ -250,13 +252,14 @@ async function findReturnVisits(priorJobId, shopId = '') {
 
   if (supabase) {
     try {
-      const { data, error } = await supabase.from('service_jobs').select('payload');
+      let query = supabase.from('service_jobs').select('payload');
+      if (ownerShopId) query = query.eq('shop_id', ownerShopId);
+      const { data, error } = await query;
       if (!error) {
         for (const row of data || []) {
           const job = row?.payload;
-          if (job?.relationship?.type === 'RETURN_VISIT' && job.relationship.priorLifecycleNumber === priorJobId) {
+          if (jobBelongsToShop(job, ownerShopId) && job?.relationship?.type === 'RETURN_VISIT' && job.relationship.priorLifecycleNumber === priorJobId) {
             seen.set(job.jobId, job);
-            if (!jobBelongsToShop(job, ownerShopId)) continue;
             memoryStore()[cacheKey(job.jobId, ownerShopId || job.shopId)] = job;
           }
         }
