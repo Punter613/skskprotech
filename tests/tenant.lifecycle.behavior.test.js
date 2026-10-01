@@ -49,3 +49,20 @@ test('outcome-event service rejects a foreign shop before event storage', async 
   assert.deepEqual(await outcomes.getJobOutcomeEvents('TENANT-JOB-4', 'shop-b'), []);
   assert.deepEqual(global.__jobOutcomeEvents, {});
 });
+
+
+test('successful in-memory outcome transition updates only the owning shop cache key', async () => {
+  const job = await lifecycle.createJob({ jobId: 'TENANT-JOB-5' }, 'shop-a');
+  await lifecycle.patchJob(job.jobId, { status: 'VERIFIED' }, 'shop-a');
+  const event = {
+    jobId: job.jobId,
+    eventType: 'REPAIR_COMPLETED',
+    fingerprint: 'fp-tenant-5',
+    performedRepair: {}
+  };
+  await outcomes.recordOutcomeEvent(event, 'shop-a');
+  assert.equal((await lifecycle.getJob(job.jobId, 'shop-a')).status, 'REPAIR_COMPLETED');
+  assert.equal(await lifecycle.getJob(job.jobId, 'shop-b'), null);
+  assert.equal((await outcomes.getJobOutcomeEvents(job.jobId, 'shop-a')).length, 1);
+  assert.equal((await outcomes.getJobOutcomeEvents(job.jobId, 'shop-b')).length, 0);
+});
