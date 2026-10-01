@@ -193,3 +193,15 @@ test('reassessment JSON extraction is string/escape aware and fails closed on ma
   assert.equal(extractJSON('prefix {"primaryCause":"unterminated }'), null);
   assert.equal(extractJSON('not json at all'), null);
 });
+
+test('reassessment fails closed instead of inheriting stale diagnosis when candidate has no primary cause', () => {
+  const job = sorentoJob();
+  assert.throws(
+    () => sanitizeReassessment(job, job.diagnosis.result, {}),
+    error => error?.code === 'DIAG_REASSESSMENT_INCOMPLETE'
+  );
+  assert.throws(
+    () => sanitizeReassessment(job, job.diagnosis.result, { notes: 'No new conclusion from current evidence.' }),
+    error => error?.code === 'DIAG_REASSESSMENT_INCOMPLETE'
+  );
+});
