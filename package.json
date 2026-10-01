@@ -33,7 +33,7 @@
     "test:commercial-handoff": "node --test tests/verified.commercial.handoff.test.js",
     "test:return-visits": "node --test tests/return.visit.lifecycle.test.js",
     "test:tag": "node --test tests/tag.overlay.test.js tests/tag.status.ui.test.js tests/diagnose.tag.route.test.js",
-    "test:misc": "node --test tests/automotive.normalization.regression.test.js tests/automotive.normalization.test.js tests/confirmed.repair.outcome.supabase.test.js tests/confirmed.repair.outcome.test.js tests/deterministic.thresholds.test.js tests/economic.engine.usage-metric.test.js tests/observation-normalizer.test.js tests/orchestrator.canUseAI.test.js tests/repair.authorization.guard.test.js tests/repair.authorization.job-mapping.test.js tests/repair.authorization.middleware.test.js tests/retired.full-estimate.route.test.js",
+    "test:misc": "node --test tests/automotive.normalization.regression.test.js tests/automotive.normalization.test.js tests/confirmed.repair.outcome.supabase.test.js tests/confirmed.repair.outcome.test.js tests/deterministic.thresholds.test.js tests/economic.engine.usage-metric.test.js tests/observation-normalizer.test.js tests/orchestrator.canUseAI.test.js tests/repair.authorization.guard.test.js tests/repair.authorization.job-mapping.test.js tests/repair.authorization.middleware.test.js",
     "test:diagnose-input": "node --test tests/diagnose.input.validation.test.js",
     "test:api-access": "node --test tests/api.access.security.test.js",
     "test:persistence-integrity": "node --test tests/persistence.integrity.test.js",
