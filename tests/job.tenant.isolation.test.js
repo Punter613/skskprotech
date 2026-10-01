@@ -25,7 +25,8 @@ test('job cache is partitioned by shop and job id', () => {
 });
 
 test('authenticated HTTP lifecycle passes server shop context into storage', () => {
-  assert.ok(middleware.includes('createJob(req.body || {}, req.shopId)'));
+  assert.ok(middleware.includes('const { jobId: _untrustedJobId, ...diagnosisInput } = req.body || {}'));
+  assert.ok(middleware.includes('createJob(diagnosisInput, req.shopId)'));
   assert.ok(middleware.includes('getJob(jobId, req.shopId)'));
   assert.ok(middleware.includes('getJob(job.jobId, req.shopId)'));
   assert.ok(protectedJobs.includes('getJob(req.params.id, req.shopId)'));

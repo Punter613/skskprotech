@@ -395,6 +395,7 @@ async function addTest(jobId, test = {}, shopId = '') {
 async function verifyJob(jobId, verification = {}, shopId = '') {
   const job = await getJob(jobId, shopId);
   if (!job) return null;
+  if (job.status !== 'TESTING') throw new Error(`Verification is unavailable while job is ${job.status}`);
   if (!job.diagnosis?.result) throw new Error('Diagnosis must exist before verification');
   assertValidDiagnosticResult(job.diagnosis.result, 'Verification requires a valid persisted diagnostic candidate');
   if (!Array.isArray(job.tests) || job.tests.length === 0) throw new Error('At least one recorded test is required before verification');
