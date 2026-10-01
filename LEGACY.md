@@ -36,7 +36,6 @@ Rule: commercial truth may inherit diagnostic truth but can never manufacture it
 After Milestones A and B have exact-head runtime proof, inventory every route/module that duplicates the canonical lifecycle. Each retained duplicate must have an owner, replacement, compatibility reason, and deletion test.
 
 Known transitional artifacts to review first:
-- retired /api/full-estimate compatibility/tombstone behavior and remaining test/operational references;
 - any legacy Diagnose/Estimate/Invoice entry point that can reach production state without traversing the canonical lifecycle services.
 
 Completed in Milestone C:
@@ -46,7 +45,7 @@ Completed in Milestone C:
 
 - retired the generic /api/invoice builder and its direct attachInvoice/hydrateInvoiceInput persistence bridge. The public invoice action now sends the user to Lifecycle, where Final Invoice is created only from authorized + completed Work Orders. Diagnose and /api/estimateHeuristic remain because they are the current canonical persisted Diagnose and VERIFIED-only Estimate handoff.
 
-The /api/full-estimate tombstone is intentionally retained for now because production smoke/auth/operational references still assert the retirement behavior. Delete it only after those callers are migrated to assert absence or the canonical replacement instead.
+- deleted the /api/full-estimate tombstone and production mount after production smoke, recovery regression, auth policy, and operational scripts were migrated away from depending on its 410 behavior. Production smoke now requires 404 and CI locks the mount absent; no compatibility shim remains.
 
 Deletion condition: no supported page, runtime canary, external tester workflow, or production integration requires the old path, and the replacement has exact-head runtime coverage.
 
