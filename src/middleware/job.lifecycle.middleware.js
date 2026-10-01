@@ -158,7 +158,8 @@ async function diagnosisLifecycle(req, res, next) {
 
   try {
     const dtcEvidence = resolveRequestDtcEvidence(req.body || {});
-    let job = await createJob(req.body || {}, req.shopId);
+    const { jobId: _untrustedJobId, ...diagnosisInput } = req.body || {};
+    let job = await createJob(diagnosisInput, req.shopId);
 
     // Sanitize provenance immediately, before the Diagnose route runs. This
     // means even a failed diagnosis job cannot leave raw typed/placeholder DTCs
