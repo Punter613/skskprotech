@@ -184,6 +184,8 @@ RULES:
 - DIAGNOSTIC_EVIDENCE_PACKET_V2.dtcs contains the ONLY DTC values authorized as diagnostic evidence. These codes were explicitly marked verified scan-tool evidence.
 - dtcProvenance contains counts/source metadata only. Excluded DTC values are intentionally absent. Never infer, guess, or reconstruct excluded code identities.
 - codeExplanations must cover every code in packet.dtcs, keyed exactly as given, and must not invent explanations for excluded/unlisted codes.
+- dtcReasoning is deterministic pre-analysis. Preserve each code's individual assertion before synthesis. Never add a bank, sensor, circuit, or causal relationship that dtcReasoning does not assert.
+- dtcReasoning.commonCauseCandidates are HYPOTHESIS_ONLY. They may guide ranking and tests but are not confirmation evidence. Use dtcReasoning.discriminatingTests to separate shared-cause from independent-fault explanations before synthesis.
 - probability likelihoods should roughly sum to 100; rank by evidence, not symptom order.
 - All array values must be strings.
 - DIAGNOSIS STAGE IS TEST-FIRST. No component is repair-authorized yet. repairSteps MUST contain only non-invasive inspection, measurement, verification, or confirmation steps. Do not instruct removal, teardown, replacement, installation, adjustment, lubrication-as-a-fix, or alignment as a repair. Put discriminating tests in recommendedTests. Actual repair procedure belongs only after TEST -> VERIFY.

@@ -10,6 +10,7 @@ const {
   DTC_SOURCES
 } = require('./dtc.provenance');
 const { publicSourceHealth } = require('./source.resilience');
+const { buildDtcReasoning } = require('./dtc.reasoning');
 
 const SCHEMA_VERSION = 2;
 const MAX_OBSERVATIONS = 12;
@@ -175,6 +176,7 @@ function buildDiagnosticEvidencePacket(input = {}) {
     // persisted job intake audit record, not in this model-facing packet.
     dtcs,
     dtcProvenance,
+    dtcReasoning: buildDtcReasoning(dtcs),
     measurements: compactTrustedMeasurements(vehicle),
     deterministic,
     evidence: {

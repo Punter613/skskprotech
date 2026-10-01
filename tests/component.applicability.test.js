@@ -47,6 +47,21 @@ test('manual intake cannot promote configuration-sensitive driveline parts to pr
   assert.equal(guarded.output.vehicleConfiguration.guardApplied, true);
 });
 
+test('plural driveshaft wording in tests is qualified when drivetrain is unknown', () => {
+  const guarded = applyComponentApplicabilityGuard({
+    primaryCause: 'General suspension or driveline fault',
+    secondaryCauses: [],
+    probability: [],
+    recommendedTests: ['Perform a lift inspection to manually shake driveshafts, axles, and suspension links to check for looseness or bind.'],
+    additionalChecks: [],
+    diagnosticConfidence: { percentage: 30, rating: 'LOW' }
+  }, manualSorentoBoundary(), { mechanicObservations: [] });
+
+  assert.equal(guarded.changed, true);
+  assert.match(guarded.output.recommendedTests[0], /^If equipped on this exact vehicle configuration:/i);
+  assert.ok(guarded.guardedKeys.includes('DRIVESHAFT'));
+});
+
 test('manual engine and missing drivetrain remain explicitly unverified', () => {
   const boundary = manualSorentoBoundary();
   assert.equal(boundary.vinStatus, CONFIGURATION_STATUS.MANUAL_UNVERIFIED);

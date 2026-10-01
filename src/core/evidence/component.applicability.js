@@ -47,7 +47,7 @@ const COMPONENT_RULES = Object.freeze([
     key: 'DRIVESHAFT',
     family: 'DRIVELINE',
     proof: 'RWD_AWD_4WD_OR_PRESENCE',
-    pattern: /\b(?:drive\s*shaft|driveshaft|propeller\s*shaft)\b/i
+    pattern: /\b(?:drive\s*shafts?|driveshafts?|propeller\s*shafts?)\b/i
   },
   {
     key: 'UNIVERSAL_JOINT',
