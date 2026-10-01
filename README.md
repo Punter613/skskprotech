@@ -108,19 +108,15 @@ The software outgrew its original design.
 
 ---
 
-Phase 3 — Controlled Migration
+Phase 3 — Evidence-Governed Lifecycle
 
-Rather than deleting everything and starting over, SKSK adopted a different strategy.
+The platform now has a canonical truth spine:
 
-Separate the architecture without breaking the application.
+Intake → Diagnose → Test → Verify → Estimate → Authorize → Work Order → Completed Work → Final Invoice → Outcome
 
-Every new feature follows the new architecture.
+Diagnostic candidates fail closed at persistence and at every later trust boundary. VERIFY requires explicit confirmation-grade physical evidence. Commercial records inherit truth; they never manufacture diagnostic proof.
 
-Existing features continue to work until their replacement is complete.
-
-Nothing is removed until the replacement has been tested.
-
-This allows continuous development without sacrificing stability.
+Transitional paths are now deletion debt, not permanent architecture. LEGACY.md records their retirement milestones and INTENT.md records the principles that must survive implementation changes.
 
 
 ---
@@ -252,24 +248,11 @@ Every completed repair has the potential to improve future recommendations.
 
 Current Development Status
 
-SKSK is currently undergoing a staged architectural migration.
+SKSK's evidence-governed lifecycle is now the canonical production direction.
 
-The repository intentionally contains:
+Some legacy routes and transitional modules still exist, but they are tracked liabilities with explicit retirement criteria in LEGACY.md. New work should strengthen the canonical lifecycle rather than create another parallel path.
 
-Legacy routes
-
-Transitional modules
-
-Duplicate functionality during migration
-
-Temporary compatibility layers
-
-
-These are not accidental.
-
-They exist to preserve working functionality while the platform is reorganized into independent engines.
-
-No production functionality is intentionally removed until its replacement has been verified.
+A replacement earns deletion of the old path through tests plus exact-head runtime proof. Git history preserves the past; production code should converge on one clear spine.
 
 
 ---
@@ -327,7 +310,7 @@ Every major design decision follows these principles:
 4. Evidence is more valuable than confidence.
 
 
-5. Architecture evolves through migration, not destructive rewrites.
+5. Commercial records must never invent diagnostic truth.
 
 
 6. Knowledge is accumulated from verified repair outcomes.
@@ -336,17 +319,23 @@ Every major design decision follows these principles:
 7. Every module should have one clear responsibility.
 
 
+8. Transitional paths require an explicit deletion milestone.
+
+
+9. The system is a lantern, not a leash.
+
+
 
 
 ---
 
 Repository Notice
 
-If you notice duplicate modules, transitional routes, or legacy code, this is expected.
+INTENT.md defines the permanent human, safety, evidence, and commercial-truth boundaries.
 
-The repository represents an active architectural migration from an early prototype into a modular intelligence platform.
+LEGACY.md defines the retirement schedule for transitional paths.
 
-The goal is continuous evolution while preserving proven functionality.
+Duplicate production paths are not a destination. The repository is converging on one evidence-governed lifecycle while preserving history in Git rather than in executable museum pieces.
 
 
 ---
