@@ -20,7 +20,9 @@ async function seededVerifiedEstimate(){
   const repairResolution={schemaVersion:1,stage:'REPAIR_RESOLVED',verifiedCaseFingerprint:verifiedCase.fingerprint,repairScope:verifiedCase.repairScope,operations,labor:{operationId:opId,hours:2,hourlyRate:100,hoursSource:'MECHANIC_INPUT',rateSource:'MECHANIC_INPUT'},parts:[{operationId:opId,description:'Engine mount',quantity:1,unitPrice:200,total:200}],partsTotal:200,pricingAuthority:'MECHANIC',diagnosticAuthority:'VERIFIED_CASE'};
   const { fingerprint }=require('../src/core/evidence/verified.case'); repairResolution.fingerprint=fingerprint(repairResolution);
   const estimate=buildVerifiedEstimateSnapshot({...job,verifiedCase},{diagnosis:'Verified fault: Engine mount failure',priority:'high',estimatedHours:2,laborCost:200,partsCost:200,total:400,repairResolution});
-  await patchJob(job.jobId,{status:'ESTIMATED',verifiedCase,estimate});
+  await patchJob(job.jobId,{status:'TESTING'});
+  await patchJob(job.jobId,{status:'VERIFIED',verifiedCase});
+  await patchJob(job.jobId,{status:'ESTIMATED',estimate});
   return getJob(job.jobId);
 }
 
