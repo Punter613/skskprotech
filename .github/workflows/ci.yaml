@@ -30,7 +30,8 @@ jobs:
         node --check src/core/evidence/verified.estimate.snapshot.js
         node --check src/services/ai/providers/gemini.js
         node --check src/routes/estimate.js
-        node --check src/routes/invoice.js
+        test ! -e src/routes/invoice.js || { echo 'Retired generic invoice route was reintroduced'; exit 1; }
+        ! grep -R "app.use('/api/invoice'" api/server.js || { echo 'Retired generic invoice mount was reintroduced'; exit 1; }
         node scripts/test-estimate-contract.js
         node scripts/test-gemini-fallback.js
 
