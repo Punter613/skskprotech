@@ -53,6 +53,7 @@ test('outcome-event service rejects a foreign shop before event storage', async 
 
 test('successful in-memory outcome transition updates only the owning shop cache key', async () => {
   const job = await lifecycle.createJob({ jobId: 'TENANT-JOB-5' }, 'shop-a');
+  await lifecycle.patchJob(job.jobId, { status: 'TESTING' }, 'shop-a');
   await lifecycle.patchJob(job.jobId, { status: 'VERIFIED' }, 'shop-a');
   const event = {
     jobId: job.jobId,
@@ -65,4 +66,34 @@ test('successful in-memory outcome transition updates only the owning shop cache
   assert.equal(await lifecycle.getJob(job.jobId, 'shop-b'), null);
   assert.equal((await outcomes.getJobOutcomeEvents(job.jobId, 'shop-a')).length, 1);
   assert.equal((await outcomes.getJobOutcomeEvents(job.jobId, 'shop-b')).length, 0);
+});
+
+
+test('patchJob rejects lifecycle stage skips and backward commercial transitions', async () => {
+  const job = await lifecycle.createJob({ jobId: 'PATCH-AUTH-1' });
+  await assert.rejects(
+    () => lifecycle.patchJob(job.jobId, { status: 'INVOICED', invoice: { forged: true } }),
+    /Illegal job status transition: DIAGNOSING -> INVOICED/
+  );
+  assert.equal((await lifecycle.getJob(job.jobId)).status, 'DIAGNOSING');
+  assert.equal((await lifecycle.getJob(job.jobId)).invoice, null);
+
+  await lifecycle.patchJob(job.jobId, { status: 'TESTING' });
+  await lifecycle.patchJob(job.jobId, { status: 'VERIFIED' });
+  await lifecycle.patchJob(job.jobId, { status: 'ESTIMATED' });
+  await lifecycle.patchJob(job.jobId, { status: 'INVOICED' });
+  await assert.rejects(
+    () => lifecycle.patchJob(job.jobId, { status: 'ESTIMATED' }),
+    /Illegal job status transition: INVOICED -> ESTIMATED/
+  );
+  assert.equal((await lifecycle.getJob(job.jobId)).status, 'INVOICED');
+});
+
+test('patchJob preserves the intentional evidence-reassessment transition back to TESTING', async () => {
+  const job = await lifecycle.createJob({ jobId: 'PATCH-AUTH-2' });
+  await lifecycle.patchJob(job.jobId, { status: 'TESTING' });
+  await lifecycle.patchJob(job.jobId, { status: 'VERIFIED' });
+  await lifecycle.patchJob(job.jobId, { status: 'ESTIMATED' });
+  const reassessing = await lifecycle.patchJob(job.jobId, { status: 'TESTING' });
+  assert.equal(reassessing.status, 'TESTING');
 });
