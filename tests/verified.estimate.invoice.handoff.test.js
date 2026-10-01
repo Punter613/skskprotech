@@ -2,7 +2,6 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const express = require('express');
 const { buildVerifiedCase } = require('../src/core/evidence/verified.case');
 const { buildVerifiedRepairResolution } = require('../src/core/evidence/verified.repair.resolution');
 const {
@@ -76,36 +75,6 @@ function makeJob() {
   return base;
 }
 
-function makeApp() {
-  const app = express();
-  app.use(express.json());
-  const invoice = require('../src/routes/invoice');
-  const { invoiceLifecycle } = require('../src/middleware/job.lifecycle.middleware');
-  app.use('/api/invoice', invoiceLifecycle, invoice);
-  return app;
-}
-
-async function withServer(run) {
-  const server = makeApp().listen(0, '127.0.0.1');
-  await new Promise((resolve, reject) => {
-    server.once('listening', resolve);
-    server.once('error', reject);
-  });
-  try {
-    await run(`http://127.0.0.1:${server.address().port}`);
-  } finally {
-    await new Promise(resolve => server.close(resolve));
-  }
-}
-
-async function post(base, body) {
-  const response = await fetch(`${base}/api/invoice/build`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  return { response, body: await response.json() };
-}
 
 test.beforeEach(() => { global.__jobs = {}; });
 
@@ -117,64 +86,14 @@ test('canonical estimate snapshot binds VERIFIED_CASE and repair resolution fing
   assert.doesNotThrow(() => assertVerifiedEstimateSnapshot(job.estimate, job));
 });
 
-test('direct invoice API rejects canonical lifecycle job and requires commercial workflow', async () => {
-  const job = makeJob();
-  global.__jobs[job.jobId] = job;
-  await withServer(async base => {
-    const { response, body } = await post(base, { jobId: job.jobId });
-    assert.equal(response.status, 409);
-    assert.equal(body.success, false);
-    assert.equal(body.code, 'COMMERCIAL_WORKFLOW_REQUIRED');
-    assert.equal(body.jobId, job.jobId);
-    assert.deepEqual(body.requiredFlow, ['ESTIMATE', 'AUTHORIZATION', 'WORK_ORDER', 'COMPLETION', 'FINAL_INVOICE']);
-    assert.equal(global.__jobs[job.jobId].invoice, null);
-    assert.equal(global.__jobs[job.jobId].status, 'ESTIMATED');
-  });
-});
 
-test('direct invoice bypass remains blocked even when request attempts to override persisted truth', async () => {
-  const job = makeJob();
-  global.__jobs[job.jobId] = job;
-  await withServer(async base => {
-    const { response, body } = await post(base, {
-      jobId: job.jobId,
-      estimate: { laborCost: 1, partsCost: 1, diagnosis: 'Replace transmission' },
-      customerInfo: { name: 'Attacker' },
-      vehicleInfo: { year: 2025, make: 'Ford', model: 'F-150' },
-      laborRate: 1
-    });
-    assert.equal(response.status, 409);
-    assert.equal(body.code, 'COMMERCIAL_WORKFLOW_REQUIRED');
-    assert.equal(global.__jobs[job.jobId].invoice, null);
-  });
-});
-
-test('direct invoice bypass remains blocked even when persisted estimate is malformed', async () => {
-  const job = makeJob();
-  job.estimate = JSON.parse(JSON.stringify(job.estimate));
-  job.estimate.partsCost = 1;
-  global.__jobs[job.jobId] = job;
-  await withServer(async base => {
-    const { response, body } = await post(base, { jobId: job.jobId });
-    assert.equal(response.status, 409);
-    assert.equal(body.success, false);
-    assert.equal(body.code, 'COMMERCIAL_WORKFLOW_REQUIRED');
-    assert.equal(global.__jobs[job.jobId].invoice, null);
-  });
-});
-
-test('direct invoice bypass remains blocked regardless of canonical estimate totals', async () => {
-  const job = makeJob();
-  const badEstimate = { ...JSON.parse(JSON.stringify(job.estimate)), laborCost: 1 };
-  delete badEstimate.fingerprint;
-  job.estimate = buildVerifiedEstimateSnapshot(job, badEstimate);
-  global.__jobs[job.jobId] = job;
-  await withServer(async base => {
-    const { response, body } = await post(base, { jobId: job.jobId });
-    assert.equal(response.status, 409);
-    assert.equal(body.success, false);
-    assert.equal(body.code, 'COMMERCIAL_WORKFLOW_REQUIRED');
-    assert.equal(global.__jobs[job.jobId].invoice, null);
-    assert.equal(global.__jobs[job.jobId].status, 'ESTIMATED');
-  });
+test('generic invoice authority lane stays deleted', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  assert.equal(fs.existsSync(path.join(__dirname, '../src/routes/invoice.js')), false);
+  const serverSource = fs.readFileSync(path.join(__dirname, '../api/server.js'), 'utf8');
+  assert.equal(serverSource.includes("app.use('/api/invoice'"), false);
+  const lifecycleSource = fs.readFileSync(path.join(__dirname, '../src/services/job.lifecycle.js'), 'utf8');
+  assert.equal(lifecycleSource.includes('attachInvoice'), false);
+  assert.equal(lifecycleSource.includes('hydrateInvoiceInput'), false);
 });
