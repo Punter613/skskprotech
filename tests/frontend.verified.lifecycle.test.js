@@ -252,3 +252,21 @@ test('workspace visually distinguishes diagnostic authority from commercial hand
   assert.match(html, /class="stageAction">VERIFY/);
   assert.match(html, /class="stageAction">AUTHORIZE \+/);
 });
+
+
+test('shop-floor workspace makes evidence meaning and authority visually explicit', () => {
+  assert.match(html, /Evidence meanings/);
+  assert.match(html, /NEUTRAL<br>rerank/);
+  assert.match(html, /SUPPORTS<br>not proof/);
+  assert.match(html, /REFUTES<br>push away/);
+  assert.match(html, /CONFIRMS<br>verify eligible/);
+  assert.match(html, /Verification is a human authority step/);
+  assert.match(html, /Diagnostic truth is locked\. Pricing may change; the verified fault does not\./);
+  assert.match(html, /Authorization permits scope; it never creates diagnostic proof\./);
+});
+
+test('shop-floor primary evidence and authorization actions remain reachable', () => {
+  assert.match(html, /class="actionDock"><button class="btn primary" id="saveTests">🧪 Save Evidence & Continue<\/button>/);
+  assert.match(html, /class="actionDock"><button class="btn primary" id="invoice">➡️ Continue to Customer Authorization<\/button>/);
+  assert.match(html, /class="testHead"><span class="testNumber">\$\{i\+1\}<\/span><span class="testName">\$\{esc\(name\)\}<\/span>/);
+});
