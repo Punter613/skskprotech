@@ -9,6 +9,7 @@ const {
 } = require('../src/core/evidence/diagnostic.candidate');
 const { buildUnverifiedDiagnosis } = require('../src/core/evidence/unverified.diagnosis');
 const { buildVerifiedCase } = require('../src/core/evidence/verified.case');
+const { createJob, getJob, recordDiagnosis } = require('../src/services/job.lifecycle');
 
 test('Diagnose parser accepts braces and escaped quotes inside JSON strings', () => {
   const parsed = extractJSON('{"primaryCause":"Harness open near {splice} with \\"quoted\\" note","probability":[]}');
@@ -69,4 +70,25 @@ test('VERIFIED_CASE fails closed on persisted sentinel even with confirmation-gr
     }
   };
   assert.throws(() => buildVerifiedCase(job), /valid persisted diagnostic candidate/i);
+});
+
+test('diagnosis persistence itself rejects invalid candidates and leaves lifecycle out of TESTING', async () => {
+  global.__jobs = {};
+  const job = await createJob({ customer: { name: 'Boundary' }, vehicle: { year: 2020, make: 'Honda', model: 'Civic' } });
+
+  await assert.rejects(
+    recordDiagnosis(job.jobId, { primaryCause: 'Manual inspection required', probability: [] }),
+    /valid diagnostic candidate/i
+  );
+  let persisted = await getJob(job.jobId);
+  assert.equal(persisted.status, 'DIAGNOSING');
+  assert.equal(persisted.diagnosis, null);
+
+  await assert.rejects(
+    recordDiagnosis(job.jobId, { primaryCause: 'Real fault', generationFailed: true }),
+    /valid diagnostic candidate/i
+  );
+  persisted = await getJob(job.jobId);
+  assert.equal(persisted.status, 'DIAGNOSING');
+  assert.equal(persisted.diagnosis, null);
 });
