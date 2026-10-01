@@ -41,7 +41,8 @@ Known transitional artifacts to review first:
 
 Completed in Milestone C:
 - removed public/js/sksk-frontend.js after repository search proved there was no supported page/runtime caller; the file still called the retired /api/full-estimate path;
-- stopped tracking generated lemon scraper binaries at bin/lemon_scraper and tools/lemon_scraper/bin/lemon_scraper; source/build automation remains canonical and .gitignore prevents recommit.
+- stopped tracking generated lemon scraper binaries at bin/lemon_scraper and tools/lemon_scraper/bin/lemon_scraper; source/build automation remains canonical and .gitignore prevents recommit;
+- retired the parallel /api/intelligence analyze/estimate/predict/economic/batch/health/stats orchestrator lane after repository search found no supported browser caller. In particular, /api/intelligence/estimate could run diagnostic -> estimate -> parts without persisted TEST -> VERIFY. The /api/intelligence namespace now retains only learning/audit feedback and guard-catch endpoints, which do not create lifecycle authority.
 
 The /api/full-estimate tombstone is intentionally retained for now because production smoke/auth/operational references still assert the retirement behavior. Delete it only after those callers are migrated to assert absence or the canonical replacement instead.
 
