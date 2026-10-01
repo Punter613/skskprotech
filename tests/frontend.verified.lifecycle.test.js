@@ -231,3 +231,24 @@ test('optional mechanic measurements preserve TAG trust and blank-value boundari
   assert.match(html, /TagStatus\.render\(lastDiagnosis/);
   assert.match(html, /treadDepth32nds/);
 });
+
+
+test('canonical job workspace keeps vehicle lifecycle truth and next action visible', () => {
+  assert.match(html, /id="contextVehicle"/);
+  assert.match(html, /id="contextLifecycle"/);
+  assert.match(html, /id="contextTruth"/);
+  assert.match(html, /id="contextNext"/);
+  assert.match(html, /function updateJobContext\(stageName='Diag',truth='UNVERIFIED',next='Run Diagnosis'\)/);
+  assert.match(html, /READ-ONLY BRAIN/);
+  assert.match(html, /VERIFIED \/ ESTIMATE/);
+  assert.match(html, /ESTIMATED \/ AUTHORIZE\+/);
+});
+
+test('workspace visually distinguishes diagnostic authority from commercial handoff', () => {
+  assert.match(html, /Authority checkpoint/);
+  assert.match(html, /Commercial workspace/);
+  assert.match(html, /Commercial handoff/);
+  assert.match(html, /class="stageAction">READ ONLY/);
+  assert.match(html, /class="stageAction">VERIFY/);
+  assert.match(html, /class="stageAction">AUTHORIZE \+/);
+});
