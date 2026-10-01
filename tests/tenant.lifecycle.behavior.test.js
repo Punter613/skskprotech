@@ -97,3 +97,21 @@ test('patchJob preserves the intentional evidence-reassessment transition back t
   const reassessing = await lifecycle.patchJob(job.jobId, { status: 'TESTING' });
   assert.equal(reassessing.status, 'TESTING');
 });
+
+
+test('estimate-only lifecycle may finalize without manufacturing diagnostic status', async () => {
+  const job = await lifecycle.createJob({ jobId: 'PATCH-AUTH-3' });
+  await lifecycle.patchJob(job.jobId, {
+    intake: { ...job.intake, estimateOnly: true }
+  });
+  await assert.rejects(
+    () => lifecycle.patchJob(job.jobId, { status: 'INVOICED', invoice: { type: 'FINAL_INVOICE', status: 'DRAFT' } }),
+    /Illegal job status transition: DIAGNOSING -> INVOICED/
+  );
+  const invoiced = await lifecycle.patchJob(job.jobId, {
+    status: 'INVOICED',
+    invoice: { type: 'FINAL_INVOICE', status: 'FINAL' }
+  });
+  assert.equal(invoiced.status, 'INVOICED');
+  assert.equal(invoiced.verification, null);
+});
