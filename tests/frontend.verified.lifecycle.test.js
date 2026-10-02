@@ -270,3 +270,23 @@ test('shop-floor primary evidence and authorization actions remain reachable', (
   assert.match(html, /class="actionDock"><button class="btn primary" id="invoice">➡️ Continue to Customer Authorization<\/button>/);
   assert.match(html, /class="testHead"><span class="testNumber">\$\{i\+1\}<\/span><span class="testName">\$\{esc\(name\)\}<\/span>/);
 });
+
+
+test('install invitation waits until diagnosis delivers value and never blocks the workflow', () => {
+  const inviteIndex = html.indexOf('id="installInvite"');
+  const diagnosisHandler = html.indexOf("$('diag').onclick=async");
+  const showAfterSuccess = html.indexOf('showInstallInviteAfterDiagnosis();stage(\'Test\')');
+  assert.ok(inviteIndex >= 0, 'expected install invitation markup');
+  assert.ok(diagnosisHandler >= 0 && showAfterSuccess > diagnosisHandler, 'install invitation must be triggered only after diagnosis succeeds');
+  assert.match(html, /class="installInvite" id="installInvite"/);
+  assert.match(html, /If SKSK ProTech helped on this job, keep it handy for the next one\./);
+  assert.match(html, /Add SKSK to your phone/);
+  assert.match(html, /beforeinstallprompt/);
+  assert.match(html, /event\.preventDefault\(\)/);
+  assert.match(html, /deferredInstallPrompt\.prompt\(\)/);
+  assert.match(html, /Add to Home Screen or Install app/);
+  assert.match(html, /installDismissKey='sksk-install-invite-dismissed'/);
+  assert.match(html, /localStorage\.setItem\(installDismissKey,'1'\)/);
+  assert.match(html, /isStandalone\(\)\|\|installInviteDismissed\(\)/);
+  assert.doesNotMatch(html, /window\.addEventListener\(['"]load['"][^;]*showInstallInviteAfterDiagnosis/);
+});
