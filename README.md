@@ -1,3 +1,5 @@
+> Knowledge-engine invariants are governed by [KNOWLEDGE_CONSTITUTION.md](./KNOWLEDGE_CONSTITUTION.md).
+
 SKSK ProTech
 
 An Automotive Intelligence Platform
