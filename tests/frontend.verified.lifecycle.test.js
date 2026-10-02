@@ -290,3 +290,10 @@ test('install invitation waits until diagnosis delivers value and never blocks t
   assert.match(html, /isStandalone\(\)\|\|installInviteDismissed\(\)/);
   assert.doesNotMatch(html, /window\.addEventListener\(['"]load['"][^;]*showInstallInviteAfterDiagnosis/);
 });
+
+
+test('canonical lifecycle owns the installable PWA surface', () => {
+  assert.match(html, /<link rel="manifest" href="\/manifest\.json">/);
+  assert.match(html, /navigator\.serviceWorker\.register\('\/sw\.js', \{ scope: '\/' \}\)/);
+  assert.match(html, /beforeinstallprompt/);
+});
