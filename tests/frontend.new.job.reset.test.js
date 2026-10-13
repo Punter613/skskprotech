@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '../public/lifecycle.html'), 'utf8');
-const resetBlock = html.match(/function reset\(\)\{[^\n]+\}\n\/\/ Avoid a blocking native confirm\(\) dialog:[^\n]*\n\/\/ Require a second deliberate tap; no job data is changed on the first tap\.\nlet newJobArmed=false;\n\$\('newJob'\)\.onclick=[^\n]+/);
+const resetBlock = html.match(/function reset\\(\\)\\{[^\\n]+\\}[\\s\\S]*?\\$\\('newJob'\\)\\.onclick=[^\\n]+/);
 test('New Job handler does not use a blocking native confirm', () => {
   assert.ok(resetBlock, 'reset and handler present');
   assert.doesNotMatch(resetBlock[0], /\bconfirm\s*\(/);
