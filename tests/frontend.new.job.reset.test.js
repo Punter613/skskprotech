@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 
 const html = fs.readFileSync(path.join(__dirname, '../public/lifecycle.html'), 'utf8');
-const resetBlock = html.match(/function reset\\(\\)\\{[^\\n]+\\}[\\s\\S]*?\\$\\('newJob'\\)\\.onclick=[^\\n]+/);
+const resetBlock = html.match(/function reset\(\)\{[^\n]+\}[\s\S]*?\$\('newJob'\)\.onclick=[^\n]+/);
 test('New Job handler does not use a blocking native confirm', () => {
   assert.ok(resetBlock, 'reset and handler present');
   assert.doesNotMatch(resetBlock[0], /\bconfirm\s*\(/);
@@ -15,7 +15,7 @@ test('New Job requires two taps and clears previous vehicle and evidence fields'
   assert.ok(resetBlock);
   const elements = new Map();
   const get = id => {
-    if (!elements.has(id)) elements.set(id, {value:'OLD',textContent:'OLD',innerHTML:'OLD',hidden:false,dataset:{aiTranslation:'OLD',aiKeywords:'OLD',aiTranslated:'1'}});
+    if (!elements.has(id)) elements.set(id, {value:'OLD',textContent:'OLD',innerHTML:'OLD',hidden:false,addEventListener(){},dataset:{aiTranslation:'OLD',aiKeywords:'OLD',aiTranslated:'1'}});
     return elements.get(id);
   };
   const ctx = { $:get, hideInstallInvite(){}, renderVerifyEvidence(){}, setStatus(){}, stage(){} };
