@@ -22,13 +22,20 @@ function trustedCorpusReference(reference, vehicle) {
   // Only call after the adapter itself has selected an authenticated YMM-scoped corpus row.
   // No caller-supplied issuer, stamp, or sourceAuthority is consulted.
   if (!year(vehicle?.year) || !norm(vehicle?.make) || !norm(vehicle?.model)) return null;
-  const ref = { ...reference };
+  const ref = JSON.parse(JSON.stringify(reference));
   if (explicitScope(ref, vehicle) === APPLICABILITY.CONTRADICTED) return null;
   for (const key of ['engine', 'transmission', 'drivetrain', 'vin', 'productionDate']) {
     const value = ref.applicability?.[key] ?? ref[key];
     if (value && !vehicle[key]) return null;
   }
-  return Object.freeze({ reference: Object.freeze(ref), vehicle: Object.freeze({
+  function deepFreeze(value) {
+    if (value && typeof value === 'object') {
+      for (const child of Object.values(value)) deepFreeze(child);
+      Object.freeze(value);
+    }
+    return value;
+  }
+  return Object.freeze({ reference: deepFreeze(ref), vehicle: Object.freeze({
     year: year(vehicle.year), make: norm(vehicle.make), model: norm(vehicle.model)
   }) });
 }
