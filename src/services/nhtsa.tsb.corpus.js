@@ -1,6 +1,7 @@
 'use strict';
 
 const { supabase } = require('../db');
+const { fromTrustedCorpus } = require('../brain/tsb.weight.engine');
 
 const MAX_CORPUS_ROWS = 500;
 const DEFAULT_LIMIT = 8;
@@ -196,6 +197,7 @@ async function loadNhtsaCorpus(vehicle, context = {}, options = {}) {
     const rows = data || [];
     return {
       references: rankNhtsaRows(rows, context, options),
+      trustedTsbReferences: fromTrustedCorpus(rankNhtsaRows(rows, context, options), vehicle),
       totalFetched: rows.length,
       available: rows.length > 0,
       truncated: rows.length >= rowLimit,
