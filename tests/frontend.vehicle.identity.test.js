@@ -40,3 +40,11 @@ test('in-flight diagnosis and Ask Brain responses are rejected after identity ch
   assert.match(html,/requestEpoch!==vehicleEpoch\|\|requestVehicleKey!==vehicleIdentityKey\(\)\)return;const findings=/);
   assert.match(html,/function reset\(\)\{vehicleEpoch\+\+;diagnosisVehicleKey=null;/);
 });
+
+test('programmatic VIN decode invalidates the old vehicle and drops stale responses',()=>{
+  assert.match(html,/const decodeEpoch=vehicleEpoch;btn\.disabled=true/);
+  assert.match(html,/if\(decodeEpoch!==vehicleEpoch\|\|\$\('vin'\)\.value\.trim\(\)\.toUpperCase\(\)!==vin\)return;/);
+  assert.match(html,/\$\('engine'\)\.value=engineLabel;if\(diagnosisVehicleKey!==null&&vehicleIdentityKey\(\)!==diagnosisVehicleKey\)invalidateVehicleDiagnosis\(\)/);
+  assert.match(html,/\$\('lockedCause'\)\.textContent='—'/);
+  assert.match(html,/,'estimateOut','tests'\]\.forEach/);
+});
