@@ -34,7 +34,7 @@ function trustedCorpusReference(reference, vehicle) {
 }
 
 function scoreTsbForCandidate(ref, candidate, vehicle) {
-  if (!ref || !candidate || !vehicle) return { raw: 0, applicability: APPLICABILITY.UNKNOWN, hits: [] };
+  if (!ref || !trustedSet.has(ref) || !candidate || !vehicle) return { raw: 0, applicability: APPLICABILITY.UNKNOWN, hits: [] };
   const scoped = ref.reference && ref.vehicle;
   // Trusted wrappers must originate from the corpus adapter; public input cannot confer trust.
   // The caller must provide wrappers separately via the trustedReferences parameter.
@@ -61,7 +61,7 @@ function scoreTsbForCandidate(ref, candidate, vehicle) {
 }
 
 function applyTsbWeights(candidates, vehicle, trustedReferences = [], options = {}) {
-  if (!Array.isArray(candidates)) return candidates;
+  if (!Array.isArray(candidates)) return [];
   const output = candidates.map(candidate => {
     const strongest = new Map();
     for (const ref of trustedReferences) {
@@ -73,7 +73,7 @@ function applyTsbWeights(candidates, vehicle, trustedReferences = [], options = 
       const id = norm(item.findingGroupId || item.bulletinNumber || item.bulletinId || item.subject || item.title);
       if (!id) continue;
       const old = strongest.get(id);
-      if (!old || score.raw > old.raw) strongest.set(id, { ...score, id });
+      if (!old || score.raw > old.raw) strongest.set(id, { ...score, id, bulletinNumber: item.bulletinNumber || item.bulletinId || null, title: item.title || item.subject || null, source: item.source || item.sourceAuthority || 'NHTSA_BULK' });
     }
     const values = [...strongest.values()].sort((a, b) => b.raw - a.raw || a.id.localeCompare(b.id));
     const boost = Math.round(MAX_BOOST * (1 - values.reduce((p, v) => p * (1 - v.raw), 1)) * 10000) / 10000;
@@ -85,6 +85,8 @@ function applyTsbWeights(candidates, vehicle, trustedReferences = [], options = 
 
 // A WeakSet prevents forged plain-object wrappers from becoming trusted by shape alone.
 const trustedSet = new WeakSet();
+// SECURITY: Trust-minting capability. Call only in the authenticated NHTSA corpus adapter,
+// after a successful vehicle-scoped database query; never on request or AI payloads.
 function fromTrustedCorpus(rows, vehicle) {
   return (Array.isArray(rows) ? rows : []).map(row => trustedCorpusReference(row, vehicle)).filter(Boolean).map(ref => {
     trustedSet.add(ref);
