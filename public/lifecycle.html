@@ -75,9 +75,10 @@ function invalidateVehicleDiagnosis(){
   setStatus('diagStatus','Vehicle identity changed. Previous diagnosis and evidence were cleared. Run Diagnosis for this vehicle.','warn');
   stage('Diag');
 }
-['vin','year','make','model','engine'].forEach(id=>$(id).addEventListener('input',()=>{
+['vin','year','make','model','engine'].forEach(id=>['input','change'].forEach(event=>$(id).addEventListener(event,()=>{
   if(diagnosisVehicleKey!==null&&vehicleIdentityKey()!==diagnosisVehicleKey)invalidateVehicleDiagnosis();
-}));
+  else if(diagnosisVehicleKey===null){vehicleEpoch++;$('quickAskOut').innerHTML='';}
+})));
 function reset(){vehicleEpoch++;diagnosisVehicleKey=null;hideInstallInvite();jobId=null;lastDiagnosis=null;lastEstimate=null;testCount=0;savedTests=[];currentDiagnosisRevision=1;furthestStage=0;$('jobBadge').textContent='NEW JOB';['testCard','verifyCard','estimateCard','invoiceCard'].forEach(id=>$(id).hidden=true);['diagOut','quickAskOut','unverifiedOut','testOut','invoiceOut','estimateOut'].forEach(id=>$(id).innerHTML='');['customerName','customerPhone','vin','year','make','model','engine','mileage','codes','symptoms','notes','quickQuestion','extra','cause','conclusion','mPadMm','mRotorMm','mBrakeFluidMonths','mTread32','mSteeringIn','mBatteryV','mAlternatorV'].forEach(id=>$(id).value='');['aiTranslated','aiTranslation','aiKeywords'].forEach(key=>delete $('symptoms').dataset[key]);$('candidate').textContent='—';$('dtcSource').value='MANUAL_ENTRY';$('vinStatus').textContent='Paste a 17-character VIN and decode to autofill vehicle identity.';$('translateStatus').textContent='Translation preserves Customer States and builds technician wording + retrieval keywords for evidence lookup.';$('tagInputStatus').textContent='TAG: not checked, no measurements entered.';renderVerifyEvidence();setStatus('diagStatus','Start here. Estimate stays locked until TEST → VERIFY.');stage('Diag')}
 // Avoid a blocking native browser confirmation dialog: automation and mobile webviews may stall.
 // Require a second deliberate tap; no job data is changed on the first tap.
