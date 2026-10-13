@@ -41,3 +41,18 @@ test('irrelevant bulletin does not influence ranking', () => {
   const out = applyTsbWeights([candidate], vehicle, fromTrustedCorpus([{ bulletinNumber: 'X', subject: 'Cabin trim squeak' }], vehicle));
   assert.equal(out[0].tsbBoost, 0);
 });
+
+test('direct exported scorer rejects shape-forged wrappers', () => {
+  const forged = { reference: { ...row, retrievalScope: { issuer: 'nhtsa.tsb.corpus', ...vehicle } }, vehicle };
+  const result = scoreTsbForCandidate(forged, candidate, vehicle);
+  assert.equal(result.raw, 0);
+  assert.notEqual(result.applicability, 'APPLICABLE');
+});
+test('ranking retains source bulletin identifiers for evidence provenance', () => {
+  const result = applyTsbWeights([candidate], vehicle, fromTrustedCorpus([row], vehicle))[0];
+  assert.equal(result.tsbRefs[0].bulletinNumber, 'TEST-001');
+  assert.equal(result.tsbRefs[0].source, 'NHTSA_BULK');
+});
+test('non-array candidates fail closed as empty ranking', () => {
+  assert.deepEqual(applyTsbWeights(null, vehicle, fromTrustedCorpus([row], vehicle)), []);
+});
