@@ -195,9 +195,10 @@ async function loadNhtsaCorpus(vehicle, context = {}, options = {}) {
 
     if (error) throw error;
     const rows = data || [];
+    const references = rankNhtsaRows(rows, context, options);
     return {
-      references: rankNhtsaRows(rows, context, options),
-      trustedTsbReferences: fromTrustedCorpus(rankNhtsaRows(rows, context, options), vehicle),
+      references,
+      trustedTsbReferences: fromTrustedCorpus(references, vehicle),
       totalFetched: rows.length,
       available: rows.length > 0,
       truncated: rows.length >= rowLimit,
