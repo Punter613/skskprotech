@@ -19,6 +19,7 @@ test('New Job requires two taps and clears previous vehicle and evidence fields'
     return elements.get(id);
   };
   const ctx = { $:get, hideInstallInvite(){}, renderVerifyEvidence(){}, setStatus(){}, stage(){} };
+  ctx.document = {querySelectorAll(){return []}};
   vm.runInNewContext(resetBlock[0], ctx);
   get('newJob').onclick();
   assert.equal(get('vin').value, 'OLD', 'first tap must not destroy job');
