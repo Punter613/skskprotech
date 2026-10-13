@@ -96,7 +96,8 @@ app.use('/api/scrape', requireApiAccess, scrapeRouter);
 app.use('/api/parts', requireApiAccess, partsRouter);
 app.use('/api/jobs', requireApiAccess, jobsRouter);
 
-app.use('/api/diagnose', ...protectAi, diagnosisLifecycle, diagnose);
+const { durableDiagnosisAdmission } = require('../src/middleware/diagnosis.durable.admission');
+app.use('/api/diagnose', durableDiagnosisAdmission, ...protectAi, diagnosisLifecycle, diagnose);
 app.use('/api/estimateHeuristic', requireApiAccess, estimateLifecycle, estimateHeuristic);
 
 app.use('/api/translate', ...protectAi, require('../src/routes/translate'));
