@@ -8,15 +8,14 @@ const { finishDurableDiagnosis } = require('./durable.diagnosis.finish');
 
 async function executeDurableDiagnosis(req, res, claim, rpcClient, diagnose = executeDiagnosis) {
   const invalid = validateDiagnoseInput(req.body);
-  if (invalid) return res.status(400).json({ success: false, code: 'INVALID_DIAGNOSIS_INPUT', error: invalid });
-  let status = 200;
-  let captured;
+  let status = invalid ? 400 : 200;
+  let captured = invalid ? { success: false, code: 'INVALID_DIAGNOSIS_INPUT', error: invalid } : null;
   const capture = {
     status(code) { status = code; return this; },
     json(payload) { captured = payload; return payload; }
   };
   try {
-    await diagnose(req, capture);
+    if (!invalid) await diagnose(req, capture);
     if (!captured || typeof captured !== 'object') throw new Error('Diagnosis did not return a JSON result');
   } catch (err) {
     status = 500;
