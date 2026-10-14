@@ -4,6 +4,9 @@ const assert = require('node:assert/strict');
 const { fingerprint, claimOrRead } = require('../src/services/durable.diagnosis.admission');
 const request = shop => ({ auth: { type: 'supabase_user', id: 'user_1', userId: '1', shopId: shop }, shopId: shop });
 const key = 'diagnosis-idempotency-key-123456';
+const previousAuth = process.env.SKSK_REQUIRE_AUTH;
+test.beforeEach(() => { process.env.SKSK_REQUIRE_AUTH = 'true'; });
+test.afterEach(() => { if (previousAuth === undefined) delete process.env.SKSK_REQUIRE_AUTH; else process.env.SKSK_REQUIRE_AUTH = previousAuth; });
 function transport(disposition, readDisposition = 'PROCESSING') {
   const calls = [];
   return {
