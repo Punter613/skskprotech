@@ -44,3 +44,19 @@ test('durable shop boundary binds to verified principal, not client overrides', 
     else process.env.SKSK_REQUIRE_AUTH = prior;
   }
 });
+
+test('durable shop boundary rejects mismatched principal and does not stamp denied requests', () => {
+  const before = process.env.SKSK_REQUIRE_AUTH;
+  try {
+    process.env.SKSK_REQUIRE_AUTH = 'true';
+    const auth = { type: 'supabase_user', id: 'user_123', userId: '123', shopId: 'shop_A' };
+    const denied = request(auth, 'shop_B');
+    assert.equal(runGate(denied).code, 403);
+    assert.equal(denied.durableShopId, undefined);
+    assert.equal(runGate(request({ ...auth, userId: '' }, 'shop_A')).code, 403);
+    assert.equal(runGate(request({ type: 'shop_key', id: 'invalid', shopId: 'shop_A' }, 'shop_A')).code, 403);
+  } finally {
+    if (before === undefined) delete process.env.SKSK_REQUIRE_AUTH;
+    else process.env.SKSK_REQUIRE_AUTH = before;
+  }
+});
