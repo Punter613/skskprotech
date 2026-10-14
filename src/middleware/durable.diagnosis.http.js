@@ -5,16 +5,18 @@
 const crypto = require('node:crypto');
 const { claimOrRead } = require('../services/durable.diagnosis.admission');
 const { replayDurableResponse } = require('../services/durable.diagnosis.replay');
+const { executeDurableDiagnosis } = require('../services/durable.diagnosis.execute');
 const { authorizedDurableShop } = require('./durable.shop.access');
 
-function durableHttpAdmission({ rpcClient, execute }) {
+function durableHttpAdmission({ rpcClient, execute } = {}) {
+  const executor = execute || (rpcClient?.rpc ? (req, res, claim) => executeDurableDiagnosis(req, res, claim, rpcClient) : null);
   return async function durableHttpAdmissionMiddleware(req, res, next) {
     if (req.method !== 'POST' || req.path !== '/') return next();
     if (process.env.SKSK_DURABLE_DIAGNOSIS_ENABLED !== 'true') return next();
     res.setHeader('Cache-Control', 'no-store');
     if (!authorizedDurableShop(req)) return res.status(403).json({ success: false, code: 'DURABLE_SHOP_AUTH_REQUIRED' });
     // Never attempt a claim without a wired terminal persistence executor.
-    if (typeof execute !== 'function' || !rpcClient?.rpc) {
+    if (typeof executor !== 'function' || !rpcClient?.rpc) {
       return res.status(503).json({ success: false, code: 'DURABLE_DIAGNOSIS_NOT_READY' });
     }
     const key = req.get('Idempotency-Key');
@@ -33,7 +35,7 @@ function durableHttpAdmission({ rpcClient, execute }) {
         return replayDurableResponse(res, admission.row);
       }
       // Only an injected executor can run the AI and atomically finish SQL.
-      return await execute(req, res, admission);
+      return await executor(req, res, admission);
     } catch (error) {
       const status = error.code === 'DURABLE_IDEMPOTENCY_CONFLICT' || error.code === 'DURABLE_FINGERPRINT_VERSION' ? 409
         : error.code === 'DURABLE_SHOP_AUTH_REQUIRED' ? 403
