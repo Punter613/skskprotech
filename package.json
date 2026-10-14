@@ -51,7 +51,7 @@
     "test:frontend-session": "node --test tests/frontend.supabase.session.inert.test.js",
     "test:dtc-reasoning": "node --test tests/dtc.reasoning.five-hundred.regression.test.js",
     "verify:brain": "node --test tests/constitution.brain.test.js tests/tsb.weight.engine.test.js",
-    "test:durable-shop": "node --test tests/durable.shop.access.test.js tests/durable.diagnosis.rpc.test.js tests/durable.admission.test.js tests/durable.diagnosis.admission.test.js tests/durable.diagnosis.http.test.js"
+    "test:durable-shop": "node --test tests/durable.shop.access.test.js tests/durable.diagnosis.rpc.test.js tests/durable.admission.test.js tests/durable.diagnosis.admission.test.js tests/durable.diagnosis.http.test.js tests/durable.diagnosis.finish.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.7",
