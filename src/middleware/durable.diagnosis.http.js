@@ -4,6 +4,7 @@
 // installed before rollout; this middleware NEVER falls through to legacy writes.
 const crypto = require('node:crypto');
 const { claimOrRead } = require('../services/durable.diagnosis.admission');
+const { replayDurableResponse } = require('../services/durable.diagnosis.replay');
 const { authorizedDurableShop } = require('./durable.shop.access');
 
 function durableHttpAdmission({ rpcClient, execute }) {
@@ -29,9 +30,7 @@ function durableHttpAdmission({ rpcClient, execute }) {
         return res.status(202).json({ success: false, code: 'DURABLE_OPERATION_PENDING' });
       }
       if (admission.action === 'REPLAY') {
-        // Byte-exact replay requires a separately verified bytea decoder.
-        // Never manufacture an equivalent JSON response.
-        return res.status(503).json({ success: false, code: 'DURABLE_REPLAY_NOT_READY' });
+        return replayDurableResponse(res, admission.row);
       }
       // Only an injected executor can run the AI and atomically finish SQL.
       return await execute(req, res, admission);
