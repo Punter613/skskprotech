@@ -88,7 +88,8 @@ function filterCodeExplanations(value, trustedCodes = []) {
   return output;
 }
 
-router.post('/', async (req, res) => {
+// Shared diagnostic execution: persistence is owned by the caller's middleware.
+async function executeDiagnosis(req, res) {
   const executionTrace = { traceId: 'TR-' + Date.now().toString(16).toUpperCase(), stage: 'INGESTION', logs: [], log(stage, message) { this.stage = stage; this.logs.push(`[${stage}] ${message}`); } };
   executionTrace.log('API_ROUTER', 'Payload received.');
   try {
@@ -268,8 +269,11 @@ MULTI-CONDITION REASONING: When a symptom occurs under distinct operating condit
     console.error('[Diagnose] Error:', err); executionTrace.log('FATAL', err.message || 'Unknown diagnosis error');
     return res.status(500).json({ success: false, error: 'Diagnosis failed', details: err.message || 'Unknown error', trace: executionTrace.traceId });
   }
-});
+}
+
+router.post('/', executeDiagnosis);
 
 module.exports = router;
+module.exports.executeDiagnosis = executeDiagnosis;
 module.exports.filterCodeExplanations = filterCodeExplanations;
 module.exports.extractJSON = extractJSON;
