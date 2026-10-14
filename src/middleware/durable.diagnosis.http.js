@@ -5,11 +5,11 @@
 const crypto = require('node:crypto');
 const { claimOrRead } = require('../services/durable.diagnosis.admission');
 const { replayDurableResponse } = require('../services/durable.diagnosis.replay');
-const { executeDurableDiagnosis } = require('../services/durable.diagnosis.execute');
 const { authorizedDurableShop } = require('./durable.shop.access');
 
 function durableHttpAdmission({ rpcClient, execute } = {}) {
-  const executor = execute || (rpcClient?.rpc ? (req, res, claim) => executeDurableDiagnosis(req, res, claim, rpcClient) : null);
+  // An explicit executor is required until deployment wiring and transport validation pass.
+  const executor = execute;
   return async function durableHttpAdmissionMiddleware(req, res, next) {
     if (req.method !== 'POST' || req.path !== '/') return next();
     if (process.env.SKSK_DURABLE_DIAGNOSIS_ENABLED !== 'true') return next();
