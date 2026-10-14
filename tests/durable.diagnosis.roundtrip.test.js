@@ -16,7 +16,7 @@ test('claim, terminal failure, and duplicate replay preserve identical bytes wit
         claims++;
         return { data: [{ disposition: stored ? 'PROCESSING' : 'CLAIMED',
           operation_id: '00000000-0000-0000-0000-000000000001',
-          generation: 1, linked_job_id: 'DJ-test' }], error: null };
+          generation: 1, linked_job_id: args.p_job_id }], error: null };
       }
       if (name === 'finish_diagnosis_operation') {
         assert.equal(args.p_terminal, 'FAILED');
