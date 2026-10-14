@@ -13,7 +13,7 @@ function transport(disposition, readDisposition = 'PROCESSING') {
     calls,
     rpc: async (name, params) => {
       calls.push({ name, params });
-      if (name === 'claim_diagnosis_operation') return { data: [{ disposition, operation_id: 'op1', generation: 1, linked_job_id: 'job1' }], error: null };
+      if (name === 'claim_diagnosis_operation') return { data: [{ disposition, operation_id: '00000000-0000-0000-0000-000000000001', generation: 1, linked_job_id: 'job1' }], error: null };
       return { data: [{ disposition: readDisposition, http_status: 200 }], error: null };
     }
   };
@@ -54,4 +54,21 @@ test('unauthenticated request makes zero RPC calls', async () => {
 test('database failure never falls back to execution', async () => {
   const db = { rpc: async () => ({ data: null, error: { message: 'offline' } }) };
   await assert.rejects(claimOrRead(request('shop_A'), db, { key, jobId: 'job1', body: {} }), { code: 'DURABLE_RPC_FAILED' });
+});
+
+test('malformed or mismatched claimed identifiers never authorize AI execution', async () => {
+  for (const change of [
+    { operation_id: 'not-a-uuid' },
+    { generation: 0 },
+    { generation: '1' },
+    { linked_job_id: 'different-job' }
+  ]) {
+    const db = { rpc: async () => ({ data: [{
+      disposition: 'CLAIMED', operation_id: '00000000-0000-0000-0000-000000000001',
+      generation: 1, linked_job_id: 'job1', ...change
+    }], error: null }) };
+    await assert.rejects(claimOrRead(request('shop_A'), db, {
+      key, jobId: 'job1', body: { symptoms: ['noise'] }
+    }), { code: 'DURABLE_RPC_INVALID_RESULT' });
+  }
 });
