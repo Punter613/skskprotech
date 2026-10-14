@@ -40,6 +40,18 @@ async function executeDurableRpc(req, rpcClient, name, params = {}) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       throw new TypeError('Durable job payload must be an object');
     }
+    if (Object.prototype.hasOwnProperty.call(payload, 'shopId') && payload.shopId !== shop) {
+      const error = new Error('Durable job payload shop does not match verified identity');
+      error.code = 'DURABLE_SHOP_MISMATCH';
+      throw error;
+    }
+    if (name === 'claim_diagnosis_operation' &&
+        Object.prototype.hasOwnProperty.call(payload, 'jobId') &&
+        payload.jobId !== safeParams.p_job_id) {
+      const error = new Error('Durable claim payload job does not match operation job');
+      error.code = 'DURABLE_JOB_MISMATCH';
+      throw error;
+    }
     safeParams[field] = { ...payload, shopId: shop };
     if (name === 'claim_diagnosis_operation') {
       if (typeof safeParams.p_job_id !== 'string' || !safeParams.p_job_id.trim()) {
