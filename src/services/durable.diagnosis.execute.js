@@ -29,6 +29,13 @@ async function executeDurableDiagnosis(req, res, claim, rpcClient, diagnose = ex
       captured = { success: false, code: 'DURABLE_EVIDENCE_GUARD_FAILED', error: 'Diagnosis evidence validation failed' };
     }
   }
+  // The diagnostic handler may return a JSON failure without setting an HTTP
+  // error status. Never persist that failure as a successful TESTING job.
+  if (captured.success !== true && status >= 200 && status < 300) status = 500;
+  if (captured.success === true && !captured.result) {
+    status = 500;
+    captured = { success: false, code: 'DURABLE_RESULT_MISSING', error: 'Diagnosis returned no result' };
+  }
   const response = { ...captured, jobId: claim.jobId, invoiceNumber: claim.jobId };
   const bytes = Buffer.from(JSON.stringify(response));
   await finishDurableDiagnosis(req, rpcClient, claim, {
