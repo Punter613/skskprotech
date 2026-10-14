@@ -7,7 +7,8 @@ function toPgBytea(buffer) {
 }
 
 async function finishDurableDiagnosis(req, rpcClient, claim, { httpStatus, responseBytes, jobPayload }) {
-  if (claim?.action !== 'EXECUTE' || !claim.operationId || !claim.jobId ||
+  if (claim?.action !== 'EXECUTE' || typeof claim.operationId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(claim.operationId) ||
+      typeof claim.jobId !== 'string' || !claim.jobId.trim() ||
       !Number.isSafeInteger(claim.generation) || claim.generation < 1) throw new TypeError('Invalid durable claim');
   if (!Number.isInteger(httpStatus) || httpStatus < 100 || httpStatus > 599) throw new TypeError('Invalid HTTP status');
   if (!Buffer.isBuffer(responseBytes)) throw new TypeError('Response bytes required');
