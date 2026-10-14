@@ -19,6 +19,16 @@ function durableHttpAdmission({ rpcClient, execute } = {}) {
     if (typeof executor !== 'function' || !rpcClient?.rpc) {
       return res.status(503).json({ success: false, code: 'DURABLE_DIAGNOSIS_NOT_READY' });
     }
+    // Ownership comes exclusively from verified authentication, never intake.
+    // Reject ambiguous caller-provided identifiers before claiming a job.
+    const body = req.body;
+    const reserved = ['shopId', 'shop_id', 'p_shop', 'jobId'];
+    if (body && typeof body === 'object' && !Array.isArray(body) &&
+        (reserved.some(field => Object.prototype.hasOwnProperty.call(body, field)) ||
+         (body.intake && typeof body.intake === 'object' &&
+          reserved.some(field => Object.prototype.hasOwnProperty.call(body.intake, field))))) {
+      return res.status(400).json({ success: false, code: 'DURABLE_UNTRUSTED_IDENTITY' });
+    }
     const key = req.get('Idempotency-Key');
     if (typeof key !== 'string' || key.length < 16 || key.length > 200) {
       return res.status(400).json({ success: false, code: 'DURABLE_INVALID_KEY' });
