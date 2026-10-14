@@ -32,6 +32,22 @@ async function executeDurableRpc(req, rpcClient, name, params = {}) {
   }
   // Never allow the caller to select the tenant, even via aliases.
   const { p_shop: _ignoredShop, shop_id: _ignoredShopId, shopId: _ignoredCamelShop, ...safeParams } = params;
+  // Defense in depth: do not forward a tenant identifier embedded in a job
+  // payload. The database functions must independently enforce this invariant.
+  if (name === 'claim_diagnosis_operation' || name === 'finish_diagnosis_operation') {
+    const field = name === 'claim_diagnosis_operation' ? 'p_initial_job' : 'p_job_payload';
+    const payload = safeParams[field];
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw new TypeError('Durable job payload must be an object');
+    }
+    safeParams[field] = { ...payload, shopId: shop };
+    if (name === 'claim_diagnosis_operation') {
+      if (typeof safeParams.p_job_id !== 'string' || !safeParams.p_job_id.trim()) {
+        throw new TypeError('Durable claim requires a job identifier');
+      }
+      safeParams[field].jobId = safeParams.p_job_id;
+    }
+  }
   return rpcClient.rpc(name, { ...safeParams, p_shop: shop });
 }
 
