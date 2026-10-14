@@ -202,7 +202,12 @@ test('AI limiter returns 429 after the configured burst', () => {
 
 test('production server mounts access control before costly AI handlers', () => {
   const server = fs.readFileSync(path.join(__dirname, '../api/server.js'), 'utf8');
-  assert.ok(server.includes("app.use('/api/diagnose', ...protectAi, diagnosisLifecycle, diagnose);"));
+  assert.ok(server.includes("app.use('/api/diagnose', durableDiagnosisAdmission, ...protectAi, diagnosisLifecycle, diagnose);"));
+  assert.ok(server.includes("const { durableDiagnosisAdmission } = require('../src/middleware/diagnosis.durable.admission');"));
+  const admission = fs.readFileSync(path.join(__dirname, '../src/middleware/diagnosis.durable.admission.js'), 'utf8');
+  assert.ok(admission.includes("process.env.SKSK_DURABLE_DIAGNOSIS_ENABLED !== 'true'"));
+  assert.ok(admission.includes("return next();"));
+  assert.ok(admission.includes("res.status(503)"));
   assert.ok(server.includes("app.use('/api/quick-ask', ...protectAi, quickAskRouter);"));
   assert.ok(server.includes("app.use('/api/translate', ...protectAi, require('../src/routes/translate'));"));
   assert.ok(server.includes("app.use('/api/intelligence', ...protectAi, require('../src/routes/intelligence.routes'));"));
