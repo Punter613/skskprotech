@@ -73,3 +73,16 @@ test('missing diagnostic result is never marked completed', async () => {
   assert.equal(res.code, 500);
   assert.equal(JSON.parse(res.sent.toString()).code, 'DURABLE_RESULT_MISSING');
 });
+
+test('success payload paired with HTTP error cannot commit as completed', async () => {
+  const res = response();
+  const rpc = { rpc: async (_name, params) => {
+    assert.equal(params.p_terminal, 'FAILED');
+    assert.equal(params.p_http_status, 500);
+    return { data: true, error: null };
+  } };
+  await executeDurableDiagnosis(req, res, claim, rpc, async (_req, capture) =>
+    capture.status(503).json({ success: true, result: { primaryCause: 'inconsistent' } }));
+  assert.equal(res.code, 500);
+  assert.equal(JSON.parse(res.sent.toString()).code, 'DURABLE_STATUS_MISMATCH');
+});
