@@ -36,6 +36,12 @@ async function executeDurableDiagnosis(req, res, claim, rpcClient, diagnose = ex
     status = 500;
     captured = { success: false, code: 'DURABLE_RESULT_MISSING', error: 'Diagnosis returned no result' };
   }
+  // A 2xx status must represent an actual successful diagnostic result.
+  // Conversely, a success payload cannot be paired with an HTTP error.
+  if (captured.success === true && (status < 200 || status >= 300)) {
+    status = 500;
+    captured = { success: false, code: 'DURABLE_STATUS_MISMATCH', error: 'Diagnosis response status inconsistent' };
+  }
   const response = { ...captured, jobId: claim.jobId, invoiceNumber: claim.jobId };
   const bytes = Buffer.from(JSON.stringify(response));
   await finishDurableDiagnosis(req, rpcClient, claim, {
