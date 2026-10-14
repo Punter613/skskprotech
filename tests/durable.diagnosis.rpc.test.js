@@ -83,31 +83,40 @@ test('every permitted durable RPC is shop-stamped from verified identity', async
   }
 });
 
-test('claim and finish RPC overwrite tenant identity inside job payloads', async () => {
+test('claim and finish reject forged payload ownership before RPC', async () => {
   const before = process.env.SKSK_REQUIRE_AUTH;
   try {
     process.env.SKSK_REQUIRE_AUTH = 'true';
     const calls = [];
     const transport = { rpc: async (name, params) => { calls.push({ name, params }); return { data: null, error: null }; } };
     const req = { auth: { type: 'supabase_user', id: 'user_1', userId: '1', shopId: 'shop_A' }, shopId: 'shop_A' };
-    const supplied = { shopId: 'shop_B', jobId: 'forged', status: 'DIAGNOSING' };
+    await assert.rejects(
+      executeDurableRpc(req, transport, 'claim_diagnosis_operation', {
+        p_job_id: 'job_1', p_initial_job: { shopId: 'shop_B', jobId: 'job_1' }
+      }), { code: 'DURABLE_SHOP_MISMATCH' });
+    await assert.rejects(
+      executeDurableRpc(req, transport, 'claim_diagnosis_operation', {
+        p_job_id: 'job_1', p_initial_job: { jobId: 'forged' }
+      }), { code: 'DURABLE_JOB_MISMATCH' });
+    await assert.rejects(
+      executeDurableRpc(req, transport, 'finish_diagnosis_operation', {
+        p_job_payload: { shopId: 'shop_B' }
+      }), { code: 'DURABLE_SHOP_MISMATCH' });
+    assert.equal(calls.length, 0);
     await executeDurableRpc(req, transport, 'claim_diagnosis_operation', {
-      p_job_id: 'job_1', p_initial_job: supplied
+      p_job_id: 'job_1', p_initial_job: { status: 'DIAGNOSING' }
     });
     await executeDurableRpc(req, transport, 'finish_diagnosis_operation', {
-      p_job_payload: supplied
+      p_job_payload: { status: 'TESTING' }
     });
     assert.deepEqual(calls[0].params.p_initial_job, {
       shopId: 'shop_A', jobId: 'job_1', status: 'DIAGNOSING'
     });
     assert.equal(calls[1].params.p_job_payload.shopId, 'shop_A');
-    assert.equal(supplied.shopId, 'shop_B');
     await assert.rejects(
       executeDurableRpc(req, transport, 'claim_diagnosis_operation', {
         p_job_id: 'job_2', p_initial_job: []
-      }),
-      TypeError
-    );
+      }), TypeError);
     assert.equal(calls.length, 2);
   } finally {
     if (before === undefined) delete process.env.SKSK_REQUIRE_AUTH;
