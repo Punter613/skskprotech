@@ -57,3 +57,27 @@ test('conflicting claim returns HTTP 409 without executing AI', async () => {
   assert.equal(response.statusCode, 409);
   assert.equal(executions, 0);
 });
+
+test('rejects untrusted ownership fields before SQL admission', async () => {
+  let calls = 0;
+  const handler = durableHttpAdmission({
+    rpcClient: { rpc: async () => { calls++; } },
+    execute: async () => assert.fail('diagnostic executor must not run')
+  });
+  const cases = [
+    { shopId: 'shop_B' },
+    { shop_id: 'shop_B' },
+    { p_shop: 'shop_B' },
+    { jobId: 'job_B' },
+    { intake: { shopId: 'shop_B' } }
+  ];
+  for (const fields of cases) {
+    const request = req();
+    request.body = { ...request.body, ...fields };
+    const response = res();
+    await handler(request, response, () => assert.fail('legacy route must not run'));
+    assert.equal(response.statusCode, 400);
+    assert.equal(response.body.code, 'DURABLE_UNTRUSTED_IDENTITY');
+  }
+  assert.equal(calls, 0);
+});
