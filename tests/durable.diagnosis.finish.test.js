@@ -30,3 +30,14 @@ test('fenced completion and forged job reject', async () => {
   await assert.rejects(finishDurableDiagnosis(req, db, claim, { httpStatus: 500, responseBytes: Buffer.from('{}'), jobPayload: {} }), { code: 'DURABLE_FINISH_REJECTED' });
   assert.equal(calls, 1);
 });
+
+test('invalid generation never reaches terminal RPC', async () => {
+  let calls = 0;
+  const db = { rpc: async () => { calls++; return { data: true, error: null }; } };
+  for (const generation of ['1', 0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) {
+    await assert.rejects(finishDurableDiagnosis(req, db, { ...claim, generation }, {
+      httpStatus: 500, responseBytes: Buffer.from('{}'), jobPayload: {}
+    }), TypeError);
+  }
+  assert.equal(calls, 0);
+});
