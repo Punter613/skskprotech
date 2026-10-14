@@ -31,6 +31,13 @@ async function executeDurableRpc(req, rpcClient, name, params = {}) {
     throw new TypeError('Durable RPC parameters must be an object');
   }
   // Never allow the caller to select the tenant, even via aliases.
+  for (const field of ['p_shop', 'shop_id', 'shopId']) {
+    if (Object.prototype.hasOwnProperty.call(params, field) && params[field] !== shop) {
+      const error = new Error('Durable RPC tenant does not match verified identity');
+      error.code = 'DURABLE_SHOP_MISMATCH';
+      throw error;
+    }
+  }
   const { p_shop: _ignoredShop, shop_id: _ignoredShopId, shopId: _ignoredCamelShop, ...safeParams } = params;
   // Defense in depth: do not forward a tenant identifier embedded in a job
   // payload. The database functions must independently enforce this invariant.
