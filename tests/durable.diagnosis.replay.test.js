@@ -39,3 +39,12 @@ test('replay rejects bodyless statuses and corrupt JSON before writing headers',
     }), { code: 'DURABLE_RESPONSE_ENCODING' });
   }
 });
+
+test('invalid UTF-8 in stored JSON is rejected without writing HTTP headers', () => {
+  const invalid = Buffer.concat([Buffer.from('{"name":"'), Buffer.from([0xff]), Buffer.from('"}')]);
+  const row = { http_status: 200, response_content_type: 'application/json',
+    response_bytes: String.fromCharCode(92) + 'x' + invalid.toString('hex') };
+  assert.throws(() => replayDurableResponse({
+    status() { assert.fail('invalid bytes must never be sent'); }
+  }, row), { code: 'DURABLE_RESPONSE_ENCODING' });
+});
