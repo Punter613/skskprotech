@@ -21,3 +21,21 @@ test('malformed bytea or response metadata never produces a replay', () => {
   }
   assert.throws(() => replayDurableResponse({}, { http_status: 200, response_bytes: '', response_content_type: 'text/html' }), { code: 'DURABLE_RESPONSE_METADATA' });
 });
+
+test('replay rejects bodyless statuses and corrupt JSON before writing headers', () => {
+  const encoded = String.fromCharCode(92) + 'x' + Buffer.from('{"ok":true}').toString('hex');
+  for (const status of [100, 204, 205, 304, 600]) {
+    const res = { status() { assert.fail('must not write response'); } };
+    assert.throws(() => replayDurableResponse(res, {
+      http_status: status, response_bytes: encoded, response_content_type: 'application/json'
+    }), { code: 'DURABLE_RESPONSE_METADATA' });
+  }
+  for (const body of ['not-json', '[]', '{"incomplete":']) {
+    const res = { status() { assert.fail('must not write response'); } };
+    assert.throws(() => replayDurableResponse(res, {
+      http_status: 500,
+      response_bytes: String.fromCharCode(92) + 'x' + Buffer.from(body).toString('hex'),
+      response_content_type: 'application/json'
+    }), { code: 'DURABLE_RESPONSE_ENCODING' });
+  }
+});
