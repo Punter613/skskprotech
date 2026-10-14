@@ -47,3 +47,29 @@ test('invalid intake finishes as failed without running AI', async () => {
   assert.equal(ran, false);
   assert.equal(res.code, 400);
 });
+
+test('JSON failure returned with HTTP 200 is persisted as FAILED', async () => {
+  const res = response();
+  const rpc = { rpc: async (_name, params) => {
+    assert.equal(params.p_terminal, 'FAILED');
+    assert.equal(params.p_job_status, 'DIAG_FAILED');
+    assert.equal(params.p_http_status, 500);
+    return { data: true, error: null };
+  } };
+  await executeDurableDiagnosis(req, res, claim, rpc, async (_req, capture) =>
+    capture.json({ success: false, error: 'AI provider unavailable' }));
+  assert.equal(res.code, 500);
+  assert.equal(JSON.parse(res.sent.toString()).success, false);
+});
+test('missing diagnostic result is never marked completed', async () => {
+  const res = response();
+  const rpc = { rpc: async (_name, params) => {
+    assert.equal(params.p_terminal, 'FAILED');
+    assert.equal(params.p_http_status, 500);
+    return { data: true, error: null };
+  } };
+  await executeDurableDiagnosis(req, res, claim, rpc, async (_req, capture) =>
+    capture.json({ success: true }));
+  assert.equal(res.code, 500);
+  assert.equal(JSON.parse(res.sent.toString()).code, 'DURABLE_RESULT_MISSING');
+});
