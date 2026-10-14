@@ -41,3 +41,17 @@ test('invalid generation never reaches terminal RPC', async () => {
   }
   assert.equal(calls, 0);
 });
+
+test('invalid terminal operation or job identifiers never reach RPC', async () => {
+  let calls = 0;
+  const db = { rpc: async () => { calls++; return { data: true, error: null }; } };
+  for (const change of [
+    { operationId: 'bad-id' }, { operationId: 42 },
+    { jobId: '' }, { jobId: '   ' }, { jobId: 42 }
+  ]) {
+    await assert.rejects(finishDurableDiagnosis(req, db, { ...claim, ...change }, {
+      httpStatus: 500, responseBytes: Buffer.from('{}'), jobPayload: {}
+    }), TypeError);
+  }
+  assert.equal(calls, 0);
+});
