@@ -28,10 +28,21 @@ function replayDurableResponse(res, row) {
     throw err;
   }
   const bytes = decodePgBytea(row.response_bytes);
+  // Buffer.toString('utf8') silently replaces invalid byte sequences. A
+  // replacement character would violate the stored JSON response contract.
+  const { TextDecoder } = require('node:util');
+  let decoded;
+  try {
+    decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch (_) {
+    const err = new Error('Stored response is not valid UTF-8');
+    err.code = 'DURABLE_RESPONSE_ENCODING';
+    throw err;
+  }
   // Terminal responses must be JSON, not merely tagged as JSON. Reject
   // corruption before writing headers or emitting any bytes to the client.
   try {
-    const parsed = JSON.parse(bytes.toString('utf8'));
+    const parsed = JSON.parse(decoded);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Not an object');
   } catch (_) {
     const err = new Error('Stored diagnosis response is not valid JSON');
