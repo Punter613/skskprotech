@@ -3,3 +3,5 @@ reason: fail-closed auth and tenant identity security hardening
 updated: 2026-10-20
 reason: refresh exact-head runtime after auth regression tests
 updated: 2026-10-21
+reason: exact-head provider workflow auth verification
+updated: 2026-10-21 provider gate
