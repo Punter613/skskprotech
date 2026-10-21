@@ -200,7 +200,6 @@
     });
 
     document.getElementById('btnBulkEstimate').addEventListener('click', async () => {
-      const tenantId = tenantInput.value.trim();
       const status = document.getElementById('bulkStatus');
       const btn = document.getElementById('btnBulkEstimate');
       const vins = currentRoster.map(v => v.vin);
