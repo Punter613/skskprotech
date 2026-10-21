@@ -11,6 +11,22 @@ function configuredKeys() {
     .filter(Boolean);
 }
 
+// Server-only JSON object mapping opaque shop API keys to durable shop IDs.
+// Example (fake values): {"fleet-alpha":"shop_alpha","fleet-beta":"shop_beta"}
+function configuredShopBindings() {
+  let parsed;
+  try { parsed = JSON.parse(process.env.SKSK_SHOP_KEY_BINDINGS || '{}'); }
+  catch { return null; }
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') return null;
+  const bindings = Object.entries(parsed);
+  const ids = new Set();
+  for (const [key, shopId] of bindings) {
+    if (!key.trim() || typeof shopId !== 'string' || !/^[a-zA-Z0-9_-]{3,128}$/.test(shopId) || ids.has(shopId)) return null;
+    ids.add(shopId);
+  }
+  return bindings;
+}
+
 function configuredTestKeys() {
   return String(process.env.SKSK_TEST_API_KEYS || '')
     .split(',')
@@ -46,20 +62,24 @@ function markPrincipal(req, type, id, claims = {}) {
 async function requireApiAccess(req, res, next) {
   if (!authRequired()) return next(); // Isolated tests only; never production.
 
-  const keys = configuredKeys();
-  if (!keys.length && !supabaseIdentityConfigured()) {
+  const bindings = configuredShopBindings();
+  if (!bindings) return res.status(503).json({ success: false, error: 'Shop identity configuration is invalid' });
+  if (!bindings.length && !supabaseIdentityConfigured()) {
     console.error('[Access] SKSK_REQUIRE_AUTH=true but neither shop keys nor Supabase identity are configured');
     return res.status(503).json({ success: false, error: 'API access is not configured' });
   }
 
   const credential = extractCredential(req);
-  const keyIndex = credential ? keys.findIndex(key => safeEqual(credential, key)) : -1;
-  if (credential && keyIndex >= 0) {
-    // Transitional shop-key identity remains supported during browser migration.
-    const shopId = `shop_key_${keyIndex + 1}`;
+  const binding = credential ? bindings.find(([key]) => safeEqual(credential, key)) : null;
+  if (binding) {
+    const shopId = binding[1];
     markPrincipal(req, 'shop_key', shopId, { shopId });
     req.shopId = shopId;
     return next();
+  }
+  // A legacy key without a durable binding must never acquire positional ownership.
+  if (credential && configuredKeys().some(key => safeEqual(credential, key))) {
+    return res.status(503).json({ success: false, error: 'Shop identity is not configured' });
   }
 
   // Bearer tokens that are not transitional shop keys may be Supabase user
@@ -124,9 +144,8 @@ function createRateLimiter(options = {}) {
   function validatedCredentialKey(req) {
     const credential = extractCredential(req);
     if (!credential) return null;
-    const keys = configuredKeys();
-    const keyIndex = keys.findIndex(key => safeEqual(credential, key));
-    if (keyIndex < 0) return null;
+    const bindings = configuredShopBindings();
+    if (!bindings || !bindings.some(([key]) => safeEqual(credential, key))) return null;
     return `credential:${crypto.createHash('sha256').update(credential).digest('hex')}`;
   }
 
