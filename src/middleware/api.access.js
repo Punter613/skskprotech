@@ -23,7 +23,8 @@ function testKeysAllowed() {
 }
 
 function authRequired() {
-  return String(process.env.SKSK_REQUIRE_AUTH || '').toLowerCase() === 'true';
+  // Authentication is mandatory unless an isolated test explicitly opts out.
+  return !(process.env.NODE_ENV === 'test' && process.env.SKSK_SKIP_AUTH === 'true');
 }
 
 function safeEqual(left, right) {
@@ -43,7 +44,7 @@ function markPrincipal(req, type, id, claims = {}) {
 }
 
 async function requireApiAccess(req, res, next) {
-  if (!authRequired()) return next();
+  if (!authRequired()) return next(); // Isolated tests only; never production.
 
   const keys = configuredKeys();
   if (!keys.length && !supabaseIdentityConfigured()) {
