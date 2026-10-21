@@ -71,7 +71,7 @@ async function requireApiAccess(req, res, next) {
 
   const credential = extractCredential(req);
   const binding = credential ? bindings.find(([key]) => safeEqual(credential, key)) : null;
-  if (binding) {
+  if (binding && configuredKeys().some(key => safeEqual(credential, key))) {
     const shopId = binding[1];
     markPrincipal(req, 'shop_key', shopId, { shopId });
     req.shopId = shopId;
