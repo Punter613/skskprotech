@@ -9,3 +9,5 @@ updated: 2026-10-21 provider gate
 reason: authenticated seven runtime gates; provider key configuration pending
 
 reason: fleet authenticated UI compatibility and tenant regression check
+
+reason: redeploy frontend auth bridge regression fix for exact-head runtime verification
