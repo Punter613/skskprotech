@@ -8,7 +8,7 @@ const { requireApiAccess } = require('../src/middleware/api.access');
 const fleet = require('../src/routes/fleet');
 
 test('fleet HTTP authentication and cross-shop roster isolation', async () => {
-  const keys = ['NODE_ENV','SKSK_SKIP_AUTH','SKSK_API_KEYS','SKSK_API_KEY'];
+  const keys = ['NODE_ENV','SKSK_SKIP_AUTH','SKSK_API_KEYS','SKSK_API_KEY','SKSK_SHOP_KEY_BINDINGS'];
   const saved = Object.fromEntries(keys.map(k => [k, process.env[k]]));
   const original = db.supabase;
   const rows = [];
@@ -33,6 +33,7 @@ test('fleet HTTP authentication and cross-shop roster isolation', async () => {
   }};
   process.env.NODE_ENV = 'production';
   process.env.SKSK_API_KEYS = 'fleet-alpha,fleet-beta';
+  process.env.SKSK_SHOP_KEY_BINDINGS = JSON.stringify({'fleet-alpha':'shop_alpha','fleet-beta':'shop_beta'});
   delete process.env.SKSK_SKIP_AUTH;
   delete process.env.SKSK_API_KEY;
   const app = express();
@@ -52,14 +53,20 @@ test('fleet HTTP authentication and cross-shop roster isolation', async () => {
     const vin = '1HGCM82633A004352';
     assert.equal((await call('roster')).status, 401);
     assert.equal((await call('roster', 'wrong')).status, 401);
-    assert.equal((await call('roster', 'fleet-alpha', 'GET', null, {'x-tenant-id':'shop_key_2'})).status, 403);
+    delete process.env.SKSK_SHOP_KEY_BINDINGS;
+    assert.equal((await call('roster', 'fleet-alpha')).status, 503);
+    process.env.SKSK_SHOP_KEY_BINDINGS = JSON.stringify({'fleet-alpha':'shop_alpha','fleet-beta':'shop_beta'});
+    assert.equal((await call('roster', 'fleet-alpha', 'GET', null, {'x-tenant-id':'shop_beta'})).status, 403);
     assert.equal((await call('add', 'fleet-alpha', 'POST', {vin})).status, 200);
     assert.equal((await call('roster', 'fleet-alpha')).data.roster.length, 1);
     assert.equal((await call('roster', 'fleet-beta')).data.roster.length, 0);
     assert.equal((await call('add', 'fleet-beta', 'POST', {vin})).status, 200);
     assert.equal(rows.length, 2);
-    assert.deepEqual(rows.map(r=>r.tenant_id).sort(), ['shop_key_1','shop_key_2']);
-    assert.equal((await call('bulk-estimate', 'fleet-beta', 'POST', {vins:[vin]}, {'x-tenant-id':'shop_key_1'})).status, 403);
+    process.env.SKSK_SHOP_KEY_BINDINGS = JSON.stringify({'fleet-beta':'shop_beta','fleet-alpha':'shop_alpha'});
+    assert.equal((await call('roster', 'fleet-alpha')).data.roster.length, 1);
+    assert.equal((await call('roster', 'fleet-beta')).data.roster.length, 1);
+    assert.deepEqual(rows.map(r=>r.tenant_id).sort(), ['shop_alpha','shop_beta']);
+    assert.equal((await call('bulk-estimate', 'fleet-beta', 'POST', {vins:[vin]}, {'x-tenant-id':'shop_alpha'})).status, 403);
   } finally {
     await new Promise(resolve => server.close(resolve));
     db.supabase = original;
