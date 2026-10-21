@@ -7,3 +7,5 @@ reason: exact-head provider workflow auth verification
 updated: 2026-10-21 provider gate
 
 reason: authenticated seven runtime gates; provider key configuration pending
+
+reason: fleet authenticated UI compatibility and tenant regression check
