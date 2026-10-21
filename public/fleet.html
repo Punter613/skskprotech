@@ -57,12 +57,12 @@
           <li>📋 Active Roster</li>
         </ul>
       </nav>
-      <p class="status-msg">Fleet management is account-scoped. Enter any account name below — units are stored per account.</p>
+      <p class="status-msg">Fleet access is scoped to your authenticated shop. Existing fleets created with manual account names require an ownership migration.</p>
     </aside>
 
     <main>
       <div class="tenant-bar">
-        <input id="tenantId" type="text" placeholder="Account / Shop ID (e.g. shaffer-mobile)">
+        <span id="tenantId">Authenticated shop fleet</span>
         <button class="btn-action" id="btnLoadRoster">Load Roster</button>
       </div>
 
@@ -96,7 +96,7 @@
           </tr>
         </thead>
         <tbody id="rosterBody">
-          <tr><td colspan="6" class="empty-state">Enter an account ID and click Load Roster.</td></tr>
+          <tr><td colspan="6" class="empty-state">Sign in and click Load Roster.</td></tr>
         </tbody>
       </table>
       <div style="margin-top:16px">
@@ -110,8 +110,6 @@
   <script>
     const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://p613-backend.onrender.com';
 
-    const tenantInput = document.getElementById('tenantId');
-    tenantInput.value = localStorage.getItem('sksk_fleet_tenant') || '';
 
     let currentRoster = [];
 
@@ -147,16 +145,13 @@
     }
 
     async function loadRoster() {
-      const tenantId = tenantInput.value.trim();
-      if (!tenantId) { alert('Enter an account/shop ID first.'); return; }
-      localStorage.setItem('sksk_fleet_tenant', tenantId);
 
       const body = document.getElementById('rosterBody');
       body.innerHTML = `<tr><td colspan="6" class="empty-state">Loading...</td></tr>`;
 
       try {
         const res = await SKSKAuth.request(`${API_BASE}/api/fleet/roster`, {
-          headers: { 'x-tenant-id': tenantId }
+          headers: {}
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || `Failed (${res.status})`);
@@ -169,9 +164,7 @@
     document.getElementById('btnLoadRoster').addEventListener('click', loadRoster);
 
     document.getElementById('btnAddVehicle').addEventListener('click', async () => {
-      const tenantId = tenantInput.value.trim();
       const status = document.getElementById('addStatus');
-      if (!tenantId) { alert('Enter an account/shop ID first.'); return; }
 
       const vin = document.getElementById('addVin').value.trim();
       const year = document.getElementById('addYear').value.trim();
@@ -191,7 +184,7 @@
       try {
         const res = await SKSKAuth.request(`${API_BASE}/api/fleet/add`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ vin, year, make, model, mileage })
         });
         const data = await res.json();
@@ -221,7 +214,7 @@
       try {
         const res = await SKSKAuth.request(`${API_BASE}/api/fleet/bulk-estimate`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ vins, labor_rate: 85 })
         });
         const data = await res.json();
@@ -237,7 +230,7 @@
       }
     });
 
-    if (tenantInput.value) loadRoster();
+    loadRoster();
   </script>
 </body>
 </html>
