@@ -22,11 +22,48 @@ function res() {
   };
 }
 
+
+test('authentication defaults to fail-closed even if SKSK_REQUIRE_AUTH=false', async () => {
+  const saved = Object.fromEntries(['NODE_ENV','SKSK_SKIP_AUTH','SKSK_REQUIRE_AUTH','SKSK_API_KEYS','SKSK_API_KEY','SKSK_SHOP_KEY_BINDINGS','SUPABASE_URL','SUPABASE_ANON_KEY'].map(k => [k, process.env[k]]));
+  Object.assign(process.env, { NODE_ENV: 'production', SKSK_REQUIRE_AUTH: 'false' });
+  delete process.env.SKSK_SKIP_AUTH;
+  delete process.env.SKSK_API_KEYS;
+  delete process.env.SKSK_API_KEY;
+  delete process.env.SKSK_SHOP_KEY_BINDINGS;
+  delete process.env.SUPABASE_URL;
+  delete process.env.SUPABASE_ANON_KEY;
+  try {
+    let ran = false;
+    const response = res();
+    await requireApiAccess(req(), response, () => { ran = true; });
+    assert.equal(ran, false);
+    assert.equal(response.statusCode, 503);
+  } finally {
+    for (const [k,v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+});
+
+test('only explicit isolated test mode can bypass authentication', async () => {
+  const saved = Object.fromEntries(['NODE_ENV','SKSK_SKIP_AUTH','SKSK_REQUIRE_AUTH'].map(k => [k, process.env[k]]));
+  try {
+    process.env.NODE_ENV = 'test';
+    process.env.SKSK_SKIP_AUTH = 'true';
+    process.env.SKSK_REQUIRE_AUTH = 'false';
+    let ran = false;
+    await requireApiAccess(req(), res(), () => { ran = true; });
+    assert.equal(ran, true);
+  } finally {
+    for (const [k,v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+});
+
 test('AI access rejects missing and invalid credentials before route execution', async () => {
   const oldRequired = process.env.SKSK_REQUIRE_AUTH;
   const oldKeys = process.env.SKSK_API_KEYS;
+  const oldBindings = process.env.SKSK_SHOP_KEY_BINDINGS;
   process.env.SKSK_REQUIRE_AUTH = 'true';
   process.env.SKSK_API_KEYS = 'shop-secret';
+  process.env.SKSK_SHOP_KEY_BINDINGS = JSON.stringify({'shop-secret':'shop_test'});
   try {
     for (const headers of [{}, { Authorization: 'Bearer wrong' }]) {
       const response = res();
@@ -39,14 +76,17 @@ test('AI access rejects missing and invalid credentials before route execution',
   } finally {
     if (oldRequired === undefined) delete process.env.SKSK_REQUIRE_AUTH; else process.env.SKSK_REQUIRE_AUTH = oldRequired;
     if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+    if (oldBindings === undefined) delete process.env.SKSK_SHOP_KEY_BINDINGS; else process.env.SKSK_SHOP_KEY_BINDINGS = oldBindings;
   }
 });
 
 test('AI access accepts bearer and explicit SKSK key headers', async () => {
   const oldRequired = process.env.SKSK_REQUIRE_AUTH;
   const oldKeys = process.env.SKSK_API_KEYS;
+  const oldBindings = process.env.SKSK_SHOP_KEY_BINDINGS;
   process.env.SKSK_REQUIRE_AUTH = 'true';
   process.env.SKSK_API_KEYS = 'shop-secret,rotated-secret';
+  process.env.SKSK_SHOP_KEY_BINDINGS = JSON.stringify({'shop-secret':'shop_test','rotated-secret':'shop_rotated'});
   try {
     for (const headers of [
       { Authorization: 'Bearer shop-secret' },
@@ -59,19 +99,22 @@ test('AI access accepts bearer and explicit SKSK key headers', async () => {
       assert.equal(ran, true);
       assert.equal(response.statusCode, 200);
       assert.equal(request.auth.type, 'shop_key');
-      assert.match(request.auth.id, /^shop_key_[12]$/);
+      assert.ok(['shop_test','shop_rotated'].includes(request.auth.id));
       assert.equal(JSON.stringify(request.auth).includes('secret'), false);
     }
   } finally {
     if (oldRequired === undefined) delete process.env.SKSK_REQUIRE_AUTH; else process.env.SKSK_REQUIRE_AUTH = oldRequired;
     if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+    if (oldBindings === undefined) delete process.env.SKSK_SHOP_KEY_BINDINGS; else process.env.SKSK_SHOP_KEY_BINDINGS = oldBindings;
   }
 });
 
 test('required auth fails closed when server key configuration is missing', async () => {
   const oldRequired = process.env.SKSK_REQUIRE_AUTH;
   const oldKeys = process.env.SKSK_API_KEYS;
+  const oldBindings = process.env.SKSK_SHOP_KEY_BINDINGS;
   const oldKey = process.env.SKSK_API_KEY;
+  delete process.env.SKSK_SHOP_KEY_BINDINGS;
   process.env.SKSK_REQUIRE_AUTH = 'true';
   delete process.env.SKSK_API_KEYS;
   delete process.env.SKSK_API_KEY;
@@ -84,6 +127,7 @@ test('required auth fails closed when server key configuration is missing', asyn
   } finally {
     if (oldRequired === undefined) delete process.env.SKSK_REQUIRE_AUTH; else process.env.SKSK_REQUIRE_AUTH = oldRequired;
     if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+    if (oldBindings === undefined) delete process.env.SKSK_SHOP_KEY_BINDINGS; else process.env.SKSK_SHOP_KEY_BINDINGS = oldBindings;
     if (oldKey === undefined) delete process.env.SKSK_API_KEY; else process.env.SKSK_API_KEY = oldKey;
   }
 });
@@ -94,7 +138,8 @@ test('required auth does not require a legacy shop key when Supabase identity is
     keys: process.env.SKSK_API_KEYS,
     key: process.env.SKSK_API_KEY,
     url: process.env.SUPABASE_URL,
-    anon: process.env.SUPABASE_ANON_KEY
+    anon: process.env.SUPABASE_ANON_KEY,
+    bindings: process.env.SKSK_SHOP_KEY_BINDINGS
   };
   process.env.SKSK_REQUIRE_AUTH = 'true';
   delete process.env.SKSK_API_KEYS;
@@ -108,7 +153,7 @@ test('required auth does not require a legacy shop key when Supabase identity is
     assert.equal(ran, false);
     assert.equal(response.statusCode, 401, 'configured identity should reach authentication, not configuration failure');
   } finally {
-    for (const [name, value] of [['SKSK_REQUIRE_AUTH', saved.required], ['SKSK_API_KEYS', saved.keys], ['SKSK_API_KEY', saved.key], ['SUPABASE_URL', saved.url], ['SUPABASE_ANON_KEY', saved.anon]]) {
+    for (const [name, value] of [['SKSK_REQUIRE_AUTH', saved.required], ['SKSK_API_KEYS', saved.keys], ['SKSK_API_KEY', saved.key], ['SUPABASE_URL', saved.url], ['SUPABASE_ANON_KEY', saved.anon], ['SKSK_SHOP_KEY_BINDINGS', saved.bindings]]) {
       if (value === undefined) delete process.env[name]; else process.env[name] = value;
     }
   }
@@ -225,6 +270,7 @@ test('shared frontend auth keeps shop credential session-scoped and retries a 40
 test('testing key is isolated from shop routes and accepted only by dedicated test access', async () => {
   process.env.SKSK_REQUIRE_AUTH = 'true';
   process.env.SKSK_API_KEYS = 'real-shop-key';
+  process.env.SKSK_SHOP_KEY_BINDINGS = JSON.stringify({'real-shop-key':'shop_real'});
   process.env.SKSK_TEST_API_KEYS = 'test-only-key';
   process.env.SKSK_ALLOW_TEST_KEYS = 'true';
 
@@ -259,7 +305,9 @@ test('production server protects stateful shop routes with the shared auth contr
 test('rate limiter HTTP boundary resists fake credentials and forwarded-for prefix spoofing', async () => {
   const express = require('express');
   const oldKeys = process.env.SKSK_API_KEYS;
+  const oldBindings = process.env.SKSK_SHOP_KEY_BINDINGS;
   process.env.SKSK_API_KEYS = 'valid-shop-key';
+  process.env.SKSK_SHOP_KEY_BINDINGS = JSON.stringify({'valid-shop-key':'shop_valid'});
   const limiter = createRateLimiter({ windowMs: 60_000, max: 3, maxBuckets: 32, sweepMs: 60_000 });
   const app = express();
   app.set('trust proxy', 1);
@@ -286,11 +334,13 @@ test('rate limiter HTTP boundary resists fake credentials and forwarded-for pref
     limiter.close();
     await new Promise(resolve => server.close(resolve));
     if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+    if (oldBindings === undefined) delete process.env.SKSK_SHOP_KEY_BINDINGS; else process.env.SKSK_SHOP_KEY_BINDINGS = oldBindings;
   }
 });
 
 test('rate limiter prunes expired buckets and keeps its map bounded', async () => {
   const oldKeys = process.env.SKSK_API_KEYS;
+  const oldBindings = process.env.SKSK_SHOP_KEY_BINDINGS;
   delete process.env.SKSK_API_KEYS;
   const limiter = createRateLimiter({ windowMs: 20, max: 100, maxBuckets: 5, sweepMs: 10 });
   try {
@@ -304,6 +354,7 @@ test('rate limiter prunes expired buckets and keeps its map bounded', async () =
   } finally {
     limiter.close();
     if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+    if (oldBindings === undefined) delete process.env.SKSK_SHOP_KEY_BINDINGS; else process.env.SKSK_SHOP_KEY_BINDINGS = oldBindings;
   }
 });
 
@@ -316,7 +367,9 @@ test('production server trusts exactly one proxy hop', () => {
 
 test('valid credentials bypass overflow contention and IPv6 addresses share a /64 bucket', () => {
   const oldKeys = process.env.SKSK_API_KEYS;
+  const oldBindings = process.env.SKSK_SHOP_KEY_BINDINGS;
   process.env.SKSK_API_KEYS = 'valid-shop-key';
+  process.env.SKSK_SHOP_KEY_BINDINGS = JSON.stringify({'valid-shop-key':'shop_valid'});
   const limiter = createRateLimiter({ windowMs: 60_000, max: 3, maxBuckets: 6, sweepMs: 60_000 });
   try {
     for (let i = 1; i <= 10; i++) limiter(req({}, `198.51.100.${i}`), res(), () => {});
@@ -350,6 +403,7 @@ test('valid credentials bypass overflow contention and IPv6 addresses share a /6
   } finally {
     limiter.close();
     if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+    if (oldBindings === undefined) delete process.env.SKSK_SHOP_KEY_BINDINGS; else process.env.SKSK_SHOP_KEY_BINDINGS = oldBindings;
   }
 });
 

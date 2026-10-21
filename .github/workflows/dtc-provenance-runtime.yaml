@@ -21,6 +21,7 @@ jobs:
     env:
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       PREVIEW_URL: https://p613-backend-pr-${{ github.event.number }}.onrender.com
+      SKSK_PREVIEW_API_KEY: ${{ secrets.SKSK_PREVIEW_API_KEY }}
 
     steps:
       - name: Checkout PR head
@@ -32,7 +33,7 @@ jobs:
         run: |
           MATCHED=0
           for attempt in $(seq 1 48); do
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 10 -sS -o /tmp/dtc-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 10 -sS -o /tmp/dtc-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
             if [ "$HTTP_CODE" = "200" ]; then
               if HEAD_SHA="$HEAD_SHA" node - <<'NODE'
           const fs = require('fs');
@@ -72,7 +73,7 @@ jobs:
           }
           JSON
 
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 90 -sS -o /tmp/dtc-diagnose.json -w '%{http_code}' \
+          HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 90 -sS -o /tmp/dtc-diagnose.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/dtc-request.json \
             "$PREVIEW_URL/api/diagnose" || true)"
           cat /tmp/dtc-diagnose.json || true
@@ -104,7 +105,7 @@ jobs:
           )"
 
           ENCODED_JOB_ID="$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$JOB_ID")"
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 20 -sS -o /tmp/dtc-job.json -w '%{http_code}' \
+          HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 20 -sS -o /tmp/dtc-job.json -w '%{http_code}' \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB_ID" || true)"
           cat /tmp/dtc-job.json || true
           echo

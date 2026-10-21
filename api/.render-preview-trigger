@@ -1,3 +1,15 @@
 Render preview trigger
-reason: security dependency update
-updated: 2026-10-14T01:12:56.382Z
+reason: fail-closed auth and tenant identity security hardening
+updated: 2026-10-20
+reason: refresh exact-head runtime after auth regression tests
+updated: 2026-10-21
+reason: exact-head provider workflow auth verification
+updated: 2026-10-21 provider gate
+
+reason: authenticated seven runtime gates; provider key configuration pending
+
+reason: fleet authenticated UI compatibility and tenant regression check
+
+reason: redeploy frontend auth bridge regression fix for exact-head runtime verification
+
+reason: fleet cross-shop HTTP isolation regression and legacy migration plan

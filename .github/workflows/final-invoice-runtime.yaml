@@ -24,6 +24,7 @@ jobs:
     env:
       HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PREVIEW_URL: https://p613-backend-pr-${{ github.event.pull_request.number }}.onrender.com
+      SKSK_PREVIEW_API_KEY: ${{ secrets.SKSK_PREVIEW_API_KEY }}
 
     steps:
       - name: Checkout PR head
@@ -39,7 +40,7 @@ jobs:
         run: |
           MATCHED=0
           for attempt in $(seq 1 60); do
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 10 -sS -o /tmp/final-invoice-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 10 -sS -o /tmp/final-invoice-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
             if [ "$HTTP_CODE" = "200" ]; then
               if HEAD_SHA="$HEAD_SHA" node - <<'NODE'
           const fs = require('fs');
@@ -68,7 +69,7 @@ jobs:
           }
           JSON
 
-          JOB_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-job-response.json -w '%{http_code}' \
+          JOB_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-job-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-job.json \
             "$PREVIEW_URL/api/jobs/estimate-center/job" || true)"
           if [ "$JOB_HTTP" != "201" ]; then cat /tmp/fi-job-response.json || true; exit 1; fi
@@ -95,7 +96,7 @@ jobs:
           }
           JSON
 
-          EST_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-estimate-response.json -w '%{http_code}' \
+          EST_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-estimate-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-estimate.json \
             "$PREVIEW_URL/api/jobs/estimate-center/$ENCODED_JOB/quick" || true)"
           if [ "$EST_HTTP" != "201" ]; then cat /tmp/fi-estimate-response.json || true; exit 1; fi
@@ -110,7 +111,7 @@ jobs:
           }
           JSON
 
-          DEC_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-decisions-response.json -w '%{http_code}' \
+          DEC_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-decisions-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-decisions.json \
             "$PREVIEW_URL/api/jobs/estimate-center/$ENCODED_JOB/quick/QE-001/1/decisions" || true)"
           if [ "$DEC_HTTP" != "200" ]; then cat /tmp/fi-decisions-response.json || true; exit 1; fi
@@ -124,7 +125,7 @@ jobs:
             "recordedBy": "runtime service desk"
           }
           JSON
-          WO_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-work-order-response.json -w '%{http_code}' \
+          WO_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-work-order-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-work-order.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders" || true)"
           if [ "$WO_HTTP" != "201" ]; then cat /tmp/fi-work-order-response.json || true; exit 1; fi
@@ -141,7 +142,7 @@ jobs:
           cat > /tmp/fi-progress.json <<'JSON'
           {"state":"IN_PROGRESS","recordedBy":"runtime tech label"}
           JSON
-          curl --connect-timeout 5 --max-time 30 -fsS \
+          curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -fsS \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-progress.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders/$ENCODED_WO/items/WOI-001/state" >/tmp/fi-progress-response.json
 
@@ -152,7 +153,7 @@ jobs:
             "recordedBy":"runtime tech label"
           }
           JSON
-          COMPLETE_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-complete-response.json -w '%{http_code}' \
+          COMPLETE_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-complete-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-complete.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders/$ENCODED_WO/items/WOI-001/state" || true)"
           if [ "$COMPLETE_HTTP" != "200" ]; then cat /tmp/fi-complete-response.json || true; exit 1; fi
@@ -160,7 +161,7 @@ jobs:
           cat > /tmp/fi-finalize.json <<'JSON'
           {"requestId":"final-invoice-runtime-1","recordedBy":"runtime service desk","note":"Pickup invoice"}
           JSON
-          EARLY_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-early.json -w '%{http_code}' \
+          EARLY_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-early.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-finalize.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/final-invoice" || true)"
           if [ "$EARLY_HTTP" != "409" ]; then cat /tmp/fi-early.json || true; echo "Final invoice was not blocked by open work"; exit 1; fi
@@ -176,12 +177,12 @@ jobs:
           cat > /tmp/fi-cancel.json <<'JSON'
           {"state":"CANCELLED","note":"Alignment not performed today.","recordedBy":"runtime service desk"}
           JSON
-          CANCEL_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-cancel-response.json -w '%{http_code}' \
+          CANCEL_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-cancel-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-cancel.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders/$ENCODED_WO/items/WOI-002/state" || true)"
           if [ "$CANCEL_HTTP" != "200" ]; then cat /tmp/fi-cancel-response.json || true; exit 1; fi
 
-          FINAL_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-final.json -w '%{http_code}' \
+          FINAL_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-final.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-finalize.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/final-invoice" || true)"
           if [ "$FINAL_HTTP" != "201" ]; then cat /tmp/fi-final.json || true; exit 1; fi
@@ -208,11 +209,11 @@ jobs:
           NODE
           )"
 
-          READ_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-read.json -w '%{http_code}' \
+          READ_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-read.json -w '%{http_code}' \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/final-invoice" || true)"
           if [ "$READ_HTTP" != "200" ]; then cat /tmp/fi-read.json || true; exit 1; fi
 
-          RETRY_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-retry.json -w '%{http_code}' \
+          RETRY_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-retry.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-finalize.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/final-invoice" || true)"
           if [ "$RETRY_HTTP" != "200" ]; then cat /tmp/fi-retry.json || true; exit 1; fi
@@ -224,7 +225,7 @@ jobs:
           if (retry.created !== false || retry.invoice?.invoiceFingerprint !== process.env.INVOICE_FP) process.exit(1);
           NODE
 
-          LOCK_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-lock.json -w '%{http_code}' \
+          LOCK_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-lock.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/fi-progress.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders/$ENCODED_WO/items/WOI-002/state" || true)"
           if [ "$LOCK_HTTP" != "409" ]; then cat /tmp/fi-lock.json || true; echo "Work Order was mutable after final invoice"; exit 1; fi
@@ -234,9 +235,9 @@ jobs:
           if (body.code !== 'FINAL_INVOICE_LOCKS_WORK_ORDER') process.exit(1);
           NODE
 
-          JOB_READ_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-job-read.json -w '%{http_code}' \
+          JOB_READ_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-job-read.json -w '%{http_code}' \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB" || true)"
-          CENTER_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-center.json -w '%{http_code}' \
+          CENTER_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/fi-center.json -w '%{http_code}' \
             "$PREVIEW_URL/api/jobs/estimate-center/$ENCODED_JOB" || true)"
           if [ "$JOB_READ_HTTP" != "200" ]; then
             echo "Final invoice job readback failed with HTTP $JOB_READ_HTTP"

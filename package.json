@@ -45,7 +45,7 @@
     "test:supabase-least-privilege": "node --test tests/supabase.least-privilege.test.js",
     "test:auth-matrix": "node --test tests/auth.route.matrix.test.js",
     "test:identity": "node --test tests/supabase.identity.test.js",
-    "test:fleet-tenant": "node --test tests/fleet.tenant.identity.test.js",
+    "test:fleet-tenant": "node --test tests/fleet.tenant.identity.test.js tests/fleet.tenant.http.test.js",
     "test:job-tenant": "node --test tests/job.tenant.isolation.test.js",
     "test:tenant-lifecycle": "node --test tests/tenant.lifecycle.behavior.test.js",
     "test:frontend-session": "node --test tests/frontend.supabase.session.inert.test.js",

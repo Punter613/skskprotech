@@ -38,10 +38,10 @@ test('main, fleet, and lifecycle pages load the shared auth bridge', () => {
   }
 });
 
-test('fleet keeps tenant scoping while auth is additive', () => {
+test('fleet derives tenant scoping from authenticated identity', () => {
   const fleet = read('public/fleet.html');
 
-  assert.match(fleet, /'x-tenant-id': tenantId/);
+  assert.doesNotMatch(fleet, /x-tenant-id|sksk_fleet_tenant|tenantInput/);
   assert.equal((fleet.match(/SKSKAuth\.request\(/g) || []).length, 3);
   assert.doesNotMatch(fleet, /\bfetch\s*\(\s*\`\$\{API_BASE\}\/api\/fleet\//);
 });

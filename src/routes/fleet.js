@@ -10,13 +10,16 @@ async function requireTenant(req, res, next) {
     ? String(req.auth.shopId || '').trim()
     : '';
 
-  // Transitional shop keys do not yet carry tenant membership. Keep the legacy
-  // header only for that migration path; remove it when shop keys are retired.
-  const legacyTenantId = req.auth?.type === 'shop_key'
-    ? String(req.headers['x-tenant-id'] || '').trim()
+  // Legacy keys are bound to their server-authenticated principal, never a client header.
+  // Reject an attempted tenant override even when a valid key was presented.
+  const legacyShopId = req.auth?.type === 'shop_key'
+    ? String(req.auth.shopId || '').trim()
     : '';
-
-  const tenantId = authenticatedShopId || legacyTenantId;
+  const requestedTenant = String(req.headers['x-tenant-id'] || '').trim();
+  const tenantId = authenticatedShopId || legacyShopId;
+  if (requestedTenant && requestedTenant !== tenantId) {
+    return res.status(403).json({ error: 'Tenant override is not authorized.' });
+  }
   if (!tenantId) return res.status(403).json({ error: 'Authenticated shop context is required.' });
   if (!db.supabase) return res.status(503).json({ error: 'Fleet storage not configured (SUPABASE_URL/KEY missing).' });
 
