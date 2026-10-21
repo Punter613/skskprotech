@@ -22,6 +22,40 @@ function res() {
   };
 }
 
+
+test('authentication defaults to fail-closed even if SKSK_REQUIRE_AUTH=false', async () => {
+  const saved = Object.fromEntries(['NODE_ENV','SKSK_SKIP_AUTH','SKSK_REQUIRE_AUTH','SKSK_API_KEYS','SKSK_API_KEY','SUPABASE_URL','SUPABASE_ANON_KEY'].map(k => [k, process.env[k]]));
+  Object.assign(process.env, { NODE_ENV: 'production', SKSK_REQUIRE_AUTH: 'false' });
+  delete process.env.SKSK_SKIP_AUTH;
+  delete process.env.SKSK_API_KEYS;
+  delete process.env.SKSK_API_KEY;
+  delete process.env.SUPABASE_URL;
+  delete process.env.SUPABASE_ANON_KEY;
+  try {
+    let ran = false;
+    const response = res();
+    await requireApiAccess(req(), response, () => { ran = true; });
+    assert.equal(ran, false);
+    assert.equal(response.statusCode, 503);
+  } finally {
+    for (const [k,v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+});
+
+test('only explicit isolated test mode can bypass authentication', async () => {
+  const saved = Object.fromEntries(['NODE_ENV','SKSK_SKIP_AUTH','SKSK_REQUIRE_AUTH'].map(k => [k, process.env[k]]));
+  try {
+    process.env.NODE_ENV = 'test';
+    process.env.SKSK_SKIP_AUTH = 'true';
+    process.env.SKSK_REQUIRE_AUTH = 'false';
+    let ran = false;
+    await requireApiAccess(req(), res(), () => { ran = true; });
+    assert.equal(ran, true);
+  } finally {
+    for (const [k,v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+});
+
 test('AI access rejects missing and invalid credentials before route execution', async () => {
   const oldRequired = process.env.SKSK_REQUIRE_AUTH;
   const oldKeys = process.env.SKSK_API_KEYS;
