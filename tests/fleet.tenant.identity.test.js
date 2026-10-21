@@ -20,3 +20,11 @@ test('every fleet database operation remains tenant-scoped', () => {
   assert.ok(source.includes('tenant_id: req.tenantId'));
   assert.ok(source.includes(".eq('tenant_id', tenantId)"));
 });
+
+test('fleet UI never trusts a typed tenant or sends a tenant override header', () => {
+  const ui = fs.readFileSync(path.join(__dirname, '../public/fleet.html'), 'utf8');
+  assert.ok(!ui.includes("x-tenant-id"), 'fleet UI must not supply tenant authority');
+  assert.ok(!ui.includes("sksk_fleet_tenant"), 'fleet UI must not restore arbitrary tenant identifiers');
+  assert.ok(!ui.includes("tenantInput"), 'fleet UI must not depend on a typed tenant');
+  assert.ok(ui.includes('SKSKAuth.request'), 'fleet requests must use the authentication bridge');
+});
