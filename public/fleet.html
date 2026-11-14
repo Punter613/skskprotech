@@ -108,15 +108,12 @@
 
   <script src="/js/sksk-auth.js"></script>
   <script>
-    // The standalone frontend host has no API of its own and must keep
-    // targeting the production backend. Every other host is a backend
-    // serving this page itself (production or a PR preview), so call the
-    // API on the same origin that served the page.
+    // Call the API on the same origin that served this page: the preview
+    // page calls the preview backend, production calls production. No
+    // hardcoded cross-environment fallback.
     const API_BASE = window.location.hostname === 'localhost'
       ? 'http://localhost:3000'
-      : (window.location.hostname === 'sksk-v3-frontend.onrender.com'
-        ? 'https://p613-backend.onrender.com'
-        : window.location.origin);
+      : window.location.origin;
 
 
     let currentRoster = [];

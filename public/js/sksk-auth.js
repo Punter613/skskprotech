@@ -3,14 +3,15 @@
 
   const STORAGE_KEY = 'skskApiKey';
   const KEY_HEADER = 'X-SKSK-API-Key';
-  // Server errors that mean "this credential carries no usable shop context".
-  // The stored shop key cannot fix itself, so the user gets one re-auth
-  // attempt instead of a dead-end denial.
-  const SHOP_CONTEXT_ERRORS = new Set([
-    'Authenticated shop context is required.',
-    'Tenant override is not authorized.',
-    'Shop membership required'
-  ]);
+  // The one recoverable shop-context failure: the request carried no usable
+  // shop identity at all, so offering a fresh credential can fix it. This is
+  // deliberately the ONLY reprompt trigger besides 401. A tenant-override
+  // denial ("Tenant override is not authorized.") is a final authorization
+  // decision and must never become a re-auth retry; other 403s are likewise
+  // returned untouched. NOTE: the server currently distinguishes these cases
+  // only by the error message text — there is no machine-readable error code
+  // in the response body yet.
+  const RECOVERABLE_SHOP_CONTEXT_ERROR = 'Authenticated shop context is required.';
   let sessionProvider = null;
 
   function getKey() {
@@ -74,15 +75,17 @@
       return request(url, options, { retried: true });
     }
 
-    // A shop-context 403 means the request was denied for lack of a usable
-    // shop identity. Session bearers are managed by the session provider, so
-    // only re-prompt when the credential in play is the stored shop key.
+    // A 403 carrying the missing-shop-context error means the request had
+    // no usable shop identity; a fresh shop key can recover it. Session
+    // bearers are managed by the session provider, so only re-prompt when
+    // the credential in play is the stored shop key. Every other 403 —
+    // including tenant-override denials — is final and returned untouched.
     if (response.status === 403 && !auth.usedSession) {
       let errorText = '';
       try {
         errorText = String((await response.clone().json())?.error || '');
       } catch (_) { /* non-JSON error body */ }
-      if (SHOP_CONTEXT_ERRORS.has(errorText)) {
+      if (errorText === RECOVERABLE_SHOP_CONTEXT_ERROR) {
         clearKey();
         if (!await promptForKey()) return response;
         return request(url, options, { retried: true });
