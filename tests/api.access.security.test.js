@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { requireApiAccess, createRateLimiter } = require('../src/middleware/api.access');
 
 function req(headers = {}, ip = '127.0.0.1') {
@@ -261,7 +262,6 @@ test('shared frontend auth keeps shop credential session-scoped and retries a 40
   assert.ok(html.includes('SKSKAuth.request(API+path'));
   assert.ok(auth.includes("global.sessionStorage.getItem(STORAGE_KEY)"));
   assert.ok(auth.includes("next.set(KEY_HEADER, key)"));
-  assert.ok(auth.includes("response.status !== 401 || (state && state.retried)"));
   assert.ok(auth.includes("global.sessionStorage.setItem(STORAGE_KEY, key)"));
   assert.equal(auth.includes('localStorage'), false);
 });
@@ -425,4 +425,29 @@ test('IPv4-mapped IPv6 shares equivalent IPv4 buckets without collapsing clients
     assert.equal(distinctRan, true);
     assert.equal(limiter.bucketCount(), 2);
   } finally { limiter.close(); }
+});
+
+test('shared auth bridge retries 401 only once and does not reprompt on a second 401', async () => {
+  const storage = new Map();
+  const requests = [];
+  let promptCount = 0;
+  const window = {
+    sessionStorage: {
+      getItem: key => storage.get(key) || null,
+      setItem: (key, value) => storage.set(key, value),
+      removeItem: key => storage.delete(key)
+    },
+    prompt: () => { promptCount++; return 'replacement-key'; },
+    fetch: async (_url, options) => {
+      requests.push(options.headers.get('X-SKSK-API-Key'));
+      return { status: 401 };
+    }
+  };
+  const source = fs.readFileSync(path.join(__dirname, '../public/js/sksk-auth.js'), 'utf8');
+  vm.runInNewContext(source, { window, Headers });
+  window.SKSKAuth.setKey('old-key');
+  const response = await window.SKSKAuth.request('/api/fleet/roster');
+  assert.equal(response.status, 401);
+  assert.equal(promptCount, 1);
+  assert.deepEqual(requests, ['old-key', 'replacement-key']);
 });
