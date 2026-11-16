@@ -35,8 +35,10 @@ function startMatrixServer() {
 test('every protected route rejects no key and wrong key, while a valid shop key crosses auth', async () => {
   const oldRequired = process.env.SKSK_REQUIRE_AUTH;
   const oldKeys = process.env.SKSK_API_KEYS;
+  const oldBindings = process.env.SKSK_SHOP_KEY_BINDINGS;
   process.env.SKSK_REQUIRE_AUTH = 'true';
   process.env.SKSK_API_KEYS = 'matrix-shop-key';
+  process.env.SKSK_SHOP_KEY_BINDINGS = JSON.stringify({'matrix-shop-key':'shop_matrix'});
 
   const server = await startMatrixServer();
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -58,12 +60,13 @@ test('every protected route rejects no key and wrong key, while a valid shop key
       const body = await validKey.json();
       assert.equal(body.reachedHandler, true);
       assert.equal(body.principal?.type, 'shop_key');
-      assert.match(body.principal?.id || '', /^shop_key_/);
+      assert.equal(body.principal?.id, 'shop_matrix');
     }
   } finally {
     await new Promise(resolve => server.close(resolve));
     if (oldRequired === undefined) delete process.env.SKSK_REQUIRE_AUTH; else process.env.SKSK_REQUIRE_AUTH = oldRequired;
     if (oldKeys === undefined) delete process.env.SKSK_API_KEYS; else process.env.SKSK_API_KEYS = oldKeys;
+    if (oldBindings === undefined) delete process.env.SKSK_SHOP_KEY_BINDINGS; else process.env.SKSK_SHOP_KEY_BINDINGS = oldBindings;
   }
 });
 

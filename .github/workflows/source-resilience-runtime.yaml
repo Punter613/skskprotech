@@ -25,6 +25,7 @@ jobs:
     env:
       HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PREVIEW_URL: https://p613-backend-pr-${{ github.event.pull_request.number }}.onrender.com
+      SKSK_PREVIEW_API_KEY: ${{ secrets.SKSK_PREVIEW_API_KEY }}
     steps:
       - name: Checkout PR head
         uses: actions/checkout@v4
@@ -39,7 +40,7 @@ jobs:
         run: |
           MATCHED=0
           for attempt in $(seq 1 48); do
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 10 -sS -o /tmp/source-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 10 -sS -o /tmp/source-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
             if [ "$HTTP_CODE" = "200" ]; then
               if HEAD_SHA="$HEAD_SHA" node - <<'NODE'
           const fs = require('fs');
@@ -76,7 +77,7 @@ jobs:
           }
           JSON
 
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 120 -sS -o /tmp/source-diagnose.json -w '%{http_code}' \
+          HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 120 -sS -o /tmp/source-diagnose.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' -H 'x-sksk-preview-source-outage: LEMON' \
             --data-binary @/tmp/source-request.json "$PREVIEW_URL/api/diagnose" || true)"
           cat /tmp/source-diagnose.json || true
@@ -120,7 +121,7 @@ jobs:
           ENCODED_JOB_ID="$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$JOB_ID")"
           FOUND=0
           for attempt in $(seq 1 6); do
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 20 -sS -o /tmp/source-job.json -w '%{http_code}' \
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 20 -sS -o /tmp/source-job.json -w '%{http_code}' \
               "$PREVIEW_URL/api/jobs/$ENCODED_JOB_ID" || true)"
             if [ "$HTTP_CODE" = "200" ]; then FOUND=1; break; fi
             echo "Persisted job not readable yet (attempt $attempt/6, HTTP $HTTP_CODE)."

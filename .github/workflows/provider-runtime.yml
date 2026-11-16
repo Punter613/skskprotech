@@ -20,6 +20,7 @@ jobs:
     env:
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       PREVIEW_URL: https://p613-backend-pr-${{ github.event.number }}.onrender.com
+      SKSK_PREVIEW_API_KEY: ${{ secrets.SKSK_PREVIEW_API_KEY }}
 
     steps:
       - name: Wait for exact Render preview head
@@ -53,9 +54,13 @@ jobs:
 
       - name: Exercise real Translate provider path
         run: |
+          if [ -z "$SKSK_PREVIEW_API_KEY" ]; then
+            echo '::error::SKSK_PREVIEW_API_KEY GitHub Actions secret is missing.'
+            exit 1
+          fi
           START_MS="$(date +%s%3N)"
           HTTP_CODE="$(curl --connect-timeout 5 --max-time 70 -sS -o /tmp/provider-translate.json -w '%{http_code}' \
-            -X POST -H 'Content-Type: application/json' \
+            -X POST -H 'Content-Type: application/json' -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" \
             --data '{"text":"Customer reports a clunk when releasing the accelerator and another clunk at full steering lock."}' \
             "$PREVIEW_URL/api/translate" || true)"
           END_MS="$(date +%s%3N)"

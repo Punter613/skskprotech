@@ -23,6 +23,7 @@ jobs:
     env:
       HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PREVIEW_URL: https://p613-backend-pr-${{ github.event.pull_request.number }}.onrender.com
+      SKSK_PREVIEW_API_KEY: ${{ secrets.SKSK_PREVIEW_API_KEY }}
 
     steps:
       - name: Checkout PR head
@@ -38,7 +39,7 @@ jobs:
         run: |
           MATCHED=0
           for attempt in $(seq 1 60); do
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 10 -sS -o /tmp/wo-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 10 -sS -o /tmp/wo-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
             if [ "$HTTP_CODE" = "200" ]; then
               if HEAD_SHA="$HEAD_SHA" node - <<'NODE'
           const fs = require('fs');
@@ -67,7 +68,7 @@ jobs:
           }
           JSON
 
-          JOB_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-job-response.json -w '%{http_code}' \
+          JOB_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-job-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/wo-job.json \
             "$PREVIEW_URL/api/jobs/estimate-center/job" || true)"
           if [ "$JOB_HTTP" != "201" ]; then cat /tmp/wo-job-response.json || true; exit 1; fi
@@ -94,7 +95,7 @@ jobs:
           }
           JSON
 
-          EST_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-estimate-response.json -w '%{http_code}' \
+          EST_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-estimate-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/wo-estimate.json \
             "$PREVIEW_URL/api/jobs/estimate-center/$ENCODED_JOB/quick" || true)"
           if [ "$EST_HTTP" != "201" ]; then cat /tmp/wo-estimate-response.json || true; exit 1; fi
@@ -109,7 +110,7 @@ jobs:
           }
           JSON
 
-          DEC_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-decisions-response.json -w '%{http_code}' \
+          DEC_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-decisions-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/wo-decisions.json \
             "$PREVIEW_URL/api/jobs/estimate-center/$ENCODED_JOB/quick/QE-001/1/decisions" || true)"
           if [ "$DEC_HTTP" != "200" ]; then cat /tmp/wo-decisions-response.json || true; exit 1; fi
@@ -124,7 +125,7 @@ jobs:
           }
           JSON
 
-          CREATE_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-create-response.json -w '%{http_code}' \
+          CREATE_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-create-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/wo-create.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders" || true)"
           if [ "$CREATE_HTTP" != "201" ]; then cat /tmp/wo-create-response.json || true; exit 1; fi
@@ -147,7 +148,7 @@ jobs:
           )"
           ENCODED_WO="$(node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$WORK_ORDER_ID")"
 
-          REPEAT_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-repeat.json -w '%{http_code}' \
+          REPEAT_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-repeat.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/wo-create.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders" || true)"
           if [ "$REPEAT_HTTP" != "200" ]; then cat /tmp/wo-repeat.json || true; exit 1; fi
@@ -163,7 +164,7 @@ jobs:
           cat > /tmp/wo-bad-scope.json <<'JSON'
           {"estimateId":"QE-001","revision":1,"itemIds":["LI-003"],"requestId":"bad-deferred-scope"}
           JSON
-          BAD_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-bad-response.json -w '%{http_code}' \
+          BAD_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-bad-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/wo-bad-scope.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders" || true)"
           if [ "$BAD_HTTP" != "409" ]; then cat /tmp/wo-bad-response.json || true; echo "Deferred scope was not blocked"; exit 1; fi
@@ -171,7 +172,7 @@ jobs:
           cat > /tmp/wo-progress.json <<'JSON'
           {"state":"IN_PROGRESS","recordedBy":"runtime tech label"}
           JSON
-          PROGRESS_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-progress-response.json -w '%{http_code}' \
+          PROGRESS_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-progress-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/wo-progress.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders/$ENCODED_WO/items/WOI-001/state" || true)"
           if [ "$PROGRESS_HTTP" != "200" ]; then cat /tmp/wo-progress-response.json || true; exit 1; fi
@@ -183,14 +184,14 @@ jobs:
             "recordedBy":"runtime tech label"
           }
           JSON
-          COMPLETE_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-complete-response.json -w '%{http_code}' \
+          COMPLETE_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-complete-response.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' --data-binary @/tmp/wo-complete.json \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders/$ENCODED_WO/items/WOI-001/state" || true)"
           if [ "$COMPLETE_HTTP" != "200" ]; then cat /tmp/wo-complete-response.json || true; exit 1; fi
 
-          JOB_READ_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-job-read.json -w '%{http_code}' \
+          JOB_READ_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-job-read.json -w '%{http_code}' \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB" || true)"
-          LIST_HTTP="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-list.json -w '%{http_code}' \
+          LIST_HTTP="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 30 -sS -o /tmp/wo-list.json -w '%{http_code}' \
             "$PREVIEW_URL/api/jobs/$ENCODED_JOB/work-orders" || true)"
           if [ "$JOB_READ_HTTP" != "200" ] || [ "$LIST_HTTP" != "200" ]; then
             cat /tmp/wo-job-read.json 2>/dev/null || true
