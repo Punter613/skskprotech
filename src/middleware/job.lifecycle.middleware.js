@@ -30,8 +30,7 @@ function wrapJson(res, handler) {
       // The former availability-over-durability fallback returned the original
       // AI payload even when the job write failed, concealing lost work.
       const persistenceFailure = err?.code === 'PERSISTENCE_WRITE_FAILED';
-      const configurationFailure = err?.code === 'PERSISTENCE_NOT_CONFIGURED'
-        || err?.code === 'PERSISTENCE_CONFIG_REQUIRED';
+      const configurationFailure = err?.code === 'PERSISTENCE_UNAVAILABLE';
       const status = persistenceFailure ? 503 : configurationFailure ? 503 : 500;
       const code = persistenceFailure ? 'PERSISTENCE_WRITE_FAILED'
         : configurationFailure ? err.code : 'JOB_LIFECYCLE_FAILED';
