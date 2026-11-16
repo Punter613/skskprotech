@@ -31,16 +31,19 @@ function wrapJson(res, handler) {
       // AI payload even when the job write failed, concealing lost work.
       const persistenceFailure = err?.code === 'PERSISTENCE_WRITE_FAILED';
       const configurationFailure = err?.code === 'PERSISTENCE_UNAVAILABLE';
-      const status = persistenceFailure ? 503 : configurationFailure ? 503 : 500;
+      const clientStatus = Number.isInteger(err?.statusCode) && err.statusCode >= 400 && err.statusCode < 500
+        ? err.statusCode : null;
+      const status = persistenceFailure || configurationFailure ? 503 : clientStatus || 500;
       const code = persistenceFailure ? 'PERSISTENCE_WRITE_FAILED'
-        : configurationFailure ? err.code : 'JOB_LIFECYCLE_FAILED';
+        : configurationFailure ? err.code
+          : clientStatus && typeof err.code === 'string' && err.code ? err.code : 'JOB_LIFECYCLE_FAILED';
       console.error('[JobLifecycle] response bridge failed closed:', code, err?.message);
       if (res.headersSent) return res.end();
       res.status(status);
       return originalJson({ success: false, error: persistenceFailure
         ? 'Persistent job storage is unavailable'
-        : configurationFailure ? 'Job storage configuration is unavailable'
-          : 'Job lifecycle processing failed', code });
+         : configurationFailure ? 'Job storage configuration is unavailable'
+          : clientStatus ? err.message : 'Job lifecycle processing failed', code });
     }
   };
 }
