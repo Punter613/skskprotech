@@ -48,6 +48,20 @@ function wrapJson(res, handler) {
   };
 }
 
+function forwardLifecycleError(err, res, next) {
+  if (err?.code === 'PERSISTENCE_WRITE_FAILED' || err?.code === 'PERSISTENCE_UNAVAILABLE') {
+    if (res.headersSent) return res.end();
+    return res.status(503).json({
+      success: false,
+      error: err.code === 'PERSISTENCE_WRITE_FAILED'
+        ? 'Persistent job storage is unavailable'
+        : 'Job storage configuration is unavailable',
+      code: err.code
+    });
+  }
+  return next(err);
+}
+
 function diagnosisMechanicObservations(body = {}) {
   return [
     ...(Array.isArray(body.mechanicNotices) ? body.mechanicNotices : []),
@@ -212,7 +226,7 @@ async function diagnosisLifecycle(req, res, next) {
     });
     next();
   } catch (err) {
-    next(err);
+    return forwardLifecycleError(err, res, next);
   }
 }
 
@@ -243,7 +257,7 @@ async function estimateLifecycle(req, res, next) {
     });
     next();
   } catch (err) {
-    next(err);
+    return forwardLifecycleError(err, res, next);
   }
 }
 
