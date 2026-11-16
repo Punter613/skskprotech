@@ -26,8 +26,22 @@ function wrapJson(res, handler) {
       const next = await handler(payload);
       return originalJson(next === undefined ? payload : next);
     } catch (err) {
-      console.warn('[JobLifecycle] response bridge failed (non-fatal):', err.message);
-      return originalJson(payload);
+      // Required persistence must complete before the client sees success.
+      // The former availability-over-durability fallback returned the original
+      // AI payload even when the job write failed, concealing lost work.
+      const persistenceFailure = err?.code === 'PERSISTENCE_WRITE_FAILED';
+      const configurationFailure = err?.code === 'PERSISTENCE_NOT_CONFIGURED'
+        || err?.code === 'PERSISTENCE_CONFIG_REQUIRED';
+      const status = persistenceFailure ? 503 : configurationFailure ? 503 : 500;
+      const code = persistenceFailure ? 'PERSISTENCE_WRITE_FAILED'
+        : configurationFailure ? err.code : 'JOB_LIFECYCLE_FAILED';
+      console.error('[JobLifecycle] response bridge failed closed:', code, err?.message);
+      if (res.headersSent) return res.end();
+      res.status(status);
+      return originalJson({ success: false, error: persistenceFailure
+        ? 'Persistent job storage is unavailable'
+        : configurationFailure ? 'Job storage configuration is unavailable'
+          : 'Job lifecycle processing failed', code });
     }
   };
 }
