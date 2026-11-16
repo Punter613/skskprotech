@@ -13,3 +13,5 @@ reason: fleet authenticated UI compatibility and tenant regression check
 reason: redeploy frontend auth bridge regression fix for exact-head runtime verification
 
 reason: fleet cross-shop HTTP isolation regression and legacy migration plan
+
+reason: rebuild PR 220 preview at exact head after test-only auth assertion repairs
