@@ -177,7 +177,10 @@ app.get('/health', async (req, res) => {
 // registers these endpoints because Render sets IS_PULL_REQUEST to the string "true"
 // only for pull request preview services.
 if (process.env.IS_PULL_REQUEST === 'true') {
-  app.get('/health/preview-evidence', async (req, res) => {
+  app.get('/health/preview-evidence', requireApiAccess, (req, res, next) => {
+    if (req.shopId !== 'shop_preview_canary') return res.status(403).json({ success: false, error: 'Preview canary tenant required' });
+    next();
+  }, async (req, res) => {
     const startedAt = Date.now();
     const vin = String(req.query.vin || '5XXGT4L38LG384941').trim();
     const query = String(req.query.query || 'P1326 knock signal range performance flashing MIL reduced power').trim();
