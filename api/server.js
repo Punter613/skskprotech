@@ -7,6 +7,7 @@ const cors = require('cors');
 const app = express();
 app.set('trust proxy', 1);
 const { requestTelemetry, errorTelemetry } = require('../src/middleware/observability');
+const { getPreviewCanaryAuthorizationHeaders } = require('../src/middleware/preview.canary.auth');
 app.use(requestTelemetry);
 
 // 1. GLOBAL ACCESS CONTROL & SECURITY HEADERS
@@ -183,11 +184,19 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     const query = String(req.query.query || 'P1326 knock signal range performance flashing MIL reduced power').trim();
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
 
+    let previewHeaders;
+    try {
+      previewHeaders = getPreviewCanaryAuthorizationHeaders();
+    } catch (error) {
+      console.error('[Preview Evidence Smoke] preview canary configuration failed:', error.message);
+      return res.status(503).json({ ok: false, stage: 'preview-evidence-smoke', error: error.message, totalMs: Date.now() - startedAt });
+    }
+
     try {
       const decodeStartedAt = Date.now();
       const decodeResponse = await fetch(`${localBase}/api/vehicle/decode`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...previewHeaders },
         body: JSON.stringify({ vin })
       });
       const decodeBody = await decodeResponse.json();
@@ -207,7 +216,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
       const quickAskStartedAt = Date.now();
       const quickAskResponse = await fetch(`${localBase}/api/quick-ask`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...previewHeaders },
         body: JSON.stringify({ vehicle: decodeBody.vehicle, query, limit: 5 })
       });
       const quickAskBody = await quickAskResponse.json();
@@ -263,6 +272,14 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
     const jobId = `SKSK-PREVIEW-UNVERIFIED-${String(process.env.RENDER_PULL_REQUEST_ID || 'PR')}`;
 
+    let previewHeaders;
+    try {
+      previewHeaders = getPreviewCanaryAuthorizationHeaders();
+    } catch (error) {
+      console.error('[Preview Unverified Diagnosis Smoke] preview canary configuration failed:', error.message);
+      return res.status(503).json({ ok: false, stage: 'preview-unverified-diagnosis-smoke', error: error.message, totalMs: Date.now() - startedAt });
+    }
+
     try {
       const { createJob, recordDiagnosis, patchJob, getJob } = require('../src/services/job.lifecycle');
       await createJob({
@@ -307,7 +324,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
       const fallbackStartedAt = Date.now();
       const fallbackResponse = await fetch(`${localBase}/api/jobs/${encodeURIComponent(jobId)}/unverified-diagnosis`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...previewHeaders },
         body: '{}'
       });
       const fallbackBody = await fallbackResponse.json();
@@ -315,7 +332,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
 
       const estimateResponse = await fetch(`${localBase}/api/estimateHeuristic`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...previewHeaders },
         body: JSON.stringify({
           jobId,
           diagnosisVerified: true,
