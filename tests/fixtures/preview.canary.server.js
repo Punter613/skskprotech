@@ -38,7 +38,9 @@ replaceModule('../../src/routes/quick.ask', quickAsk);
 replaceModule('../../src/auth/supabase.identity', {
   configured: () => true,
   verifySupabaseAccessToken: async key => key === incomingKey
-    ? { type: 'user', id: 'fixture-user', shopId: tenant } : null
+    ? { type: 'user', id: 'fixture-user', shopId: tenant }
+    : key === 'fixture-wrong-tenant-secret-D'
+      ? { type: 'user', id: 'fixture-other-user', shopId: 'shop_other' } : null
 });
 replaceModule('../../src/services/db_keepawake', { startKeepAwakeLoop() {} });
 replaceModule('../../src/workers/aiWorker', {});
