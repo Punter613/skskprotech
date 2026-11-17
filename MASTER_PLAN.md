@@ -1,3 +1,11 @@
+> # ⚠ HISTORICAL — SUPERSEDED — DOES NOT DESCRIBE THE RUNNING SYSTEM
+>
+> This plan is preserved as a record of what was once intended. It is **not** a description of the repository as built, and it must not be used as a map. Among other divergences verified on November 16, 2026: the `src/modules/` tree it describes does not exist, the `src/providers/` files it names do not exist, and the React Native/Expo monorepo it plans was never built — the shipped frontend is static HTML.
+>
+> For the system as it actually is, read **LEGACY.md** (the verified retirement record) and **ARCHITECTURE_ANALYSIS.md** (the as-built architecture). Where this document disagrees with them, this document is wrong.
+>
+> Git preserves the original plan in full; nothing below this banner has been edited.
+
 # 🚀 SKSK Intelligence Platform - Master Build Plan
 
 ## 🎯 Vision
