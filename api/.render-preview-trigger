@@ -27,3 +27,6 @@ updated: 2026-11-17
 
 reason: deploy PR #222 after preview environment configuration; enforce exact-head CI
 updated: 2026-11-17
+
+reason: PR #224 atomic unverified diagnosis auth bridge exact-head preview
+updated: 2026-11-17
