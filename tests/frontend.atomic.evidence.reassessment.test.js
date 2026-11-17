@@ -46,3 +46,16 @@ test('unverified UI labels causal grouping as unverified', () => {
   assert.match(js, /Possible leak points/);
   assert.match(js, /Observed consequences/);
 });
+
+
+test('atomic evidence and unverified diagnosis use the shared authenticated request bridge', () => {
+  const js = fs.readFileSync(atomicUiPath, 'utf8');
+  const start = js.indexOf('async function atomicPost(');
+  const end = js.indexOf('function collectPendingEvidence(', start);
+  assert.ok(start >= 0 && end > start, 'atomicPost helper must exist');
+  const helper = js.slice(start, end);
+  assert.match(helper, /SKSKAuth\\.request\\(API \\+ path/);
+  assert.doesNotMatch(helper, /(?:^|[^.\\w])fetch\\s*\\(/);
+  assert.match(helper, /body: JSON\\.stringify\\(body\\)/);
+  assert.match(helper, /if \\(!response\\.ok\\)/);
+});
