@@ -89,6 +89,7 @@ test('preview evidence HTTP gate, execution and secrecy (stubbed upstreams)', { 
       assert.equal(containsSecret(JSON.stringify({ body, headers: Object.fromEntries(response.headers) })), false);
       assert.equal(calls.length, baseline, 'Rejected unverified canary must not call stubbed upstreams');
     }
+    assert.equal(messages.filter(m => m.type === 'lifecycle-write').length, 0, 'Rejected requests must not write jobs');
     assert.equal(containsSecret(logs), false);
     // A is a verified synthetic user session for the dedicated canary tenant.
     // B is a distinct shop API key for outbound calls; never interchange them.
@@ -113,6 +114,10 @@ test('preview evidence HTTP gate, execution and secrecy (stubbed upstreams)', { 
       assert.equal(calls.length, baseline, 'Bad config must not reach stubbed upstreams');
       assert.equal(containsSecret(logs), false);
     }
+    const countOffset = messages.length;
+    child.send({ type: 'counts' });
+    const beforeAuthorized = await awaitMessage('counts', countOffset);
+    assert.equal(beforeAuthorized.lifecycleWrites, 0, 'Unauthorized and bad-config requests must perform zero lifecycle writes');
     await configure('valid');
     const result = await request(A, 200);
     assert.equal(result.ok, true);
