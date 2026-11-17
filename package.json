@@ -37,7 +37,7 @@
     "test:diagnose-input": "node --test tests/diagnose.input.validation.test.js",
     "test:api-access": "node --test tests/api.access.security.test.js",
     "test:persistence-integrity": "node --test tests/persistence.integrity.test.js",
-    "test:observability": "node --test tests/observability.security.test.js",
+    "test:observability": "node --test tests/observability.security.test.js tests/preview.canary.auth.test.js",
     "test:runtime-performance": "node --test tests/runtime.performance.config.test.js",
     "test:privacy-retention": "node --test tests/privacy.retention.test.js",
     "test:production-smoke-recovery": "node --test tests/production.smoke.recovery.test.js",
