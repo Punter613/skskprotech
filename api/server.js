@@ -182,6 +182,15 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     next();
   }, async (req, res) => {
     const startedAt = Date.now();
+    let outboundCredential = '';
+    const incomingCredential = String(req.get('x-sksk-api-key') || req.get('authorization') || '').replace(/^Bearer\\s+/i, '').trim();
+    const safeResponse = payload => {
+      let json = JSON.stringify(payload);
+      for (const secret of [incomingCredential, outboundCredential]) {
+        if (secret) json = json.split(JSON.stringify(secret).slice(1, -1)).join('[REDACTED]');
+      }
+      return JSON.parse(json);
+    };
     const vin = String(req.query.vin || '5XXGT4L38LG384941').trim();
     const query = String(req.query.query || 'P1326 knock signal range performance flashing MIL reduced power').trim();
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
@@ -189,6 +198,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     try {
       const { canaryCredential, canaryHeaders } = require('../src/middleware/preview.canary.auth');
       const credential = canaryCredential();
+      outboundCredential = credential;
       const decodeStartedAt = Date.now();
       const decodeResponse = await fetch(`${localBase}/api/vehicle/decode`, {
         method: 'POST',
@@ -199,14 +209,14 @@ if (process.env.IS_PULL_REQUEST === 'true') {
       const decodeMs = Date.now() - decodeStartedAt;
 
       if (!decodeResponse.ok || !decodeBody?.vehicle) {
-        return res.status(502).json({
+        return res.status(502).json(safeResponse({
           ok: false,
           stage: 'vehicle-decode',
           statusCode: decodeResponse.status,
           decodeMs,
           response: decodeBody,
           totalMs: Date.now() - startedAt
-        });
+        }));
       }
 
       const quickAskStartedAt = Date.now();
@@ -221,7 +231,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
         ? quickAskBody.repairDiagnosisEvidence
         : [];
 
-      return res.status(quickAskResponse.ok ? 200 : 502).json({
+      return res.status(quickAskResponse.ok ? 200 : 502).json(safeResponse({
         ok: quickAskResponse.ok,
         runtime: {
           commit: process.env.RENDER_GIT_COMMIT || null,
@@ -251,15 +261,15 @@ if (process.env.IS_PULL_REQUEST === 'true') {
           error: quickAskBody?.error || null
         },
         totalMs: Date.now() - startedAt
-      });
+      }));
     } catch (error) {
       console.error('[Preview Evidence Smoke] Failed (details redacted)');
-      return res.status(502).json({
+      return res.status(502).json(safeResponse({
         ok: false,
         stage: 'preview-evidence-smoke',
         error: 'Preview evidence smoke failed',
         totalMs: Date.now() - startedAt
-      });
+      }));
     }
   });
 
