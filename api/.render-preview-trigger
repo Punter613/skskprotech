@@ -30,3 +30,6 @@ updated: 2026-11-17
 
 reason: PR #224 atomic unverified diagnosis auth bridge exact-head preview
 updated: 2026-11-17
+
+reason: PR #227 Stripe webhook fail-closed exact-head Render preview
+updated: 2026-11-17
