@@ -75,6 +75,10 @@ function requirePreviewCanaryAccess(req, res, next) {
     return res.status(403).json({ success: false, error: 'Preview canary access is disabled outside pull request previews' });
   }
 
+  if (req.auth?.type !== 'shop_key' || req.shopId !== PREVIEW_CANARY_SHOP_ID || req.auth?.shopId !== PREVIEW_CANARY_SHOP_ID) {
+    return res.status(403).json({ success: false, error: 'Dedicated preview canary tenant required' });
+  }
+
   try {
     const headers = getPreviewCanaryAuthorizationHeaders();
     req.previewCanary = { headers };
