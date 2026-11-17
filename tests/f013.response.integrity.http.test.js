@@ -9,6 +9,7 @@ const dbPath = require.resolve('../src/db');
 const originalDb = require(dbPath);
 let guardUnavailable = false;
 let failWrites = false;
+let failAtWrite = null;
 let writes = 0;
 const fakeSupabase = {
   from(table) {
@@ -16,7 +17,7 @@ const fakeSupabase = {
     return {
       async upsert() {
         writes++;
-        return { error: failWrites ? new Error('simulated database outage') : null };
+        return { error: (failWrites || writes === failAtWrite) ? new Error('simulated database outage') : null };
       }
     };
   }
@@ -74,6 +75,7 @@ test.beforeEach(() => {
   global.__jobs = {};
   guardUnavailable = false;
   failWrites = false;
+  failAtWrite = null;
   writes = 0;
 });
 
@@ -85,6 +87,19 @@ test('F-013 Diagnose: service database write error returns 503, never AI success
   assert.equal(response.body.code, 'PERSISTENCE_WRITE_FAILED');
   assert.equal(response.body.result, undefined);
   assert.ok(writes > 0);
+});
+
+test('F-013 Diagnose: post-AI persistence failure is blocked by response bridge', async () => {
+  // createJob and intake patch succeed; recordDiagnosis fails after the
+  // downstream success payload has been produced.
+  failAtWrite = 3;
+  const response = await request('/api/diagnose', intake);
+  assert.equal(writes, 3, 'failure must occur in the response bridge');
+  assert.equal(response.status, 503);
+  assert.equal(response.body.success, false);
+  assert.equal(response.body.code, 'PERSISTENCE_WRITE_FAILED');
+  assert.equal(response.body.result, undefined);
+  assert.equal(response.body.jobId, undefined);
 });
 
 test('F-013 Diagnose: actual database configuration guard returns distinct 503', async () => {
