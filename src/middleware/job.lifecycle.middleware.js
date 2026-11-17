@@ -26,10 +26,40 @@ function wrapJson(res, handler) {
       const next = await handler(payload);
       return originalJson(next === undefined ? payload : next);
     } catch (err) {
-      console.warn('[JobLifecycle] response bridge failed (non-fatal):', err.message);
-      return originalJson(payload);
+      // Required persistence must complete before the client sees success.
+      // The former availability-over-durability fallback returned the original
+      // AI payload even when the job write failed, concealing lost work.
+      const persistenceFailure = err?.code === 'PERSISTENCE_WRITE_FAILED';
+      const configurationFailure = err?.code === 'PERSISTENCE_UNAVAILABLE';
+      const clientStatus = Number.isInteger(err?.statusCode) && err.statusCode >= 400 && err.statusCode < 500
+        ? err.statusCode : null;
+      const status = persistenceFailure || configurationFailure ? 503 : clientStatus || 500;
+      const code = persistenceFailure ? 'PERSISTENCE_WRITE_FAILED'
+        : configurationFailure ? err.code
+          : clientStatus && typeof err.code === 'string' && err.code ? err.code : 'JOB_LIFECYCLE_FAILED';
+      console.error('[JobLifecycle] response bridge failed closed:', code, err?.message);
+      if (res.headersSent) return res.end();
+      res.status(status);
+      return originalJson({ success: false, error: persistenceFailure
+        ? 'Persistent job storage is unavailable'
+         : configurationFailure ? 'Job storage configuration is unavailable'
+          : clientStatus ? err.message : 'Job lifecycle processing failed', code });
     }
   };
+}
+
+function forwardLifecycleError(err, res, next) {
+  if (err?.code === 'PERSISTENCE_WRITE_FAILED' || err?.code === 'PERSISTENCE_UNAVAILABLE') {
+    if (res.headersSent) return res.end();
+    return res.status(503).json({
+      success: false,
+      error: err.code === 'PERSISTENCE_WRITE_FAILED'
+        ? 'Persistent job storage is unavailable'
+        : 'Job storage configuration is unavailable',
+      code: err.code
+    });
+  }
+  return next(err);
 }
 
 function diagnosisMechanicObservations(body = {}) {
@@ -196,7 +226,7 @@ async function diagnosisLifecycle(req, res, next) {
     });
     next();
   } catch (err) {
-    next(err);
+    return forwardLifecycleError(err, res, next);
   }
 }
 
@@ -227,7 +257,7 @@ async function estimateLifecycle(req, res, next) {
     });
     next();
   } catch (err) {
-    next(err);
+    return forwardLifecycleError(err, res, next);
   }
 }
 
