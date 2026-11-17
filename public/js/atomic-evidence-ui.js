@@ -15,7 +15,7 @@
   };
 
   async function atomicPost(path, body) {
-    const response = await fetch(API + path, {
+    const response = await SKSKAuth.request(API + path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(body)
