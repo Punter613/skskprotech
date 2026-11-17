@@ -64,4 +64,13 @@ process.on('message', message => {
   if (message?.type === 'counts') process.send?.({ type: 'counts', decodeCalls, quickAskCalls });
 });
 require('../../api/server');
-process.send?.({ type: 'ready' });
+(async () => {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    try {
+      const response = await fetch('http://127.0.0.1:' + process.env.PORT + '/health');
+      if (response.status === 200) { process.send?.({ type: 'ready' }); return; }
+    } catch { /* waiting for server.listen */ }
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  throw new Error('Fixture HTTP server failed to become ready');
+})().catch(() => { process.exitCode = 1; });
