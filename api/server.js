@@ -281,6 +281,15 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
     const jobId = `SKSK-PREVIEW-UNVERIFIED-${String(process.env.RENDER_PULL_REQUEST_ID || 'PR')}`;
 
+    let outboundCredential = '';
+    try {
+      // Fail before any persistence when the isolated canary key is unavailable.
+      const { canaryCredential } = require('../src/middleware/preview.canary.auth');
+      outboundCredential = canaryCredential();
+    } catch {
+      return res.status(503).json({ ok: false, stage: 'preview-unverified-diagnosis-smoke', error: 'Preview canary configuration unavailable', totalMs: Date.now() - startedAt });
+    }
+
     try {
       const { createJob, recordDiagnosis, patchJob, getJob } = require('../src/services/job.lifecycle');
       await createJob({
@@ -325,7 +334,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
       const fallbackStartedAt = Date.now();
       const fallbackResponse = await fetch(`${localBase}/api/jobs/${encodeURIComponent(jobId)}/unverified-diagnosis`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-SKSK-API-Key': outboundCredential },
         body: '{}'
       });
       const fallbackBody = await fallbackResponse.json();
@@ -333,7 +342,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
 
       const estimateResponse = await fetch(`${localBase}/api/estimateHeuristic`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-SKSK-API-Key': outboundCredential },
         body: JSON.stringify({
           jobId,
           diagnosisVerified: true,
@@ -395,7 +404,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
       return res.status(502).json({
         ok: false,
         stage: 'preview-unverified-diagnosis-smoke',
-        error: error.message,
+        error: 'Preview unverified diagnosis smoke failed',
         totalMs: Date.now() - startedAt
       });
     }
