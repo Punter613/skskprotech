@@ -1,3 +1,11 @@
+> # CLOSED — HISTORICAL BRANCH REPORT
+>
+> This document is the closing report of the `cleanup/strip-unneeded` branch effort. It is retained as history, not as a current status source. Its key removal landed.
+>
+> **One item from this report is explicitly carried forward as STILL OPEN and is not closed by this banner:** the history rewrite to purge an exposed key from this repository's Git history was recorded here as *not done*, and it remains not done. Whether that key is still valid anywhere has not been established. Do not treat this document's closure — or this banner — as resolving that item. It stays open until the purge is performed or the key is confirmed revoked and the confirmation is recorded.
+>
+> The branch deletion also listed as not done in this report remains a housekeeping item; unlike the key, it carries no exposure.
+
 CLEANUP MOVES AND NEXT STEPS
 
 Summary of changes on branch cleanup/strip-unneeded:
