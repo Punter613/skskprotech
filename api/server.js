@@ -184,10 +184,12 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
 
     try {
+      const { canaryCredential, canaryHeaders } = require('../src/middleware/preview.canary.auth');
+      const credential = canaryCredential();
       const decodeStartedAt = Date.now();
       const decodeResponse = await fetch(`${localBase}/api/vehicle/decode`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: canaryHeaders('/api/vehicle/decode', credential),
         body: JSON.stringify({ vin })
       });
       const decodeBody = await decodeResponse.json();
@@ -207,7 +209,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
       const quickAskStartedAt = Date.now();
       const quickAskResponse = await fetch(`${localBase}/api/quick-ask`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: canaryHeaders('/api/quick-ask', credential),
         body: JSON.stringify({ vehicle: decodeBody.vehicle, query, limit: 5 })
       });
       const quickAskBody = await quickAskResponse.json();
