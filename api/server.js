@@ -183,7 +183,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
   }, async (req, res) => {
     const startedAt = Date.now();
     let outboundCredential = '';
-    const incomingCredential = String(req.get('x-sksk-api-key') || req.get('authorization') || '').replace(/^Bearer\\s+/i, '').trim();
+    const incomingCredential = String(req.get('x-sksk-api-key') || req.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
     const safeResponse = payload => {
       let json = JSON.stringify(payload);
       for (const secret of [incomingCredential, outboundCredential]) {
