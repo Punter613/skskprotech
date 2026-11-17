@@ -7,7 +7,7 @@ const cors = require('cors');
 const app = express();
 app.set('trust proxy', 1);
 const { requestTelemetry, errorTelemetry } = require('../src/middleware/observability');
-const { getPreviewCanaryAuthorizationHeaders } = require('../src/middleware/preview.canary.auth');
+const { getPreviewCanaryAuthorizationHeaders, requirePreviewCanaryAccess } = require('../src/middleware/preview.canary.auth');
 app.use(requestTelemetry);
 
 // 1. GLOBAL ACCESS CONTROL & SECURITY HEADERS
@@ -178,7 +178,7 @@ app.get('/health', async (req, res) => {
 // registers these endpoints because Render sets IS_PULL_REQUEST to the string "true"
 // only for pull request preview services.
 if (process.env.IS_PULL_REQUEST === 'true') {
-  app.get('/health/preview-evidence', async (req, res) => {
+  app.get('/health/preview-evidence', requireApiAccess, requirePreviewCanaryAccess, async (req, res) => {
     const startedAt = Date.now();
     const vin = String(req.query.vin || '5XXGT4L38LG384941').trim();
     const query = String(req.query.query || 'P1326 knock signal range performance flashing MIL reduced power').trim();
@@ -267,7 +267,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     }
   });
 
-  app.get('/health/preview-unverified-diagnosis', async (req, res) => {
+  app.get('/health/preview-unverified-diagnosis', requireApiAccess, requirePreviewCanaryAccess, async (req, res) => {
     const startedAt = Date.now();
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
     const jobId = `SKSK-PREVIEW-UNVERIFIED-${String(process.env.RENDER_PULL_REQUEST_ID || 'PR')}`;
