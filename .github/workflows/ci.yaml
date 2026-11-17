@@ -46,6 +46,7 @@ jobs:
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        PREVIEW_CANARY_API_KEY: ${{ secrets.SKSK_PREVIEW_CANARY_API_KEY }}
         PREVIEW_URL: https://p613-backend-pr-${{ github.event.number }}.onrender.com
       run: |
         git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA" || true
@@ -114,8 +115,12 @@ jobs:
         fi
 
         if [ "$EVIDENCE_CHANGED" = "1" ]; then
+          if [ -z "$PREVIEW_CANARY_API_KEY" ]; then
+            echo "::error::Dedicated preview canary credential is not configured in GitHub Actions."
+            exit 1
+          fi
           SMOKE_URL="$PREVIEW_URL/health/preview-evidence?vin=5XXGT4L38LG384941&query=P1326%20knock%20signal%20range%20performance%20flashing%20MIL%20reduced%20power"
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/render-evidence-smoke.json -w '%{http_code}' "$SMOKE_URL" || true)"
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -H "X-SKSK-API-Key: $PREVIEW_CANARY_API_KEY" -o /tmp/render-evidence-smoke.json -w '%{http_code}' "$SMOKE_URL" || true)"
           cat /tmp/render-evidence-smoke.json || true
           echo
 
