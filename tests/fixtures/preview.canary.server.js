@@ -7,6 +7,8 @@ const express = require('express');
 
 let decodeCalls = 0;
 let quickAskCalls = 0;
+let lifecycleWrites = 0;
+const fixtureJobs = new Map();
 const internalKey = 'fixture-internal-secret-B-unique-9e41';
 const incomingKey = 'fixture-incoming-secret-A-unique-8b72';
 const tenant = 'shop_preview_canary';
@@ -44,6 +46,25 @@ replaceModule('../../src/auth/supabase.identity', {
 });
 replaceModule('../../src/services/db_keepawake', { startKeepAwakeLoop() {} });
 replaceModule('../../src/workers/aiWorker', {});
+// Instrumented in-memory lifecycle: no database connection or writes.
+replaceModule('../../src/services/job.lifecycle', {
+  createJob: async input => {
+    lifecycleWrites++;
+    fixtureJobs.set(input.jobId, { ...input, status: 'DIAGNOSING', intake: { customerStates: input.customerStates, mechanicNotices: input.mechanicNotices } });
+    process.send?.({ type: 'lifecycle-write', operation: 'createJob' });
+  },
+  recordDiagnosis: async (id, diagnosis) => {
+    lifecycleWrites++;
+    fixtureJobs.get(id).diagnosis = diagnosis;
+    process.send?.({ type: 'lifecycle-write', operation: 'recordDiagnosis' });
+  },
+  patchJob: async (id, patch) => {
+    lifecycleWrites++;
+    Object.assign(fixtureJobs.get(id), patch);
+    process.send?.({ type: 'lifecycle-write', operation: 'patchJob' });
+  },
+  getJob: async id => fixtureJobs.get(id) || null
+});
 
 Object.assign(process.env, {
   NODE_ENV: 'production',
@@ -61,7 +82,7 @@ process.on('message', message => {
     else process.env.SKSK_PREVIEW_CANARY_API_KEY = internalKey;
     process.send?.({ type: 'configured' });
   }
-  if (message?.type === 'counts') process.send?.({ type: 'counts', decodeCalls, quickAskCalls });
+  if (message?.type === 'counts') process.send?.({ type: 'counts', decodeCalls, quickAskCalls, lifecycleWrites });
 });
 require('../../api/server');
 (async () => {
