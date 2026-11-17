@@ -75,6 +75,21 @@ test('preview evidence HTTP gate, execution and secrecy (stubbed upstreams)', { 
     assert.equal(calls.length, baseline);
     await request('fixture-wrong-tenant-secret-D', 403);
     assert.equal(calls.length, baseline, 'Wrong tenant must not run upstreams');
+    // Exercise the second REAL HTTP route. All rejections must occur before
+    // job creation, persistence, or any internal request.
+    for (const [credential, expected] of [
+      [null, 401],
+      ['unrecognized-tenant-key', 401],
+      ['fixture-wrong-tenant-secret-D', 403]
+    ]) {
+      const headers = credential ? { Authorization: 'Bearer ' + credential } : {};
+      const response = await fetch('http://127.0.0.1:' + port + '/health/preview-unverified-diagnosis', { headers });
+      const body = await response.text();
+      assert.equal(response.status, expected);
+      assert.equal(containsSecret(JSON.stringify({ body, headers: Object.fromEntries(response.headers) })), false);
+      assert.equal(calls.length, baseline, 'Rejected unverified canary must not call stubbed upstreams');
+    }
+    assert.equal(containsSecret(logs), false);
     // A is a verified synthetic user session for the dedicated canary tenant.
     // B is a distinct shop API key for outbound calls; never interchange them.
     await configure('missing');
