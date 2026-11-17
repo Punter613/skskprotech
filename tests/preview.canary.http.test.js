@@ -129,6 +129,20 @@ test('preview evidence HTTP gate, execution and secrecy (stubbed upstreams)', { 
     assert.equal(calls.every(c => c.authenticated), true);
     assert.equal(calls.find(c => c.route === 'quick-ask').consumed, true);
     assert.equal(containsSecret(logs), false, 'Credential must not appear in final logs');
+    // Authorized execution of the second real HTTP route, with stubbed internals.
+    const authorizedResponse = await fetch('http://127.0.0.1:' + port + '/health/preview-unverified-diagnosis', {
+      headers: { Authorization: 'Bearer ' + A }
+    });
+    const authorizedBody = await authorizedResponse.text();
+    assert.equal(authorizedResponse.status, 200, authorizedBody);
+    assert.equal(JSON.parse(authorizedBody).ok, true);
+    assert.equal(containsSecret(authorizedBody), false);
+    const internalCalls = messages.filter(m => m.type === 'internal-unverified');
+    assert.deepEqual(internalCalls.map(m => m.route), ['fallback', 'estimate']);
+    assert.equal(internalCalls.every(m => m.authenticated), true);
+    const writeOperations = messages.filter(m => m.type === 'lifecycle-write').map(m => m.operation);
+    assert.deepEqual(writeOperations, ['createJob', 'recordDiagnosis', 'patchJob']);
+    assert.equal(containsSecret(logs), false);
     assert.equal(containsSecret(messages), false, 'Credential must not appear in serialized IPC events');
   } finally {
     if (child.exitCode === null && child.signalCode === null) {
