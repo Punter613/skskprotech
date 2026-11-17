@@ -152,7 +152,7 @@ jobs:
 
           if [ "$MANUAL_REUSE_CHANGED" = "1" ]; then
             REUSE_URL="$PREVIEW_URL/health/preview-evidence?vin=KNDJC736385765089&query=P0300%20P0171%20random%20misfire%20lean%20bank%201%20deceleration%20full%20lock%20clunk"
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/render-manual-reuse-smoke.json -w '%{http_code}' "$REUSE_URL" || true)"
+            HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -H "X-SKSK-API-Key: $PREVIEW_CANARY_API_KEY" -o /tmp/render-manual-reuse-smoke.json -w '%{http_code}' "$REUSE_URL" || true)"
             cat /tmp/render-manual-reuse-smoke.json || true
             echo
 
