@@ -46,3 +46,16 @@ test('unverified UI labels causal grouping as unverified', () => {
   assert.match(js, /Possible leak points/);
   assert.match(js, /Observed consequences/);
 });
+
+
+test('atomic evidence and unverified diagnosis use the shared authenticated request bridge', () => {
+  const js = fs.readFileSync(atomicUiPath, 'utf8');
+  const start = js.indexOf('async function atomicPost(');
+  const end = js.indexOf('function collectPendingEvidence(', start);
+  assert.ok(start >= 0 && end > start, 'atomicPost helper must exist');
+  const helper = js.slice(start, end);
+  assert.ok(helper.includes('SKSKAuth.request(API + path, {'), 'atomic requests must use the shared auth bridge');
+  assert.ok(!helper.includes('await fetch('), 'raw fetch would omit shop authentication');
+  assert.ok(helper.includes('body: JSON.stringify(body)'), 'payload is preserved');
+  assert.ok(helper.includes('if (!response.ok)'), 'HTTP error handling is preserved');
+});
