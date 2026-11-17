@@ -393,7 +393,7 @@ app.use((err, req, res, next) => {
   if (err.statusCode && err.statusCode < 500) {
     return res.status(err.statusCode).json({
       success: false,
-      error: process.env.NODE_ENV === 'development' ? (err.message || 'Request error') : err.message,
+      error: process.env.NODE_ENV === 'development' ? (err.message || 'Request error') : 'Request error',
       requestId: req.requestId || null
     });
   }
