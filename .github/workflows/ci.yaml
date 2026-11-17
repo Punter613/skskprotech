@@ -190,7 +190,7 @@ jobs:
 
         if [ "$UNVERIFIED_CHANGED" = "1" ]; then
           UNVERIFIED_URL="$PREVIEW_URL/health/preview-unverified-diagnosis"
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 20 -sS -o /tmp/render-unverified-smoke.json -w '%{http_code}' "$UNVERIFIED_URL" || true)"
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 20 -sS -H "X-SKSK-API-Key: $PREVIEW_CANARY_API_KEY" -o /tmp/render-unverified-smoke.json -w '%{http_code}' "$UNVERIFIED_URL" || true)"
           cat /tmp/render-unverified-smoke.json || true
           echo
 
