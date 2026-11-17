@@ -99,6 +99,20 @@ test('preview evidence HTTP gate, execution and secrecy (stubbed upstreams)', { 
     await configure('invalid');
     await request(A, 502, 'preview-evidence-smoke');
     assert.equal(calls.length, baseline, 'Invalid internal credential must not run upstreams');
+    // Unverified route must reject broken canary provisioning before creating a job.
+    // This uses the real server route and the real canaryCredential validation.
+    for (const mode of ['missing', 'invalid']) {
+      await configure(mode);
+      const response = await fetch('http://127.0.0.1:' + port + '/health/preview-unverified-diagnosis', {
+        headers: { Authorization: 'Bearer ' + A }
+      });
+      const body = await response.text();
+      assert.equal(response.status, 503, mode + ' canary config must fail closed');
+      assert.equal(JSON.parse(body).stage, 'preview-unverified-diagnosis-smoke');
+      assert.equal(containsSecret(JSON.stringify({ body, headers: Object.fromEntries(response.headers) })), false);
+      assert.equal(calls.length, baseline, 'Bad config must not reach stubbed upstreams');
+      assert.equal(containsSecret(logs), false);
+    }
     await configure('valid');
     const result = await request(A, 200);
     assert.equal(result.ok, true);
