@@ -48,8 +48,10 @@ const diagnosis = { primaryCause: 'Cylinder one ignition coil fault', recommende
 function makeApp() {
   const app = express();
   app.use(express.json());
-  app.post('/api/diagnose', diagnosisLifecycle, (req, res) => res.json({ success: true, result: diagnosis }));
-  app.post('/api/estimateHeuristic', estimateLifecycle, (req, res) => res.json({
+  app.use('/api/diagnose', diagnosisLifecycle);
+  app.post('/api/diagnose', (req, res) => res.json({ success: true, result: diagnosis }));
+  app.use('/api/estimateHeuristic', estimateLifecycle);
+  app.post('/api/estimateHeuristic', (req, res) => res.json({
     success: true, estimate: { laborHours: 1, partsCost: 80 }
   }));
   app.use((err, req, res, next) => res.status(err.statusCode || 500).json({
@@ -217,7 +219,8 @@ async function requestEstimate(jobId, estimate) {
   // must persist it before the response is delivered.
   const app = express();
   app.use(express.json());
-  app.post('/api/estimateHeuristic', estimateLifecycle,
+  app.use('/api/estimateHeuristic', estimateLifecycle);
+  app.post('/api/estimateHeuristic',
     (req, res) => res.json({ success: true, estimate }));
   app.use((err, req, res, next) => res.status(err.statusCode || 500).json({
     success: false, error: err.message, code: err.code || 'UNHANDLED'
