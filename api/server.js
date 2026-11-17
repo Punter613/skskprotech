@@ -253,11 +253,11 @@ if (process.env.IS_PULL_REQUEST === 'true') {
         totalMs: Date.now() - startedAt
       });
     } catch (error) {
-      console.error('[Preview Evidence Smoke]', error.stack || error.message || error);
+      console.error('[Preview Evidence Smoke] Failed (details redacted)');
       return res.status(502).json({
         ok: false,
         stage: 'preview-evidence-smoke',
-        error: error.message,
+        error: 'Preview evidence smoke failed',
         totalMs: Date.now() - startedAt
       });
     }
