@@ -66,6 +66,31 @@ replaceModule('../../src/services/job.lifecycle', {
   getJob: async id => fixtureJobs.get(id) || null
 });
 
+// Intercept only the two unverified-diagnosis internal calls and the static UI
+// read. The outer HTTP request still executes the real Express route.
+const originalFetch = global.fetch;
+global.fetch = async (url, options = {}) => {
+  const target = String(url);
+  if (target.includes('/api/jobs/') && target.endsWith('/unverified-diagnosis')) {
+    const authenticated = options.headers?.['X-SKSK-API-Key'] === internalKey;
+    process.send?.({ type: 'internal-unverified', route: 'fallback', authenticated });
+    if (!authenticated) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    const id = decodeURIComponent(target.split('/api/jobs/')[1].split('/unverified-diagnosis')[0]);
+    const job = fixtureJobs.get(id);
+    if (job) { job.status = 'TESTING'; job.unverifiedDiagnosis = { state: 'UNVERIFIED_DIAGNOSIS' }; }
+    return new Response(JSON.stringify({ diagnosisState: 'UNVERIFIED_DIAGNOSIS', unverifiedDiagnosis: { mostLikelyCause: 'Knock sensor fault', physicallyVerified: false, repairAuthorized: false }, estimateReady: false }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (target.endsWith('/api/estimateHeuristic')) {
+    const authenticated = options.headers?.['X-SKSK-API-Key'] === internalKey;
+    process.send?.({ type: 'internal-unverified', route: 'estimate', authenticated });
+    return new Response(JSON.stringify({ error: authenticated ? 'Unverified diagnosis cannot unlock estimate' : 'Unauthorized' }), { status: authenticated ? 409 : 401, headers: { 'Content-Type': 'application/json' } });
+  }
+  if (target.endsWith('/lifecycle.html')) {
+    return new Response('Get an Unverified Diagnosis\\nThis diagnosis has not been physically verified. It does not authorize a repair and does not unlock Estimate.', { status: 200 });
+  }
+  return originalFetch(url, options);
+};
+
 Object.assign(process.env, {
   NODE_ENV: 'production',
   IS_PULL_REQUEST: 'true',
