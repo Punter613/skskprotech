@@ -104,3 +104,25 @@ test('preview canary auth is disabled outside a pull request preview', () => {
     }
   }
 });
+
+
+test('preview canary rejects authenticated non-canary tenants before executing', () => {
+  const previous = process.env.IS_PULL_REQUEST;
+  process.env.IS_PULL_REQUEST = 'true';
+  try {
+    for (const principal of [
+      {},
+      { auth: { type: 'shop_key', shopId: 'shop_other' }, shopId: 'shop_other' },
+      { auth: { type: 'user', shopId: PREVIEW_CANARY_SHOP_ID }, shopId: PREVIEW_CANARY_SHOP_ID }
+    ]) {
+      const response = res();
+      let executed = false;
+      requirePreviewCanaryAccess({ ...req(), ...principal }, response, () => { executed = true; });
+      assert.equal(response.statusCode, 403);
+      assert.equal(executed, false);
+    }
+  } finally {
+    if (previous === undefined) delete process.env.IS_PULL_REQUEST;
+    else process.env.IS_PULL_REQUEST = previous;
+  }
+});
