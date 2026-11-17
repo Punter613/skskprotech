@@ -40,7 +40,10 @@ test('bulk-estimate returns unverified AI forecast without modifying fleet row',
         select() { return this; },
         eq(k, v) { filters[k] = v; return this; },
         single: async () => ({ data: filters.vin === vin && filters.tenant_id === row.tenant_id ? { ...row } : null, error: null }),
-        update() { updateCalls++; throw new Error('Unverified estimate attempted authoritative write'); }
+        update() { updateCalls++; throw new Error('Unverified estimate attempted authoritative write'); },
+        upsert() { updateCalls++; throw new Error('Unverified estimate attempted authoritative upsert'); },
+        insert() { updateCalls++; throw new Error('Unverified estimate attempted authoritative insert'); },
+        delete() { updateCalls++; throw new Error('Unverified estimate attempted authoritative delete'); }
       };
     }};
     estimator.processSingleEstimate = async () => ({
@@ -59,6 +62,7 @@ test('bulk-estimate returns unverified AI forecast without modifying fleet row',
     assert.equal(result.data.results[0].assessment.verificationStatus, 'UNVERIFIED');
     assert.equal(result.data.results[0].assessment.source, 'AI_ESTIMATE');
     assert.equal(result.data.results[0].assessment.calculatedSeverity, 'OK');
+    assert.deepEqual(result.data.results[0].assessment.predictiveHorizon, { primary_risk_component: 'All Systems Stable' });
     assert.equal(updateCalls, 0);
     assert.equal(row.status, 'WARNING');
     assert.deepEqual(row.next_predicted_failure, { primary_risk_component: 'Brake system' });
