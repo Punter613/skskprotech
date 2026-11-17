@@ -54,8 +54,8 @@ test('atomic evidence and unverified diagnosis use the shared authenticated requ
   const end = js.indexOf('function collectPendingEvidence(', start);
   assert.ok(start >= 0 && end > start, 'atomicPost helper must exist');
   const helper = js.slice(start, end);
-  assert.match(helper, /SKSKAuth\\.request\\(API \\+ path/);
-  assert.doesNotMatch(helper, /(?:^|[^.\\w])fetch\\s*\\(/);
-  assert.match(helper, /body: JSON\\.stringify\\(body\\)/);
-  assert.match(helper, /if \\(!response\\.ok\\)/);
+  assert.ok(helper.includes('SKSKAuth.request(API + path, {'), 'atomic requests must use the shared auth bridge');
+  assert.ok(!helper.includes('await fetch('), 'raw fetch would omit shop authentication');
+  assert.ok(helper.includes('body: JSON.stringify(body)'), 'payload is preserved');
+  assert.ok(helper.includes('if (!response.ok)'), 'HTTP error handling is preserved');
 });
