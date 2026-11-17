@@ -97,7 +97,10 @@ test('preview evidence HTTP gate, execution and secrecy (stubbed upstreams)', { 
     assert.equal(containsSecret(logs), false, 'Credential must not appear in final logs');
     assert.equal(containsSecret(messages), false, 'Credential must not appear in serialized IPC events');
   } finally {
-    child.kill('SIGKILL');
-    await once(child, 'exit').catch(() => {});
+    if (child.exitCode === null && child.signalCode === null) {
+      const exited = once(child, 'exit');
+      child.kill('SIGKILL');
+      await exited.catch(() => {});
+    }
   }
 });
