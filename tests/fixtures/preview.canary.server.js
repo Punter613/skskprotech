@@ -20,7 +20,7 @@ const vehicle = express.Router();
 vehicle.post('/decode', (req, res) => {
   decodeCalls++;
   process.send?.({ type: 'call', route: 'decode', authenticated: req.shopId === tenant });
-  res.json({ success: true, vehicle: { year: 2020, make: 'KIA', model: 'Optima', engine: '2.4L', marker: 'decode-marker' } });
+  res.json({ success: true, vehicle: { year: 2020, make: 'KIA', model: 'Optima', engine: '2.4L', marker: 'decode-marker', reflectedIncoming: incomingKey, reflectedInternal: internalKey } });
 });
 replaceModule('../../src/routes/vehicle', vehicle);
 
@@ -28,7 +28,7 @@ const quickAsk = express.Router();
 quickAsk.post('/', (req, res) => {
   quickAskCalls++;
   process.send?.({ type: 'call', route: 'quick-ask', authenticated: req.shopId === tenant, consumed: req.body?.vehicle?.marker === 'decode-marker' });
-  res.json({ status: 'SUCCESS', mode: 'stubbed', repairDiagnosisSource: 'quick-ask-marker', repairDiagnosisEvidence: [{ title: 'stub-reference' }], warnings: ['fixture-warning'] });
+  res.json({ status: 'SUCCESS', mode: 'stubbed', repairDiagnosisSource: 'quick-ask-marker', repairDiagnosisEvidence: [{ title: 'stub-reference' }], warnings: ['fixture-warning', incomingKey, internalKey] });
 });
 replaceModule('../../src/routes/quick.ask', quickAsk);
 
