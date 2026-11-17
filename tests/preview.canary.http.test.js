@@ -73,6 +73,8 @@ test('preview evidence HTTP gate, execution and secrecy (stubbed upstreams)', { 
     assert.equal(calls.length, baseline);
     await request('unrecognized-tenant-key', 401);
     assert.equal(calls.length, baseline);
+    await request('fixture-wrong-tenant-secret-D', 403);
+    assert.equal(calls.length, baseline, 'Wrong tenant must not run upstreams');
     // A is a verified synthetic user session for the dedicated canary tenant.
     // B is a distinct shop API key for outbound calls; never interchange them.
     await configure('missing');
