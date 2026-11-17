@@ -99,18 +99,20 @@ router.post('/bulk-estimate', requireTenant, async (req, res) => {
 
           const rawResult = await processSingleEstimate({ vehicle, notes });
 
-          const { error: updateError } = await db.supabase
-            .from('fleet_vehicles')
-            .update({ 
-              next_predicted_failure: rawResult.predictive_horizon,
-              status: rawResult.calculated_severity
-            })
-            .eq('vin', vin)
-            .eq('tenant_id', tenantId);
-
-          if (updateError) throw updateError;
-
-          return { vin, status: 'Success', error: null };
+          // AI forecasts are provisional. Never promote them into the fleet's
+          // operative status or predicted-failure fields without verified evidence.
+          // Return them to the caller as unverified suggestions only.
+          return {
+            vin,
+            status: 'Success',
+            error: null,
+            assessment: {
+              verificationStatus: 'UNVERIFIED',
+              source: 'AI_ESTIMATE',
+              calculatedSeverity: rawResult.calculated_severity ?? null,
+              predictiveHorizon: rawResult.predictive_horizon ?? null
+            }
+          };
         } catch (individualError) {
           return { vin, status: 'Failed', error: individualError.message };
         }
