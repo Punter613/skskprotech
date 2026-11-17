@@ -15,3 +15,6 @@ reason: redeploy frontend auth bridge regression fix for exact-head runtime veri
 reason: fleet cross-shop HTTP isolation regression and legacy migration plan
 
 reason: rebuild PR 220 preview at exact head after test-only auth assertion repairs
+
+reason: F-013 response integrity exact-head PR #221 preview verification
+updated: 2026-11-17
