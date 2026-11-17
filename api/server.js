@@ -273,7 +273,10 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     }
   });
 
-  app.get('/health/preview-unverified-diagnosis', async (req, res) => {
+  app.get('/health/preview-unverified-diagnosis', requireApiAccess, (req, res, next) => {
+    if (req.shopId !== 'shop_preview_canary') return res.status(403).json({ success: false, error: 'Preview canary tenant required' });
+    next();
+  }, async (req, res) => {
     const startedAt = Date.now();
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
     const jobId = `SKSK-PREVIEW-UNVERIFIED-${String(process.env.RENDER_PULL_REQUEST_ID || 'PR')}`;
