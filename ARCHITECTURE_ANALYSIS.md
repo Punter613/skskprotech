@@ -207,7 +207,7 @@ None of the museum is dangerous. All of it is weight, and it is the material the
 - Whether Stripe is configured with the webhook's doubled effective path (`/api/payments/webhook/webhook`) — §8.
 - Whether `/api/payments` is live in the deployed environment (depends on `STRIPE_SECRET_KEY` in env, which is not in the repo).
 - Whether anything in the deployed frontend still calls `/api/scrape` or `/api/parts` — the current pages' calls were inventoried and none do, but the Pages-served JS bundles were not audited line-by-line; that check is the stated precondition for removing those mounts.
-- The exposed-key history item recorded in CLEANUP.md: the history rewrite to purge it was never done, and whether that key is still valid anywhere was not investigated. See the closure banner on CLEANUP.md — the item is **still open**.
+- The exposed-key history item recorded in CLEANUP.md — **resolved as to credential validity (owner-attested):** the owner reports the SSH key was revoked months before November 2026 and no associated keys or tokens remain issued. The repository has not independently verified revocation. The key material remains in Git history; history removal is a separate optional hardening action. See CLEANUP.md.
 - Runtime behavior generally: the underlying analysis ran no server and probed no deployed endpoint. "Broken" verdicts here are structural certainties from the code as written; deployed flag states and provider behavior are outside what a code read can claim.
 
 ---
