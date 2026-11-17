@@ -18,39 +18,9 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // 💳 Handle successful corporate procurement checkouts
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    
-    const tenantId = session.metadata?.tenant_id;
-    const manifestRaw = session.metadata?.procurement_manifest;
-
-    if (tenantId && manifestRaw) {
-      try {
-        const componentsArray = JSON.parse(manifestRaw);
-        console.log(`📦 Payment Confirmed. Clearing risk flags for Tenant: ${tenantId}`);
-
-        // Automatically resolve asset conditions back to safe defaults inside Supabase
-        const { data, error } = await db.supabase
-          .from('fleet_vehicles')
-          .update({
-            status: 'OK', // Reset structural threshold
-            next_predicted_failure: {
-              predicted_failure_window: "None",
-              primary_risk_component: "All Systems Stable"
-            } // Fixed: Passed clean JS object payload. Supabase client handles JSONB mapping natively.
-          })
-          .eq('tenant_id', tenantId);
-
-        if (error) throw error;
-        console.log(`✅ Database State Synchronized. Operational flags safely restored.`);
-
-      } catch (dbError) {
-        console.error(`❌ Failed to update asset records following payment: ${dbError.message}`);
-        return res.status(500).json({ error: 'Database update failed.' });
-      }
-    }
-  }
+  // Payment confirms a commercial transaction only. It is not vehicle evidence.
+  // In particular, checkout.session.completed must never clear fleet risk/status.
+  // Procurement fulfillment belongs in a separate, idempotent commercial ledger.
 
   // Acknowledge receipt of the webhook securely to stop Stripe retries
   return res.status(200).json({ received: true });
