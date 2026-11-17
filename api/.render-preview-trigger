@@ -21,3 +21,6 @@ updated: 2026-11-17
 
 reason: PR #222 fleet AI/payment truth boundary exact-head preview
 updated: 2026-11-17
+
+reason: PR #222 HTTP behavioral regression tests exact-head verification
+updated: 2026-11-17
