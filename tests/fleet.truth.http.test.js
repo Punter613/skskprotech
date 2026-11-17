@@ -83,6 +83,7 @@ test('Stripe checkout webhook acknowledges verified event without modifying vehi
   const db = require(dbPath);
   const originalDb = db.supabase;
   const originalSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const originalStripeKey = process.env.STRIPE_SECRET_KEY;
   let mutations = 0;
   try {
     require.cache[stripePath] = {
@@ -101,6 +102,7 @@ test('Stripe checkout webhook acknowledges verified event without modifying vehi
       }
     };
     process.env.STRIPE_WEBHOOK_SECRET = 'test-webhook-secret';
+    process.env.STRIPE_SECRET_KEY = 'sk_test_fixture_only';
     db.supabase = { from() { mutations++; throw new Error('Payment attempted fleet mutation'); } };
     delete require.cache[webhookPath];
     const webhook = require(webhookPath);
@@ -112,6 +114,8 @@ test('Stripe checkout webhook acknowledges verified event without modifying vehi
     assert.equal(mutations, 0);
   } finally {
     db.supabase = originalDb;
+    if (originalStripeKey === undefined) delete process.env.STRIPE_SECRET_KEY;
+    else process.env.STRIPE_SECRET_KEY = originalStripeKey;
     if (originalSecret === undefined) delete process.env.STRIPE_WEBHOOK_SECRET;
     else process.env.STRIPE_WEBHOOK_SECRET = originalSecret;
     delete require.cache[webhookPath];
