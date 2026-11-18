@@ -408,13 +408,6 @@ try {
   console.warn('[Lifecycle Warn] Database awake engine bypass:', e.message);
 }
 
-try {
-  require('../src/workers/aiWorker');
-  console.log('🤖 Background AI Worker summoned to the shop floor. Listening for jobs...');
-} catch (e) {
-  console.warn('[Lifecycle Warn] AI Worker thread instantiation deferred:', e.message);
-}
-
 // 9. NETWORK PORT BIND LISTEN ENGINE
 const port = process.env.PORT || 3000;
 const server = app.listen(port, () => {
