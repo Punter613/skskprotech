@@ -232,7 +232,9 @@ MULTI-CONDITION REASONING: When a symptom occurs under distinct operating condit
     if (guardResult.changed) {
       executionTrace.log('COMPLETED_WORK_GUARD', `Removed ${guardResult.removed.length} recommendation(s) already completed: ${guardResult.removed.join(' | ')}`);
       console.log(`[Diagnose] Completed-work guard filtered ${guardResult.removed.length} item(s):`, guardResult.removed);
-      recordGuardCatch({ requestId: executionTrace.traceId, route: '/api/diagnose', vehicle: resolvedVehicle, completedWork: guardResult.completedWork, removedItems: guardResult.removed, primaryCauseFlagged: !!parsed.primaryCauseFlaggedForReview, model: aiRes?.model || 'unknown-provider-model' }).catch(err => console.warn('[Diagnose] recordGuardCatch failed (non-fatal):', err.message));
+      if (!req.skskTesterMode) {
+        recordGuardCatch({ requestId: executionTrace.traceId, route: '/api/diagnose', vehicle: resolvedVehicle, completedWork: guardResult.completedWork, removedItems: guardResult.removed, primaryCauseFlagged: !!parsed.primaryCauseFlaggedForReview, model: aiRes?.model || 'unknown-provider-model' }).catch(err => console.warn('[Diagnose] recordGuardCatch failed (non-fatal):', err.message));
+      }
     }
     parsed = guardResult.output;
 

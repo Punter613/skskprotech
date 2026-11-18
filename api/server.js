@@ -84,8 +84,11 @@ const fleetRouter = require('../src/routes/fleet');
 const vehicleRouter = require('../src/routes/vehicle');
 const quickAskRouter = require('../src/routes/quick.ask');
 const { requireApiAccess, requireTestAccess, createRateLimiter } = require('../src/middleware/api.access');
+const { requireGuestDiagnosisKey, validateTestDiagnosis, createTestDiagnosisQuota } = require('../src/middleware/test.diagnose');
 const aiRateLimit = createRateLimiter();
 const protectAi = [requireApiAccess, aiRateLimit];
+const testerRateLimit = createRateLimiter({ max: 6, windowMs: 60_000 });
+const testerDailyQuota = createTestDiagnosisQuota();
 
 const {
   diagnosisLifecycle,
@@ -97,6 +100,10 @@ app.use('/api/parts', requireApiAccess, partsRouter);
 app.use('/api/jobs', requireApiAccess, jobsRouter);
 
 app.use('/api/diagnose', ...protectAi, diagnosisLifecycle, diagnose);
+// Test-key access is intentionally scoped to DIAGNOSE only: no shop identity,
+// no job persistence, no verification/estimate/invoice lifecycle, and bounded AI cost.
+app.use('/api/test/diagnose', requireGuestDiagnosisKey,
+  validateTestDiagnosis, testerRateLimit, testerDailyQuota, diagnose);
 app.use('/api/estimateHeuristic', requireApiAccess, estimateLifecycle, estimateHeuristic);
 
 app.use('/api/translate', ...protectAi, require('../src/routes/translate'));
