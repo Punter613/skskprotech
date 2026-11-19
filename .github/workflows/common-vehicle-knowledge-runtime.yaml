@@ -27,6 +27,7 @@ jobs:
       NO_PREVIEW_WAIVER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 238 && github.event.pull_request.head.sha == 'e04a7f826a6eb5e83d846d0766380a668160959e' && contains(github.event.pull_request.labels.*.name, 'no-preview') }}
       NO_PREVIEW_WAIVER_237: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 237 && github.event.pull_request.head.sha == '1b51331dfaa5f48626455ee81e9f930e63fa55aa' && contains(github.event.pull_request.labels.*.name, 'no-preview') }}
       ISOLATED_RUNTIME_240: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 240 && github.event.pull_request.head.sha == '5a5cf160a3be1adbb236b5860228b58d77cceed7' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
+      ISOLATED_RUNTIME_244: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 244 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'ci/isolated-runtime-target-240-review' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_244_HEAD_SHA && vars.SKSK_ISOLATED_244_HEAD_SHA != '' }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PREVIEW_URL: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 240 && github.event.pull_request.head.sha == '5a5cf160a3be1adbb236b5860228b58d77cceed7' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-240.onrender.com' || format('https://p613-backend-pr-{0}.onrender.com', github.event.pull_request.number) }}
     steps:
@@ -80,6 +81,23 @@ jobs:
             echo 'No HTTP runtime checks are waived. The selected target must pass exact commit and service-identity checks.'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: "Select pinned PR #244 isolated bootstrap credential"
+        if: env.ISOLATED_RUNTIME_244 == 'true'
+        env:
+          ISOLATED_244_API_KEY: ${{ secrets.SKSK_ISOLATED_244_API_KEY }}
+        run: |
+          if [ -z "$ISOLATED_244_API_KEY" ]; then
+            echo "::error::SKSK_ISOLATED_244_API_KEY missing; refusing shared preview-key fallback."
+            exit 1
+          fi
+          echo "SKSK_PREVIEW_API_KEY=$ISOLATED_244_API_KEY" >> "$GITHUB_ENV"
+          echo '::notice::PR #244 pinned test credential selected; runtime verification pending.'
+          {
+            echo '### PR #244 BOOTSTRAP TARGET SELECTED — NOT YET VERIFIED'
+            echo "PR #244 exact head $HEAD_SHA, pinned by repository variable SKSK_ISOLATED_244_HEAD_SHA."
+            echo 'Test-only service https://p613-backend-pr-244.onrender.com; no runtime waiver.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Wait for exact Render preview head
         if: env.NO_PREVIEW_WAIVER != 'true' && env.NO_PREVIEW_WAIVER_237 != 'true'
         shell: bash
@@ -117,6 +135,23 @@ jobs:
           const health = JSON.parse(fs.readFileSync('/tmp/pr-240-isolated-health.json', 'utf8'));
           if (health?.ok !== true || health?.preview?.commit !== process.env.HEAD_SHA || health?.preview?.service !== 'p613-isolated-pr-240') {
             console.error('Isolated test service identity or exact commit did not match; refusing runtime verification.');
+            process.exit(1);
+          }
+          NODE
+
+      - name: "Verify PR #244 isolated test service identity"
+        if: env.ISOLATED_RUNTIME_244 == 'true'
+        run: |
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/pr-244-isolated-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::PR #244 isolated test service health unavailable (HTTP $HTTP_CODE)."
+            exit 1
+          fi
+          HEAD_SHA="$HEAD_SHA" node - <<'NODE'
+          const fs = require('node:fs');
+          const health = JSON.parse(fs.readFileSync('/tmp/pr-244-isolated-health.json', 'utf8'));
+          if (health?.ok !== true || health?.preview?.commit !== process.env.HEAD_SHA || health?.preview?.service !== 'p613-backend-pr-244') {
+            console.error('PR #244 test service identity or exact commit mismatch; runtime is not verified.');
             process.exit(1);
           }
           NODE
@@ -193,6 +228,17 @@ jobs:
           }
           console.log(`Knowledge Builder runtime passed: ${coverage.items.length} filtered targets, durable policy intact, optional manuals excluded from durable readiness.`);
           NODE
+
+      - name: "Audit PR #244 pinned bootstrap runtime success"
+        if: env.ISOLATED_RUNTIME_244 == 'true' && success()
+        run: |
+          {
+            echo '### RUNTIME VERIFIED AGAINST ISOLATED TEST SERVICE'
+            echo "PR #244 exact head $HEAD_SHA matched the reviewed repository pin."
+            echo 'Target https://p613-backend-pr-244.onrender.com; health.ok, service identity, and commit matched.'
+            echo 'This workflow executed its real HTTP runtime assertions successfully; no waiver was used.'
+            echo "Evidence: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: "Audit PR #240 isolated test runtime success"
         if: env.ISOLATED_RUNTIME_240 == 'true' && success()
