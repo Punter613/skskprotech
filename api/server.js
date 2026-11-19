@@ -444,6 +444,9 @@ try {
 
 // 9. NETWORK PORT BIND LISTEN ENGINE
 const port = process.env.PORT || 3000;
+// Fail closed before binding: the backend DB credential contract must hold.
+require('../src/db').assertSupabaseConfig();
+
 const server = app.listen(port, () => {
   const retrieval = evidenceRetrievalProfile();
   const quickAsk = retrieval.quickAskSourceBudgetsMs;
