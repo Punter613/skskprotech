@@ -47,6 +47,7 @@ jobs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         PREVIEW_URL: https://p613-backend-pr-${{ github.event.number }}.onrender.com
+        SKSK_PREVIEW_API_KEY: ${{ secrets.SKSK_PREVIEW_API_KEY }}
       run: |
         git fetch --no-tags --depth=1 origin "$BASE_SHA" "$HEAD_SHA" || true
         CHANGED_FILES="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" || true)"
@@ -115,7 +116,7 @@ jobs:
 
         if [ "$EVIDENCE_CHANGED" = "1" ]; then
           SMOKE_URL="$PREVIEW_URL/health/preview-evidence?vin=5XXGT4L38LG384941&query=P1326%20knock%20signal%20range%20performance%20flashing%20MIL%20reduced%20power"
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/render-evidence-smoke.json -w '%{http_code}' "$SMOKE_URL" || true)"
+          HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 45 -sS -o /tmp/render-evidence-smoke.json -w '%{http_code}' "$SMOKE_URL" || true)"
           cat /tmp/render-evidence-smoke.json || true
           echo
 
@@ -147,7 +148,7 @@ jobs:
 
           if [ "$MANUAL_REUSE_CHANGED" = "1" ]; then
             REUSE_URL="$PREVIEW_URL/health/preview-evidence?vin=KNDJC736385765089&query=P0300%20P0171%20random%20misfire%20lean%20bank%201%20deceleration%20full%20lock%20clunk"
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 45 -sS -o /tmp/render-manual-reuse-smoke.json -w '%{http_code}' "$REUSE_URL" || true)"
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 45 -sS -o /tmp/render-manual-reuse-smoke.json -w '%{http_code}' "$REUSE_URL" || true)"
             cat /tmp/render-manual-reuse-smoke.json || true
             echo
 
@@ -185,7 +186,7 @@ jobs:
 
         if [ "$UNVERIFIED_CHANGED" = "1" ]; then
           UNVERIFIED_URL="$PREVIEW_URL/health/preview-unverified-diagnosis"
-          HTTP_CODE="$(curl --connect-timeout 5 --max-time 20 -sS -o /tmp/render-unverified-smoke.json -w '%{http_code}' "$UNVERIFIED_URL" || true)"
+          HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 20 -sS -o /tmp/render-unverified-smoke.json -w '%{http_code}' "$UNVERIFIED_URL" || true)"
           cat /tmp/render-unverified-smoke.json || true
           echo
 
