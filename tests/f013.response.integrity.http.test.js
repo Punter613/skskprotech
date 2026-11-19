@@ -14,10 +14,25 @@ let writes = 0;
 const fakeSupabase = {
   from(table) {
     assert.equal(table, 'service_jobs');
+    // Each insert or revision-guarded update is one durable write attempt.
+    const attempt = () => {
+      writes++;
+      return (failWrites || writes === failAtWrite) ? new Error('simulated database outage') : null;
+    };
     return {
-      async upsert() {
-        writes++;
-        return { error: (failWrites || writes === failAtWrite) ? new Error('simulated database outage') : null };
+      async insert() {
+        return { error: attempt() };
+      },
+      update(row) {
+        const chain = {
+          eq() { return chain; },
+          is() { return chain; },
+          async select() {
+            const error = attempt();
+            return error ? { data: null, error } : { data: [{ job_id: row.job_id }], error: null };
+          }
+        };
+        return chain;
       }
     };
   }
