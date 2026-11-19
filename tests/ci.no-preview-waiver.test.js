@@ -7,10 +7,17 @@ const test = require('node:test');
 
 const root = path.join(__dirname, '..');
 const reviewedHead = 'e04a7f826a6eb5e83d846d0766380a668160959e';
+const reviewedHead237 = '1b51331dfaa5f48626455ee81e9f930e63fa55aa';
 const expression = [
   "github.event_name == 'pull_request'",
   'github.event.pull_request.number == 238',
   `github.event.pull_request.head.sha == '${reviewedHead}'`,
+  "contains(github.event.pull_request.labels.*.name, 'no-preview')"
+].join(' && ');
+const expression237 = [
+  "github.event_name == 'pull_request'",
+  'github.event.pull_request.number == 237',
+  `github.event.pull_request.head.sha == '${reviewedHead237}'`,
   "contains(github.event.pull_request.labels.*.name, 'no-preview')"
 ].join(' && ');
 
@@ -47,18 +54,28 @@ test('every Render-dependent workflow has the same exact, labeled, head-pinned w
     const yaml = fs.readFileSync(path.join(root, '.github/workflows', file), 'utf8');
     assert.equal(countOccurrences(yaml, 'NO_PREVIEW_WAIVER:'), 1, file);
     assert.ok(yaml.includes(`NO_PREVIEW_WAIVER: \${{ ${expression} }}`), file);
+    assert.equal(countOccurrences(yaml, 'NO_PREVIEW_WAIVER_237:'), 1, file);
+    assert.ok(yaml.includes(`NO_PREVIEW_WAIVER_237: \${{ ${expression237} }}`), file);
     assert.ok(yaml.includes('types: [opened, synchronize, reopened, labeled, unlabeled]'), file);
     const audit = stepBlock(yaml, 'Audit explicit PR #238 runtime waiver');
     assert.match(audit, /if: env\.NO_PREVIEW_WAIVER == 'true'/, file);
     assert.match(audit, /GITHUB_STEP_SUMMARY/, file);
     assert.match(audit, /WAIVED — NOT VERIFIED/, file);
     assert.match(audit, /::warning::/, file);
+    const audit237 = stepBlock(yaml, 'Audit explicit PR #237 startup-guard waiver');
+    assert.match(audit237, /if: env\.NO_PREVIEW_WAIVER_237 == 'true'/, file);
+    assert.match(audit237, /GITHUB_STEP_SUMMARY/, file);
+    assert.match(audit237, /STARTUP GUARD VERIFIED — FULL APPLICATION RUNTIME NOT VERIFIED/, file);
+    assert.match(audit237, /::warning::/, file);
+    assert.match(audit237, /issuecomment-6999629745/, file);
 
     for (const name of liveSteps) {
       const block = stepBlock(yaml, name);
       assert.match(block, /if: .*env\.NO_PREVIEW_WAIVER != 'true'/, `${file}: ${name}`);
+      assert.match(block, /if: .*env\.NO_PREVIEW_WAIVER_237 != 'true'/, `${file}: ${name}`);
     }
     assert.equal(countOccurrences(yaml, "env.NO_PREVIEW_WAIVER != 'true'"), liveSteps.length, file);
+    assert.equal(countOccurrences(yaml, "env.NO_PREVIEW_WAIVER_237 != 'true'"), liveSteps.length, file);
   }
 });
 
@@ -68,6 +85,13 @@ function evaluatesToWaiver({ eventName = 'pull_request', number = 238, head = re
   return eventName === 'pull_request' &&
     number === 238 &&
     head === reviewedHead &&
+    labels.some(label => label.toLowerCase() === 'no-preview');
+}
+
+function evaluatesTo237Waiver({ eventName = 'pull_request', number = 237, head = reviewedHead237, labels = ['no-preview'] } = {}) {
+  return eventName === 'pull_request' &&
+    number === 237 &&
+    head === reviewedHead237 &&
     labels.some(label => label.toLowerCase() === 'no-preview');
 }
 
@@ -83,6 +107,22 @@ for (const [name, fixture, expected] of [
 ]) {
   test(`waiver requires all approvals: ${name}`, () => {
     assert.equal(evaluatesToWaiver(fixture), expected);
+  });
+}
+
+for (const [name, fixture, expected] of [
+  ['#237 exact head and explicit label', {}, true],
+  ['#237 missing label', { labels: [] }, false],
+  ['#237 lookalike label', { labels: ['no-preview-test'] }, false],
+  ['#238 cannot take #237 waiver', { number: 238 }, false],
+  ['#239 cannot take #237 waiver', { number: 239 }, false],
+  ['#237 changed head', { head: 'f'.repeat(40) }, false],
+  ['#237 old reviewed head', { head: 'e2db5b6' }, false],
+  ['#237 push event', { eventName: 'push' }, false],
+  ['#237 workflow_dispatch', { eventName: 'workflow_dispatch' }, false]
+]) {
+  test(`#237 waiver fails closed: ${name}`, () => {
+    assert.equal(evaluatesTo237Waiver(fixture), expected);
   });
 }
 
