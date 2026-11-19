@@ -27,6 +27,7 @@ const workflows = new Map([
   ['source-resilience-runtime.yaml', 'Prove Diagnose survives optional manual provider outage'],
   ['component-applicability-runtime.yaml', 'Prove manual configuration cannot become unqualified component diagnosis'],
   ['atomic-evidence-reassessment-runtime.yaml', 'Prove save-fail-closed-retry idempotency on live preview'],
+  ['dtc-provenance-runtime.yaml', 'Prove mixed DTC provenance on real Diagnose route'],
   ['work-order-runtime.yaml', 'Prove authorization snapshot and execution truth on live preview'],
   ['final-invoice-runtime.yaml', 'Prove completed-only invoice truth on live preview']
 ]);
@@ -45,7 +46,17 @@ function stepText(source, name, isCi) {
   return source.slice(start, next === -1 ? undefined : next);
 }
 
-test('all ten workflows use one labeled, exact-head-only isolated target and retain normal default routing', () => {
+test('all eleven workflows use one labeled, exact-head-only isolated target and retain normal default routing', () => {
+  const previewTriggerWorkflows = fs.readdirSync(root).filter(file => {
+    const source = fs.readFileSync(path.join(root, file), 'utf8');
+    return source.includes("'api/.render-preview-trigger'");
+  });
+  assert.deepEqual(
+    previewTriggerWorkflows.filter(file => !workflows.has(file)),
+    [],
+    'every workflow triggered by the Render preview marker must support the isolated target'
+  );
+
   for (const [file, nextLiveStep] of workflows) {
     const yaml = fs.readFileSync(path.join(root, file), 'utf8');
     assert.equal(occurrences(yaml, 'ISOLATED_RUNTIME_240:'), 1, file);

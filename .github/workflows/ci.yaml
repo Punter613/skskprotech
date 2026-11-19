@@ -52,6 +52,9 @@ jobs:
     - name: Verify no-preview waiver is narrowly scoped
       run: node --test tests/ci.no-preview-waiver.test.js
 
+    - name: Verify exact-head isolated runtime target policy
+      run: node --test tests/ci.isolated-runtime-240.test.js
+
     - name: "Audit explicit PR #238 runtime waiver"
       if: env.NO_PREVIEW_WAIVER == 'true'
       run: |

@@ -1,7 +1,7 @@
 # PR #240 isolated runtime verification — policy draft
 
-This is a **runtime target selection, not a waiver**. The ten Render-dependent
-workflows retain their mandatory HTTP checks. Nine dedicated runtime workflows
+This is a **runtime target selection, not a waiver**. All eleven Render-dependent
+workflows retain their mandatory HTTP checks. Ten dedicated runtime workflows
 exercise their established routes; the integration pipeline also asserts that
 the removed OEM route returns 404 and the knowledge-builder catalog returns 200.
 
@@ -46,8 +46,8 @@ pass. This policy adds no `NO_PREVIEW_WAIVER_240` variable.
    step must be present, and each run must complete its real HTTP checks.
    Only a successful final step reports
    **RUNTIME VERIFIED AGAINST ISOLATED TEST SERVICE**, with an Actions run link.
-6. Require all deterministic checks and all nine runtime gates to pass. Record
-   the ten run links, observations, and review approval on PR #240 before a
+6. Require all deterministic checks and all ten dedicated runtime gates to pass. Record
+   the eleven run links, observations, and review approval on PR #240 before a
    separate merge decision.
 
 If #240's branch head changes for any reason, the pin expires and the normal
