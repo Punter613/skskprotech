@@ -184,17 +184,32 @@ app.get('/health', async (req, res) => {
 // registers these endpoints because Render sets IS_PULL_REQUEST to the string "true"
 // only for pull request preview services.
 if (process.env.IS_PULL_REQUEST === 'true') {
-  app.get('/health/preview-evidence', async (req, res) => {
+  // Internal loopback requests still traverse normal shop authentication.
+  // Select only a shop-bound key already configured on the preview service;
+  // never use the invitation-only diagnosis key for privileged smoke routes.
+  function previewSmokeHeaders() {
+    let bindings;
+    try { bindings = JSON.parse(process.env.SKSK_SHOP_KEY_BINDINGS || '{}'); }
+    catch { bindings = {}; }
+    const configured = new Set(String(process.env.SKSK_API_KEYS || process.env.SKSK_API_KEY || '')
+      .split(',').map(key => key.trim()).filter(Boolean));
+    const shopKey = Object.keys(bindings || {}).find(key => configured.has(key));
+    if (!shopKey) throw new Error('Preview smoke shop identity is not configured');
+    return { 'Content-Type': 'application/json', 'X-SKSK-API-Key': shopKey };
+  }
+
+  app.get('/health/preview-evidence', requireApiAccess, async (req, res) => {
     const startedAt = Date.now();
     const vin = String(req.query.vin || '5XXGT4L38LG384941').trim();
     const query = String(req.query.query || 'P1326 knock signal range performance flashing MIL reduced power').trim();
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
 
     try {
+      const headers = previewSmokeHeaders();
       const decodeStartedAt = Date.now();
       const decodeResponse = await fetch(`${localBase}/api/vehicle/decode`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ vin })
       });
       const decodeBody = await decodeResponse.json();
@@ -214,7 +229,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
       const quickAskStartedAt = Date.now();
       const quickAskResponse = await fetch(`${localBase}/api/quick-ask`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ vehicle: decodeBody.vehicle, query, limit: 5 })
       });
       const quickAskBody = await quickAskResponse.json();
@@ -265,12 +280,13 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     }
   });
 
-  app.get('/health/preview-unverified-diagnosis', async (req, res) => {
+  app.get('/health/preview-unverified-diagnosis', requireApiAccess, async (req, res) => {
     const startedAt = Date.now();
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
     const jobId = `SKSK-PREVIEW-UNVERIFIED-${String(process.env.RENDER_PULL_REQUEST_ID || 'PR')}`;
 
     try {
+      const headers = previewSmokeHeaders();
       const { createJob, recordDiagnosis, patchJob, getJob } = require('../src/services/job.lifecycle');
       await createJob({
         jobId,
@@ -314,7 +330,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
       const fallbackStartedAt = Date.now();
       const fallbackResponse = await fetch(`${localBase}/api/jobs/${encodeURIComponent(jobId)}/unverified-diagnosis`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: '{}'
       });
       const fallbackBody = await fallbackResponse.json();
@@ -322,7 +338,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
 
       const estimateResponse = await fetch(`${localBase}/api/estimateHeuristic`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           jobId,
           diagnosisVerified: true,

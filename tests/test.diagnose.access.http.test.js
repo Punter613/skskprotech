@@ -144,3 +144,14 @@ test('actual backend wiring keeps tester access separate from lifecycle and shop
   assert.ok(inlineScript);
   assert.doesNotThrow(() => new vm.Script(inlineScript));
 });
+
+test('preview smoke requires shop authentication for outer and loopback calls', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../api/server.js'), 'utf8');
+  assert.match(source, /app\.get\('\/health\/preview-evidence', requireApiAccess,/);
+  assert.match(source, /app\.get\('\/health\/preview-unverified-diagnosis', requireApiAccess,/);
+  assert.match(source, /const shopKey = Object\.keys\(bindings \|\| \{\}\)\.find\(key => configured\.has\(key\)\)/);
+  assert.match(source, /return \{ 'Content-Type': 'application\/json', 'X-SKSK-API-Key': shopKey \}/);
+  const workflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/ci.yaml'), 'utf8');
+  assert.match(workflow, /SKSK_PREVIEW_API_KEY: \$\{\{ secrets\.SKSK_PREVIEW_API_KEY \}\}/);
+  assert.match(workflow, /curl -H "X-SKSK-API-Key: \$SKSK_PREVIEW_API_KEY"[^\n]*render-evidence-smoke/);
+});
