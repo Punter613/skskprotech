@@ -1,12 +1,117 @@
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+// Backend database credential contract (fail closed).
+//
+// The backend client must run with a service-role credential. It never falls back
+// to SUPABASE_ANON_KEY (that key is for the browser/auth identity flow only, see
+// src/auth/supabase.identity.js). Canonical variable: SUPABASE_SERVICE_ROLE_KEY,
+// which production already uses. SUPABASE_KEY stays accepted as a legacy alias,
+// but only when it is a service-role credential, and never when it conflicts.
+//
+// Errors and logs name variables only; they never include key or URL values.
+
+function decodeJwtRole(key) {
+  const parts = key.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'));
+    return typeof payload?.role === 'string' ? payload.role : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function classifySupabaseKey(key) {
+  if (typeof key !== 'string' || !key.trim()) return 'missing';
+  const value = key.trim();
+  if (value.startsWith('sb_secret_')) return 'service';
+  if (value.startsWith('sb_publishable_')) return 'publishable';
+  const role = decodeJwtRole(value);
+  if (role === 'service_role') return 'service';
+  if (role === 'anon' || role === 'authenticated') return 'anon';
+  return 'unrecognized';
+}
+
+function isValidSupabaseUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  try {
+    const url = new URL(value.trim());
+    if (url.username || url.password) return false;
+    if (url.protocol === 'https:') return true;
+    return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
+function supabaseConfigRequired(env = process.env) {
+  return env.NODE_ENV === 'production'
+    || env.SKSK_REQUIRE_PERSISTENCE === 'true'
+    || env.RENDER === 'true'
+    || env.IS_PULL_REQUEST === 'true';
+}
+
+function configError(message) {
+  const error = new Error(`[DB] ${message}`);
+  error.code = 'SUPABASE_CONFIG_INVALID';
+  return error;
+}
+
+// Pure: returns { configured, url, key, source } or { configured: false, error }.
+function resolveSupabaseConfig(env = process.env) {
+  const required = supabaseConfigRequired(env);
+  const url = env.SUPABASE_URL;
+  const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  const legacyKey = env.SUPABASE_KEY;
+  const hasUrl = typeof url === 'string' && url.trim() !== '';
+  const hasService = typeof serviceKey === 'string' && serviceKey.trim() !== '';
+  const hasLegacy = typeof legacyKey === 'string' && legacyKey.trim() !== '';
+  const hasAnon = typeof env.SUPABASE_ANON_KEY === 'string' && env.SUPABASE_ANON_KEY.trim() !== '';
+
+  if (hasService && hasLegacy && serviceKey.trim() !== legacyKey.trim()) {
+    return { configured: false, required, error: configError('SUPABASE_SERVICE_ROLE_KEY and SUPABASE_KEY are both set to different values; set only SUPABASE_SERVICE_ROLE_KEY') };
+  }
+
+  const source = hasService ? 'SUPABASE_SERVICE_ROLE_KEY' : (hasLegacy ? 'SUPABASE_KEY' : null);
+  const key = hasService ? serviceKey.trim() : (hasLegacy ? legacyKey.trim() : null);
+
+  if (!source) {
+    if (!required && !hasUrl) return { configured: false, required };
+    const why = hasAnon
+      ? 'only SUPABASE_ANON_KEY is set; the backend requires SUPABASE_SERVICE_ROLE_KEY and never uses the anon key'
+      : 'SUPABASE_SERVICE_ROLE_KEY is not set';
+    return { configured: false, required, error: configError(why) };
+  }
+
+  const kind = classifySupabaseKey(key);
+  if (kind !== 'service') {
+    return { configured: false, required, error: configError(`${source} is not a service-role credential (${kind})`) };
+  }
+  if (!hasUrl) {
+    return { configured: false, required, error: configError('SUPABASE_URL is not set') };
+  }
+  if (!isValidSupabaseUrl(url)) {
+    return { configured: false, required, error: configError('SUPABASE_URL is not a valid https URL') };
+  }
+  return { configured: true, required, url: url.trim(), key, source };
+}
+
+const supabaseConfig = resolveSupabaseConfig(process.env);
+if (supabaseConfig.error) {
+  // Fail startup: any explicit-but-invalid config, or missing config where required.
+  throw supabaseConfig.error;
+}
 
 let supabase = null;
-if (supabaseUrl && supabaseKey) {
-  supabase = createClient(supabaseUrl, supabaseKey);
+if (supabaseConfig.configured) {
+  supabase = createClient(supabaseConfig.url, supabaseConfig.key);
+}
+
+function assertSupabaseConfig(env = process.env) {
+  const result = resolveSupabaseConfig(env);
+  if (result.error) throw result.error;
+  return { configured: result.configured, required: result.required, source: result.source || null };
 }
 
 const CURRENT_MANUAL_SCHEMA = 5;
@@ -210,6 +315,10 @@ async function saveScrapedManual(vehicle, manualData, context = {}) {
 
 module.exports = {
   supabase,
+  resolveSupabaseConfig,
+  assertSupabaseConfig,
+  classifySupabaseKey,
+  supabaseConfigRequired,
   getCachedManual,
   getCachedManualVehicleEvidence,
   getCachedManualPathHint,

@@ -69,7 +69,7 @@ test('database probe performs a real service_jobs query', async () => {
   const previousKey = process.env.SUPABASE_KEY;
   let queried = false;
   process.env.SUPABASE_URL = 'https://example.supabase.co';
-  process.env.SUPABASE_KEY = 'test-key';
+  process.env.SUPABASE_KEY = ['e30', Buffer.from(JSON.stringify({ role: 'service_role' })).toString('base64url'), 'sig'].join('.');
   require.cache[supabasePath] = {
     id: supabasePath,
     filename: supabasePath,
