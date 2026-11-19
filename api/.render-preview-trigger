@@ -33,3 +33,6 @@ updated: 2026-11-17
 
 reason: PR #227 Stripe webhook fail-closed exact-head Render preview
 updated: 2026-11-17
+
+reason: PR #240 remove unauthenticated OEM shell-exec route; request isolated test-only runtime verification
+updated: 2026-11-19T05:53:50.688Z
