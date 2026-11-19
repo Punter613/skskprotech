@@ -287,6 +287,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
 
     try {
       const headers = previewSmokeHeaders();
+      const shopId = JSON.parse(process.env.SKSK_SHOP_KEY_BINDINGS || '{}')[headers['X-SKSK-API-Key']];
       const { createJob, recordDiagnosis, patchJob, getJob } = require('../src/services/job.lifecycle');
       await createJob({
         jobId,
@@ -295,7 +296,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
         customerStates: ['Flashing check-engine light after driving through standing water'],
         mechanicNotices: ['Engine currently runs smoothly'],
         obdCodes: ['P1326']
-      });
+      }, shopId);
       await recordDiagnosis(jobId, {
         primaryCause: 'Knock sensor circuit signal fault requires confirmation',
         secondaryCauses: ['Engine bearing knock signal requires confirmation'],
@@ -310,8 +311,8 @@ if (process.env.IS_PULL_REQUEST === 'true') {
         notes: 'Runtime canary diagnosis is intentionally unverified.',
         diagnosticConfidence: { percentage: 60, rating: 'MODERATE' },
         evidence: { oem: [], tsbs: [], available: false, sources: [] }
-      });
-      const seeded = await getJob(jobId);
+      }, null, shopId);
+      const seeded = await getJob(jobId, shopId);
       await patchJob(jobId, {
         diagnosis: {
           ...(seeded?.diagnosis || {}),
@@ -325,7 +326,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
             tsbReferences: []
           }
         }
-      });
+      }, shopId);
 
       const fallbackStartedAt = Date.now();
       const fallbackResponse = await fetch(`${localBase}/api/jobs/${encodeURIComponent(jobId)}/unverified-diagnosis`, {
@@ -350,7 +351,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
 
       const lifecycleResponse = await fetch(`${localBase}/lifecycle.html`);
       const lifecycleHtml = await lifecycleResponse.text();
-      const persisted = await getJob(jobId);
+      const persisted = await getJob(jobId, shopId);
       const uiHasFallback = lifecycleHtml.includes('Get an Unverified Diagnosis') &&
         lifecycleHtml.includes('This diagnosis has not been physically verified. It does not authorize a repair and does not unlock Estimate.');
       const boundaryHeld = fallbackResponse.status === 200 &&
