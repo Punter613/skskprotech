@@ -32,11 +32,13 @@ function countOccurrences(text, fragment) {
 }
 
 function stepBlock(yaml, name) {
-  const marker = `- name: ${name}`;
+  const indentation = yaml.startsWith('name: SKSK ProTech Integration Pipeline') ? '    ' : '      ';
+  const scalar = name.includes('#') ? `"${name}"` : name;
+  const marker = `${indentation}- name: ${scalar}`;
   assert.equal(countOccurrences(yaml, marker), 1, `expected one ${name} step`);
   const start = yaml.indexOf(marker);
   const remaining = yaml.slice(start + marker.length);
-  const next = remaining.search(/\n {4,6}- name:/);
+  const next = remaining.indexOf(`\n${indentation}- name:`);
   return yaml.slice(start, next < 0 ? undefined : start + marker.length + next);
 }
 

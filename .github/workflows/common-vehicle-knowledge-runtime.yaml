@@ -36,7 +36,7 @@ jobs:
       - name: Run deterministic knowledge builder tests
         run: npm install --ignore-scripts && npm run test:knowledge-builder
 
-      - name: Audit explicit PR #238 runtime waiver
+      - name: "Audit explicit PR #238 runtime waiver"
         if: env.NO_PREVIEW_WAIVER == 'true'
         run: |
           echo '::warning::PR #238 exact-head Render runtime checks WAIVED, not executed or verified.'

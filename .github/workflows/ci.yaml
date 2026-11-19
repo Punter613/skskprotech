@@ -47,7 +47,7 @@ jobs:
     - name: Verify no-preview waiver is narrowly scoped
       run: node --test tests/ci.no-preview-waiver.test.js
 
-    - name: Audit explicit PR #238 runtime waiver
+    - name: "Audit explicit PR #238 runtime waiver"
       if: env.NO_PREVIEW_WAIVER == 'true'
       run: |
         echo '::warning::PR #238 exact-head Render runtime checks WAIVED, not executed or verified.'
