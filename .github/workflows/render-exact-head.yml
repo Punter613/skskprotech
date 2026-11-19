@@ -3,6 +3,7 @@ name: Render Exact-Head Runtime Gate
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - 'api/**'
       - 'src/**'
@@ -17,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
+      NO_PREVIEW_WAIVER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 238 && github.event.pull_request.head.sha == 'e04a7f826a6eb5e83d846d0766380a668160959e' && contains(github.event.pull_request.labels.*.name, 'no-preview') }}
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       PREVIEW_URL: https://p613-backend-pr-${{ github.event.number }}.onrender.com
@@ -51,7 +53,20 @@ jobs:
 
           echo "Render root-directory visibility check passed."
 
+      - name: "Audit explicit PR #238 runtime waiver"
+        if: env.NO_PREVIEW_WAIVER == 'true'
+        run: |
+          echo '::warning::PR #238 exact-head Render runtime checks WAIVED, not executed or verified.'
+          {
+            echo '### Render runtime: WAIVED — NOT VERIFIED'
+            echo 'PR #238 at reviewed head e04a7f826a6eb5e83d846d0766380a668160959e; explicit no-preview label.'
+            echo 'Reason: Render previews suspended after inheriting production database credentials.'
+            echo 'Only live-preview checks are waived; all earlier steps remain mandatory.'
+            echo 'See .github/NO_PREVIEW_WAIVER.md. No HTTP failure can grant this waiver.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Wait for exact Render preview head
+        if: env.NO_PREVIEW_WAIVER != 'true'
         run: |
           echo "Waiting for exact PR head $HEAD_SHA at $PREVIEW_URL"
           MATCHED=0
@@ -87,6 +102,7 @@ jobs:
           echo "Exact Render PR head is live."
 
       - name: Baseline runtime health assertion
+        if: env.NO_PREVIEW_WAIVER != 'true'
         run: |
           HTTP_CODE="$(curl --connect-timeout 5 --max-time 30 -sS -o /tmp/render-health-final.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
           cat /tmp/render-health-final.json || true

@@ -5,10 +5,13 @@ on:
     branches: [ main, chore/improve-writing ]
   pull_request:
     branches: [ main ]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 jobs:
   verify-and-build:
     runs-on: ubuntu-latest
+    env:
+      NO_PREVIEW_WAIVER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 238 && github.event.pull_request.head.sha == 'e04a7f826a6eb5e83d846d0766380a668160959e' && contains(github.event.pull_request.labels.*.name, 'no-preview') }}
 
     steps:
     - name: Checkout Code Repository
@@ -41,8 +44,23 @@ jobs:
     - name: Hardened OpenAPI Contract Lint
       run: npx @stoplight/spectral-cli lint openapi.yaml --ruleset .spectral.yaml --format pretty
 
+    - name: Verify no-preview waiver is narrowly scoped
+      run: node --test tests/ci.no-preview-waiver.test.js
+
+    - name: "Audit explicit PR #238 runtime waiver"
+      if: env.NO_PREVIEW_WAIVER == 'true'
+      run: |
+        echo '::warning::PR #238 exact-head Render runtime checks WAIVED, not executed or verified.'
+        {
+          echo '### Render runtime: WAIVED — NOT VERIFIED'
+          echo 'PR #238 at reviewed head e04a7f826a6eb5e83d846d0766380a668160959e; explicit no-preview label.'
+          echo 'Reason: Render previews suspended after inheriting production database credentials.'
+          echo 'Only live-preview checks are waived; deterministic, contract, test, lint, and build checks remain mandatory.'
+          echo 'See .github/NO_PREVIEW_WAIVER.md. No HTTP failure can grant this waiver.'
+        } >> "$GITHUB_STEP_SUMMARY"
+
     - name: Render PR Runtime Evidence Smoke
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' && env.NO_PREVIEW_WAIVER != 'true'
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
