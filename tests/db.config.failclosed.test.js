@@ -86,6 +86,16 @@ test('missing or invalid SUPABASE_URL fails', () => {
   assert.equal(resolveSupabaseConfig({ SUPABASE_URL: 'http://localhost:54321', SUPABASE_SERVICE_ROLE_KEY: SERVICE }).configured, true);
 });
 
+test('http localhost URL is rejected wherever config is required', () => {
+  for (const env of [{ NODE_ENV: 'production' }, { SKSK_REQUIRE_PERSISTENCE: 'true' }, { RENDER: 'true' }, { IS_PULL_REQUEST: 'true' }]) {
+    for (const local of ['http://localhost:54321', 'http://127.0.0.1:54321']) {
+      const r = resolveSupabaseConfig({ ...env, SUPABASE_URL: local, SUPABASE_SERVICE_ROLE_KEY: SERVICE });
+      assert.equal(r.configured, false);
+      assert.match(r.error.message, /SUPABASE_URL is not a valid https URL/);
+    }
+  }
+});
+
 test('unrecognized or publishable key fails without echoing it', () => {
   for (const key of ['test-key', 'sb_publishable_zzzz']) {
     const r = resolveSupabaseConfig({ SUPABASE_URL: URL_OK, SUPABASE_SERVICE_ROLE_KEY: key });

@@ -33,13 +33,14 @@ function classifySupabaseKey(key) {
   return 'unrecognized';
 }
 
-function isValidSupabaseUrl(value) {
+function isValidSupabaseUrl(value, { allowLocalHttp = false } = {}) {
   if (typeof value !== 'string' || !value.trim()) return false;
   try {
     const url = new URL(value.trim());
     if (url.username || url.password) return false;
     if (url.protocol === 'https:') return true;
-    return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    // Plain http only for local development; never where config is required.
+    return allowLocalHttp && url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   } catch (_) {
     return false;
   }
@@ -91,7 +92,7 @@ function resolveSupabaseConfig(env = process.env) {
   if (!hasUrl) {
     return { configured: false, required, error: configError('SUPABASE_URL is not set') };
   }
-  if (!isValidSupabaseUrl(url)) {
+  if (!isValidSupabaseUrl(url, { allowLocalHttp: !required })) {
     return { configured: false, required, error: configError('SUPABASE_URL is not a valid https URL') };
   }
   return { configured: true, required, url: url.trim(), key, source };
