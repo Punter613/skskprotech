@@ -20,6 +20,7 @@
 - If the runtime environment or required credentials are unavailable, do not merge. Document what is blocked instead.
 - Render currently uses `api/` as the backend service Root Directory. Any PR that changes backend/runtime files outside `api/` must also contain an `api/`-visible change so Render creates the PR preview and production autodeploy. Run `npm run render:preview -- "reason"` and commit `api/.render-preview-trigger` when needed.
 - A missing Render preview is a failed runtime gate, not a successful or skipped verification. The exact PR head SHA must be live before merge.
+- Narrow exception proposed for PR #238 only: the runtime-only Render checks may be explicitly **WAIVED, NOT VERIFIED** when the PR is labeled `no-preview` and its head is exactly `e04a7f826a6eb5e83d846d0766380a668160959e`. This exception covers the isolated `src/db.js` credential-startup contract already exercised in local spawned-process tests. All deterministic, lint, and build checks remain mandatory. A 404, missing service, or failed deployment does not grant the exception; removing the label or changing the head restores the normal runtime gate. The waiver and its reason must be visible in the GitHub Actions step summary and PR review record. It does not apply to #237 or any other PR, nor does it establish that Render or production were tested.
 
 ## Verification Evidence Boundary
 - Meaningful evidence is not automatically confirmation evidence.

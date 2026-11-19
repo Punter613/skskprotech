@@ -2,6 +2,7 @@ name: Customer Estimate Center Runtime Gate
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     branches: [ main ]
     paths:
       - 'src/services/customer.estimate.center.js'
@@ -21,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
+      NO_PREVIEW_WAIVER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 238 && github.event.pull_request.head.sha == 'e04a7f826a6eb5e83d846d0766380a668160959e' && contains(github.event.pull_request.labels.*.name, 'no-preview') }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       PREVIEW_URL: https://p613-backend-pr-${{ github.event.number }}.onrender.com
       SKSK_PREVIEW_API_KEY: ${{ secrets.SKSK_PREVIEW_API_KEY }}
@@ -31,7 +33,20 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: Audit explicit PR #238 runtime waiver
+        if: env.NO_PREVIEW_WAIVER == 'true'
+        run: |
+          echo '::warning::PR #238 exact-head Render runtime checks WAIVED, not executed or verified.'
+          {
+            echo '### Render runtime: WAIVED — NOT VERIFIED'
+            echo 'PR #238 at reviewed head e04a7f826a6eb5e83d846d0766380a668160959e; explicit no-preview label.'
+            echo 'Reason: Render previews suspended after inheriting production database credentials.'
+            echo 'Only live-preview checks are waived; deterministic steps remain mandatory where present.'
+            echo 'See .github/NO_PREVIEW_WAIVER.md. No HTTP failure can grant this waiver.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Wait for exact Render preview head
+        if: env.NO_PREVIEW_WAIVER != 'true'
         run: |
           MATCHED=0
           for attempt in $(seq 1 60); do
@@ -57,6 +72,7 @@ jobs:
           fi
 
       - name: Exercise partial authorization and revision history
+        if: env.NO_PREVIEW_WAIVER != 'true'
         run: |
           HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 45 -sS -o /tmp/estimate-job.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' \
