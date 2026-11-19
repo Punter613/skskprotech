@@ -23,8 +23,9 @@ jobs:
     env:
       NO_PREVIEW_WAIVER: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 238 && github.event.pull_request.head.sha == 'e04a7f826a6eb5e83d846d0766380a668160959e' && contains(github.event.pull_request.labels.*.name, 'no-preview') }}
       NO_PREVIEW_WAIVER_237: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 237 && github.event.pull_request.head.sha == '1b51331dfaa5f48626455ee81e9f930e63fa55aa' && contains(github.event.pull_request.labels.*.name, 'no-preview') }}
+      ISOLATED_RUNTIME_240: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 240 && github.event.pull_request.head.sha == '5a5cf160a3be1adbb236b5860228b58d77cceed7' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      PREVIEW_URL: https://p613-backend-pr-${{ github.event.pull_request.number }}.onrender.com
+      PREVIEW_URL: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 240 && github.event.pull_request.head.sha == '5a5cf160a3be1adbb236b5860228b58d77cceed7' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-240.onrender.com' || format('https://p613-backend-pr-{0}.onrender.com', github.event.pull_request.number) }}
       SKSK_PREVIEW_API_KEY: ${{ secrets.SKSK_PREVIEW_API_KEY }}
     steps:
       - name: Checkout PR head
@@ -60,6 +61,23 @@ jobs:
             echo 'Only preview-dependent HTTP steps waived. Deterministic checks remain mandatory; no 404 or timeout can grant this waiver.'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: "Select exact-head PR #240 isolated runtime target"
+        if: env.ISOLATED_RUNTIME_240 == 'true'
+        env:
+          ISOLATED_240_API_KEY: ${{ secrets.SKSK_ISOLATED_240_API_KEY }}
+        run: |
+          if [ -z "$ISOLATED_240_API_KEY" ]; then
+            echo "::error::SKSK_ISOLATED_240_API_KEY is missing; refusing to fall back to the default preview key."
+            exit 1
+          fi
+          echo "SKSK_PREVIEW_API_KEY=$ISOLATED_240_API_KEY" >> "$GITHUB_ENV"
+          echo '::notice::PR #240 isolated test target selected; runtime verification pending.'
+          {
+            echo '### ISOLATED TEST TARGET SELECTED — NOT YET VERIFIED'
+            echo 'PR #240 exact head 5a5cf160a3be1adbb236b5860228b58d77cceed7; test-only service https://p613-isolated-pr-240.onrender.com.'
+            echo 'No HTTP runtime checks are waived. The selected target must pass exact commit and service-identity checks.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Wait for exact Render preview head
         if: env.NO_PREVIEW_WAIVER != 'true' && env.NO_PREVIEW_WAIVER_237 != 'true'
         shell: bash
@@ -90,6 +108,23 @@ jobs:
             cat /tmp/applicability-health.json 2>/dev/null || true
             exit 1
           fi
+
+      - name: "Verify PR #240 isolated service identity"
+        if: env.ISOLATED_RUNTIME_240 == 'true'
+        run: |
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/pr-240-isolated-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::PR #240 isolated runtime health unavailable (HTTP $HTTP_CODE)."
+            exit 1
+          fi
+          HEAD_SHA="$HEAD_SHA" node - <<'NODE'
+          const fs = require('node:fs');
+          const health = JSON.parse(fs.readFileSync('/tmp/pr-240-isolated-health.json', 'utf8'));
+          if (health?.ok !== true || health?.preview?.commit !== process.env.HEAD_SHA || health?.preview?.service !== 'p613-isolated-pr-240') {
+            console.error('Isolated test service identity or exact commit did not match; refusing runtime verification.');
+            process.exit(1);
+          }
+          NODE
 
       - name: Prove manual configuration cannot become unqualified component diagnosis
         if: env.NO_PREVIEW_WAIVER != 'true' && env.NO_PREVIEW_WAIVER_237 != 'true'
@@ -200,3 +235,14 @@ jobs:
           }
           console.log('Component applicability runtime passed: manual 2008 Sorento intake stayed bounded, unverified DTCs stayed audit-only, and no-candidate AI output failed closed.');
           NODE
+
+      - name: "Audit PR #240 isolated test runtime success"
+        if: env.ISOLATED_RUNTIME_240 == 'true' && success()
+        run: |
+          {
+            echo '### RUNTIME VERIFIED AGAINST ISOLATED TEST SERVICE'
+            echo 'PR #240 at exact reviewed head 5a5cf160a3be1adbb236b5860228b58d77cceed7.'
+            echo 'Target: https://p613-isolated-pr-240.onrender.com; exact commit and Render service identity matched.'
+            echo 'This workflow executed its real HTTP runtime assertions successfully; no runtime waiver was used.'
+            echo "Evidence: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"
