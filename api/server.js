@@ -1,5 +1,8 @@
 require('dotenv').config();
 
+// Must run before any Supabase client is created or the HTTP server binds.
+require('../src/startup/preview.database.guard').enforcePreviewDatabaseGuard();
+
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
