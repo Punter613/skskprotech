@@ -33,3 +33,6 @@ updated: 2026-11-17
 
 reason: PR #227 Stripe webhook fail-closed exact-head Render preview
 updated: 2026-11-17
+
+reason: PR #228 production error redaction regression test exact-head Render preview
+updated: 2026-11-17

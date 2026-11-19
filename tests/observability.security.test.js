@@ -32,3 +32,12 @@ test('server wires request telemetry before routes and structured error telemetr
   assert.ok(telemetry >= 0 && telemetry < diagnose);
   assert.match(source, /errorTelemetry\(err, req, res, next\)/);
 });
+
+test('global client error handler redacts internal messages outside development', () => {
+  const fs = require('node:fs');
+  const source = fs.readFileSync(require.resolve('../api/server'), 'utf8');
+  const handler = source.match(/app\.use\(\(err, req, res, next\) => \{([\s\S]*?)return errorTelemetry\(err, req, res, next\);/);
+  assert.ok(handler, 'global error handler must be present');
+  assert.match(handler[1], /error:\s*process\.env\.NODE_ENV\s*===\s*'development'\s*\?\s*\(err\.message\s*\|\|\s*'Request error'\)\s*:\s*'Request error'/);
+  assert.doesNotMatch(handler[1], /:\s*err\.message\s*[,}]/, 'production must not expose err.message');
+});
