@@ -31,13 +31,21 @@ Neither `NO_PREVIEW_WAIVER_241` nor `NO_PREVIEW_WAIVER_243` exists.
 
 ## Bootstrap and deployment hold
 
-1. Review this policy's eleven workflow diffs and static negative targeting
-   tests separately from the application PRs. Keep the policy PR draft until
-   its own exact-head runtime bootstrap is complete, following #244's pattern.
-   Its own CI needs a separately pinned, dedicated test-only target before
-   its workflow changes can merge; do not treat its absent conventional
-   preview as a waiver. If the PR number is not yet known, reserve it with a
-   docs-only draft before finalizing the bootstrap selector.
+1. Review **PR #245**'s eleven workflow diffs and static negative targeting
+   tests separately from the application PRs. Keep #245 draft until its own
+   exact-head runtime bootstrap is complete, following #244's pattern.
+   Its own selector requires the source branch
+   `ci/isolated-runtime-target-241-243`, base `main`, PR number **245**, and
+   a nonempty `SKSK_ISOLATED_245_HEAD_SHA` repository variable equal to the
+   policy PR head. Its dedicated `SKSK_ISOLATED_245_API_KEY` Actions secret
+   must authenticate to a separate test-only service of the conventional
+   name `p613-backend-pr-245`. The identity step verifies this exact service
+   name and commit. Its selector does not waive any gate or use a label.
+   PR #245 started from a docs-only draft; publish its reviewed candidate
+   commit to a **separate candidate branch first** for deployment, set the
+   exact pin before fast-forwarding the draft head, then verify its merge ref
+   contains the policy before accepting its runtime jobs. Never treat its
+   absent default preview as a waiver.
 2. Do not set either #241/#243 pin or apply either label while the policy is
    unmerged. After merge, confirm **each target PR merge ref actually contains
    the new workflow selectors** before scheduling runs; #242 showed that
