@@ -120,21 +120,7 @@ app.use(oemRouter);
 app.use('/api/intelligence', ...protectAi, require('../src/routes/intelligence.routes'));
 app.use('/api/buyer', requireApiAccess, require('../src/routes/buyer'));
 
-// STANDALONE STRIPE SUBSCRIPTION INFRASTRUCTURE
-if (process.env.STRIPE_SECRET_KEY) {
-  try {
-    const payments = require('../src/routes/payments');
-    app.use('/api/payments', payments);
-    console.log('[Payments] Stripe standard checking endpoints loaded');
-  } catch (err) {
-    console.warn('[Payments] Delayed standard payment loading:', err.message);
-  }
-} else {
-  console.log('[Payments] STRIPE_SECRET_KEY not set - payments disabled');
-  app.use('/api/payments', (req, res) => {
-    res.status(503).json({ success: false, error: 'Payments not configured' });
-  });
-}
+// Procurement checkout retired (SEC-01). Stripe webhook remains mounted above.
 
 // 5. STATIC CORPORATE WEB PLATFORM ASSETS
 app.get('/fleet', (req, res) => res.sendFile(path.join(__dirname, '../public/fleet.html')));
