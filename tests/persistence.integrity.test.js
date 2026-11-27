@@ -24,7 +24,10 @@ test('production persistence failure is surfaced instead of reporting an in-memo
   process.env.NODE_ENV = 'production';
   const fake = {
     from() {
-      return { upsert: async () => ({ error: { message: 'database unavailable' } }) };
+      return {
+        insert: async () => ({ error: { message: 'database unavailable' } }),
+        update: () => { throw new Error('createJob must insert, never update'); }
+      };
     }
   };
   const ctx = stubDb({

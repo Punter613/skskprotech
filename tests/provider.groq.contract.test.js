@@ -48,3 +48,71 @@ test('Groq provider adapter delegates fallback ownership to providerRouter', asy
     groqClient.groqChat = originalGroqChat;
   }
 });
+
+
+const { requestGroqCompletion, sanitizeGroqError } = groqClient;
+const jsonBody = Object.freeze({
+  messages: Object.freeze([{ role: 'user', content: 'synthetic test' }]),
+  response_format: Object.freeze({ type: 'json_object' })
+});
+const validationError = () => Object.assign(new Error('private failed generation'), {
+  status: 400, error: { error: { code: 'json_validate_failed', failed_generation: 'private payload' } }
+});
+
+test('Groq JSON retry preserves exact body and remaining timeout', async () => {
+  const calls = [];
+  const result = { choices: [{ message: { content: '{"ok":true}' } }] };
+  const times = [1000, 5000];
+  assert.equal(await requestGroqCompletion(async (body, config) => {
+    calls.push({ body, config });
+    if (calls.length === 1) throw validationError();
+    return result;
+  }, jsonBody, () => times.shift()), result);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].body, jsonBody);
+  assert.equal(calls[1].body, jsonBody);
+  assert.deepEqual(calls[1].config, { timeout: 11000, maxRetries: 0 });
+});
+
+test('Groq first success never retries', async () => {
+  let calls = 0;
+  assert.equal(await requestGroqCompletion(async () => ++calls, jsonBody), 1);
+  assert.equal(calls, 1);
+});
+
+test('Groq second validation failure propagates without third attempt', async () => {
+  let calls = 0;
+  const second = validationError();
+  await assert.rejects(requestGroqCompletion(async () => {
+    throw ++calls === 1 ? validationError() : second;
+  }, jsonBody, () => 0), error => error === second);
+  assert.equal(calls, 2);
+});
+
+for (const [name, body, error, elapsed] of [
+  ['auth', jsonBody, Object.assign(validationError(), { status: 401 }), 1],
+  ['unrelated 400', jsonBody, Object.assign(new Error('json_validate_failed'), { status: 400 }), 1],
+  ['non JSON', { messages: jsonBody.messages }, validationError(), 1],
+  ['exact cutoff', jsonBody, validationError(), 10000],
+  ['slow failure', jsonBody, validationError(), 11000],
+  ['clock reversal', jsonBody, validationError(), -1]
+]) {
+  test('Groq does not retry ' + name, async () => {
+    let calls = 0;
+    const times = [0, elapsed];
+    await assert.rejects(requestGroqCompletion(async () => {
+      calls++;
+      throw error;
+    }, body, () => times.shift()), caught => caught === error);
+    assert.equal(calls, 1);
+  });
+}
+
+test('Groq validation error redaction removes raw payload and preserves classification', () => {
+  const safe = sanitizeGroqError(validationError());
+  assert.equal(safe.status, 400);
+  assert.equal(safe.code, 'json_validate_failed');
+  assert.equal(safe.error, undefined);
+  assert.equal(safe.cause, undefined);
+  assert.doesNotMatch(String(safe.stack) + JSON.stringify(safe), /private|failed_generation/);
+});

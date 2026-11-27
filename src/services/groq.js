@@ -7,6 +7,32 @@ const geminiProvider = require('./ai/providers/gemini');
 const apiKey = process.env.GROQ_API_KEY;
 const groqClient = apiKey ? new Groq({ apiKey }) : null;
 
+function isJsonValidationFailure(error) {
+  return Number(error?.status || error?.statusCode) === 400 &&
+    [error?.code, error?.error?.code, error?.error?.error?.code].includes('json_validate_failed');
+}
+
+async function requestGroqCompletion(create, body, now = Date.now) {
+  const started = now();
+  try {
+    return await create(body);
+  } catch (error) {
+    const elapsed = now() - started;
+    if (body.response_format?.type !== 'json_object' ||
+        !isJsonValidationFailure(error) || elapsed >= 10000 || elapsed < 0) throw error;
+    const remaining = 15000 - elapsed;
+    return await create(body, { timeout: remaining, maxRetries: 0 });
+  }
+}
+
+function sanitizeGroqError(error) {
+  if (!isJsonValidationFailure(error)) return error;
+  const safe = new Error('Groq JSON validation failed');
+  safe.status = 400;
+  safe.code = 'json_validate_failed';
+  return safe;
+}
+
 function isRetryableGroqError(error) {
   const status = Number(error?.status || error?.statusCode || 0);
   const code = String(error?.code || '').toLowerCase();
@@ -87,14 +113,14 @@ async function groqChat(messages, options = {}) {
   const startedAt = Date.now();
   let response;
   try {
-    response = await groqClient.chat.completions.create(requestBody);
+    response = await requestGroqCompletion((body, config) => groqClient.chat.completions.create(body, config), requestBody);
   } catch (err) {
-    console.error('[groqChat] request FAILED after', Date.now() - startedAt, 'ms:', err.message);
+    console.error('[groqChat] request FAILED', { latencyMs: Date.now() - startedAt, status: Number(err?.status || err?.statusCode || 0), code: isJsonValidationFailure(err) ? 'json_validate_failed' : 'provider_error' });
     if (options.disable_fallback !== true && isRetryableGroqError(err)) {
       const fallback = await fallbackToGemini(messages, options, groqFallbackReason(err));
       if (fallback) return fallback;
     }
-    throw err;
+    throw sanitizeGroqError(err);
   }
   const latencyMs = Date.now() - startedAt;
 
@@ -239,4 +265,4 @@ ${mechanicNotices?.length ? mechanicNotices.join('\n') : 'No mechanic notices'}
 Generate the repair estimate JSON now.`;
 }
 
-module.exports = { buildSystemPrompt, buildUserMessage, groqChat, isRetryableGroqError, groqFallbackReason };
+module.exports = { buildSystemPrompt, buildUserMessage, groqChat, isRetryableGroqError, groqFallbackReason, requestGroqCompletion, sanitizeGroqError };
