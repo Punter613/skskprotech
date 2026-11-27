@@ -163,32 +163,87 @@ function jobBelongsToShop(job, shopId = '') {
   return normalizeShopId(job?.shopId) === shop;
 }
 
-async function persist(job, shopId = '') {
+function clonePayload(job) {
+  return job ? JSON.parse(JSON.stringify(job)) : job;
+}
+
+function storedRevision(job) {
+  const revision = Number(job?.revision);
+  return Number.isInteger(revision) && revision > 0 ? revision : 0;
+}
+
+function revisionConflictError(jobId, expectedRevision) {
+  const conflict = new Error('Job was changed by another request; reload the job and try again');
+  conflict.code = 'JOB_REVISION_CONFLICT';
+  conflict.statusCode = 409;
+  conflict.jobId = jobId;
+  conflict.expectedRevision = expectedRevision;
+  return conflict;
+}
+
+// Optimistic concurrency: every stored job carries payload.revision. A write
+// succeeds only if the stored revision still equals the revision the caller
+// loaded; otherwise it fails with JOB_REVISION_CONFLICT (409) instead of
+// silently overwriting another request's change. Rows written before this
+// guard have no revision and are treated as revision 0.
+// The memory cache is updated only after the durable write succeeds, so a
+// failed write can never be served back as if it had been saved.
+async function persist(job, shopId = '', { create = false } = {}) {
   assertPersistenceConfigured();
   const ownerShopId = normalizeShopId(shopId || job.shopId);
   if (ownerShopId) job.shopId = ownerShopId;
-  memoryStore()[cacheKey(job.jobId, ownerShopId)] = job;
-  if (!supabase) return job;
+  const expectedRevision = create ? 0 : storedRevision(job);
+  const key = cacheKey(job.jobId, ownerShopId);
+  const saved = { ...job, revision: expectedRevision + 1 };
+
+  if (!supabase) {
+    const cached = memoryStore()[key];
+    if (create ? cached : (cached && storedRevision(cached) !== expectedRevision)) {
+      throw revisionConflictError(job.jobId, expectedRevision);
+    }
+    memoryStore()[key] = clonePayload(saved);
+    job.revision = saved.revision;
+    return saved;
+  }
 
   const row = {
-    job_id: job.jobId,
-    status: job.status,
-    customer_name: job.customer.name || null,
-    customer_phone: job.customer.phone || null,
-    customer_email: job.customer.email || null,
-    vehicle_year: Number(job.vehicle.year) || null,
-    vehicle_make: job.vehicle.make || null,
-    vehicle_model: job.vehicle.model || null,
-    vehicle_vin: job.vehicle.vin || null,
-    mileage: Number(job.vehicle.mileage) || null,
-    payload: job,
+    job_id: saved.jobId,
+    status: saved.status,
+    customer_name: saved.customer.name || null,
+    customer_phone: saved.customer.phone || null,
+    customer_email: saved.customer.email || null,
+    vehicle_year: Number(saved.vehicle.year) || null,
+    vehicle_make: saved.vehicle.make || null,
+    vehicle_model: saved.vehicle.model || null,
+    vehicle_vin: saved.vehicle.vin || null,
+    mileage: Number(saved.vehicle.mileage) || null,
+    payload: saved,
     updated_at: nowIso()
   };
 
+  let written = 0;
   try {
-    const { error } = await supabase.from('service_jobs').upsert(row, { onConflict: 'job_id' });
-    if (error) throw error;
+    if (create) {
+      const { error } = await supabase.from('service_jobs').insert(row);
+      if (error) {
+        if (error.code === '23505') throw revisionConflictError(saved.jobId, 0);
+        throw error;
+      }
+      written = 1;
+    } else {
+      let query = supabase.from('service_jobs').update(row).eq('job_id', saved.jobId);
+      query = expectedRevision > 0
+        ? query.eq('payload->>revision', String(expectedRevision))
+        : query.is('payload->revision', null);
+      const { data, error } = await query.select('job_id');
+      if (error) throw error;
+      written = Array.isArray(data) ? data.length : 0;
+    }
   } catch (err) {
+    if (err?.code === 'JOB_REVISION_CONFLICT') {
+      invalidateJobCache(saved.jobId, ownerShopId);
+      throw err;
+    }
     console.error('[JobLifecycle] Supabase persist failed:', err.message || err);
     if (persistenceRequired()) {
       const persistenceError = new Error('Persistent job storage is unavailable');
@@ -197,15 +252,25 @@ async function persist(job, shopId = '') {
       throw persistenceError;
     }
     console.warn('[JobLifecycle] Development fallback retained in memory only');
+    memoryStore()[key] = clonePayload(saved);
+    job.revision = saved.revision;
+    return saved;
   }
-  return job;
+
+  if (written !== 1) {
+    invalidateJobCache(saved.jobId, ownerShopId);
+    throw revisionConflictError(saved.jobId, expectedRevision);
+  }
+  memoryStore()[key] = clonePayload(saved);
+  job.revision = saved.revision;
+  return saved;
 }
 
 async function getJob(jobId, shopId = '') {
   if (!jobId) return null;
   const ownerShopId = normalizeShopId(shopId);
   const memory = memoryStore()[cacheKey(jobId, ownerShopId)];
-  if (memory && jobBelongsToShop(memory, ownerShopId)) return memory;
+  if (memory && jobBelongsToShop(memory, ownerShopId)) return clonePayload(memory);
   if (!supabase) return null;
 
   try {
@@ -217,8 +282,8 @@ async function getJob(jobId, shopId = '') {
     if (error || !data?.payload) return null;
     const job = data.payload;
     if (!jobBelongsToShop(job, ownerShopId)) return null;
-    memoryStore()[cacheKey(jobId, ownerShopId || job.shopId)] = job;
-    return job;
+    memoryStore()[cacheKey(jobId, ownerShopId || job.shopId)] = clonePayload(job);
+    return clonePayload(job);
   } catch {
     return null;
   }
@@ -259,7 +324,7 @@ async function createJob(input = {}, shopId = '') {
     estimate: null,
     invoice: null
   };
-  return persist(job, ownerShopId);
+  return persist(job, ownerShopId, { create: true });
 }
 
 async function findReturnVisits(priorJobId, shopId = '') {
@@ -325,7 +390,8 @@ async function patchJob(jobId, patch = {}, shopId = '') {
   if (!job) return null;
   const nextStatus = patch.status || job.status;
   assertPatchStatusTransition(job.status, nextStatus, job, patch);
-  const updated = { ...job, ...patch, status: nextStatus, updatedAt: nowIso() };
+  const { revision: _ignoredRevision, ...safePatch } = patch || {};
+  const updated = { ...job, ...safePatch, status: nextStatus, updatedAt: nowIso() };
   return persist(updated, shopId);
 }
 

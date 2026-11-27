@@ -155,3 +155,21 @@ test('preview smoke requires shop authentication for outer and loopback calls', 
   assert.match(workflow, /SKSK_PREVIEW_API_KEY: \$\{\{ secrets\.SKSK_PREVIEW_API_KEY \}\}/);
   assert.match(workflow, /curl -H "X-SKSK-API-Key: \$SKSK_PREVIEW_API_KEY"[^\n]*render-evidence-smoke/);
 });
+
+// Execute the actual canary ID expression twice against the guarded lifecycle.
+test('repeated preview canary invocations create distinct jobs without overwriting', async () => {
+  const source = fs.readFileSync(path.join(__dirname, '../api/server.js'), 'utf8');
+  const expression = source.match(/const jobId = (`SKSK-PREVIEW-UNVERIFIED-[^`]+`);/)?.[1];
+  assert.ok(expression);
+  const nextId = () => vm.runInNewContext(expression, { require, process: { env: {} } });
+  const first = nextId();
+  const second = nextId();
+  assert.match(first, /^SKSK-PREVIEW-UNVERIFIED-PR-/);
+  assert.notEqual(first, second);
+  const { createJob, getJob } = require('../src/services/job.lifecycle');
+  await createJob({ jobId: first, customer: { name: 'first canary' } }, 'test-canary');
+  await createJob({ jobId: second, customer: { name: 'second canary' } }, 'test-canary');
+  assert.equal((await getJob(first, 'test-canary')).customer.name, 'first canary');
+  assert.equal((await getJob(second, 'test-canary')).customer.name, 'second canary');
+  await assert.rejects(createJob({ jobId: first }, 'test-canary'), { code: 'JOB_REVISION_CONFLICT' });
+});

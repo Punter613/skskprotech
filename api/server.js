@@ -286,7 +286,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
   app.get('/health/preview-unverified-diagnosis', requireApiAccess, async (req, res) => {
     const startedAt = Date.now();
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
-    const jobId = `SKSK-PREVIEW-UNVERIFIED-${String(process.env.RENDER_PULL_REQUEST_ID || 'PR')}`;
+    const jobId = `SKSK-PREVIEW-UNVERIFIED-${String(process.env.RENDER_PULL_REQUEST_ID || 'PR')}-${require('node:crypto').randomUUID()}`;
 
     try {
       const headers = previewSmokeHeaders();
