@@ -15,7 +15,7 @@ const expectedGate = [
   "contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test')"
 ].join(' && ');
 const expectedFlag = 'ISOLATED_RUNTIME_240: $' + '{{ ' + expectedGate + ' }}';
-const expectedUrl = 'PREVIEW_URL: $' + '{{ ' + expectedGate +
+const expectedUrlSuffix = expectedGate +
   " && '" + isolatedHost + "' || format('https://p613-backend-pr-{0}.onrender.com', github.event.pull_request.number) }}";
 
 const workflows = new Map([
@@ -62,7 +62,9 @@ test('all eleven workflows use one labeled, exact-head-only isolated target and 
     assert.equal(occurrences(yaml, 'ISOLATED_RUNTIME_240:'), 1, file);
     assert.equal(occurrences(yaml, 'PREVIEW_URL:'), 1, file);
     assert.ok(yaml.includes(expectedFlag), file + ': eligibility gate differs');
-    assert.ok(yaml.includes(expectedUrl), file + ': URL does not use identical gate');
+    // Other exact-head selectors may precede #240. The unchanged #240 gate
+    // must still govern its own fixed host and the conventional fallback.
+    assert.ok(yaml.includes(expectedUrlSuffix), file + ': URL does not use identical gate');
     assert.ok(yaml.includes("types: [opened, synchronize, reopened, labeled, unlabeled]"), file);
     assert.equal(occurrences(yaml, 'NO_PREVIEW_WAIVER_240:'), 0, file);
 
