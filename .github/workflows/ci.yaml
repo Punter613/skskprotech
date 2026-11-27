@@ -424,7 +424,7 @@ jobs:
 
             for PLACEHOLDER in '(unknown)' '“unknown.”' 'unknown…'; do
               BODY="$(PLACEHOLDER="$PLACEHOLDER" node -e 'process.stdout.write(JSON.stringify({name:"Runtime placeholder evidence",result:process.env.PLACEHOLDER}))')"
-              HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/render-placeholder-test.json -w '%{http_code}' \
+              HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 15 -sS -o /tmp/render-placeholder-test.json -w '%{http_code}' \
                 -X POST -H 'Content-Type: application/json' --data "$BODY" \
                 "$PREVIEW_URL/api/jobs/$ENCODED_JOB_ID/tests" || true)"
               cat /tmp/render-placeholder-test.json || true
@@ -435,7 +435,7 @@ jobs:
               fi
             done
 
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/render-verify-no-evidence.json -w '%{http_code}' \
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 15 -sS -o /tmp/render-verify-no-evidence.json -w '%{http_code}' \
               -X POST -H 'Content-Type: application/json' \
               --data '{"confirmed":true,"confirmedCause":"Knock sensor circuit signal fault","conclusion":"Runtime verification must bind persisted evidence.","evidenceTestIds":["missing-test"]}' \
               "$PREVIEW_URL/api/jobs/$ENCODED_JOB_ID/verify" || true)"
@@ -446,7 +446,7 @@ jobs:
               exit 1
             fi
 
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/render-neutral-test.json -w '%{http_code}' \
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 15 -sS -o /tmp/render-neutral-test.json -w '%{http_code}' \
               -X POST -H 'Content-Type: application/json' \
               --data '{"name":"Road-test operating-condition observation","result":"Mechanical impact reproduced during throttle release; exact failed component was not isolated.","evidenceRole":"NEUTRAL"}' \
               "$PREVIEW_URL/api/jobs/$ENCODED_JOB_ID/tests" || true)"
@@ -475,7 +475,7 @@ jobs:
         }));
         NODE
 
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/render-neutral-verify.json -w '%{http_code}' \
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 15 -sS -o /tmp/render-neutral-verify.json -w '%{http_code}' \
               -X POST -H 'Content-Type: application/json' --data-binary @/tmp/render-neutral-verify-body.json \
               "$PREVIEW_URL/api/jobs/$ENCODED_JOB_ID/verify" || true)"
             cat /tmp/render-neutral-verify.json || true
@@ -485,7 +485,7 @@ jobs:
               exit 1
             fi
 
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/render-valid-test.json -w '%{http_code}' \
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 15 -sS -o /tmp/render-valid-test.json -w '%{http_code}' \
               -X POST -H 'Content-Type: application/json' \
               --data '{"name":"Knock sensor circuit confirmation test","result":"Circuit measurement failed the applicable confirmation limit and isolated the fault to the knock sensor circuit.","evidenceRole":"CONFIRMS","confirmedFault":"Knock sensor circuit signal fault"}' \
               "$PREVIEW_URL/api/jobs/$ENCODED_JOB_ID/tests" || true)"
@@ -514,7 +514,7 @@ jobs:
         }));
         NODE
 
-            HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/render-valid-verify.json -w '%{http_code}' \
+            HTTP_CODE="$(curl -H "X-SKSK-API-Key: $SKSK_PREVIEW_API_KEY" --connect-timeout 5 --max-time 15 -sS -o /tmp/render-valid-verify.json -w '%{http_code}' \
               -X POST -H 'Content-Type: application/json' --data-binary @/tmp/render-valid-verify-body.json \
               "$PREVIEW_URL/api/jobs/$ENCODED_JOB_ID/verify" || true)"
             cat /tmp/render-valid-verify.json || true
