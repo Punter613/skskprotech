@@ -157,10 +157,10 @@ function cacheKey(jobId, shopId = '') {
   return shop ? `${shop}::${jobId}` : jobId;
 }
 
+// An empty caller shop no longer means "every shop": it can only see jobs that
+// were themselves stored without a shop (unscoped development/test jobs).
 function jobBelongsToShop(job, shopId = '') {
-  const shop = normalizeShopId(shopId);
-  if (!shop) return true;
-  return normalizeShopId(job?.shopId) === shop;
+  return normalizeShopId(job?.shopId) === normalizeShopId(shopId);
 }
 
 function clonePayload(job) {
