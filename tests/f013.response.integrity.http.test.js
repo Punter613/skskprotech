@@ -229,12 +229,47 @@ test('F-013 Estimate: healthy persistence returns successful estimate', async ()
   assert.equal((await lifecycle.getJob(job.jobId)).status, 'ESTIMATED');
 });
 
-async function requestEstimate(jobId, estimate) {
+test('F-013 Estimate: coded service 409 survives the HTTP response bridge', async () => {
+  const job = await verifiedJob();
+  const estimate = estimateFor(job);
+  const codedConflict = Object.assign(new Error('Estimate evidence is missing'), {
+    code: 'ESTIMATE_EVIDENCE_MISSING',
+    statusCode: 409
+  });
+  // Isolate the response-bridge contract by substituting only the service
+  // boundary. The current attachEstimate implementation does not itself
+  // produce this coded error; this test must not be described as exercising
+  // that real service validation path.
+  const middlewarePath = require.resolve('../src/middleware/job.lifecycle.middleware');
+  const originalServiceExports = require.cache[servicePath].exports;
+  const originalMiddlewareCache = require.cache[middlewarePath];
+  let conflictMiddleware;
+  try {
+    require.cache[servicePath].exports = {
+      ...originalServiceExports,
+      attachEstimate: async () => { throw codedConflict; }
+    };
+    delete require.cache[middlewarePath];
+    conflictMiddleware = require(middlewarePath).estimateLifecycle;
+  } finally {
+    require.cache[servicePath].exports = originalServiceExports;
+    if (originalMiddlewareCache) require.cache[middlewarePath] = originalMiddlewareCache;
+    else delete require.cache[middlewarePath];
+  }
+  const response = await requestEstimate(job.jobId, estimate, conflictMiddleware);
+  assert.equal(response.status, 409);
+  assert.equal(response.body.success, false);
+  assert.equal(response.body.code, 'ESTIMATE_EVIDENCE_MISSING');
+  assert.equal(response.body.estimate, undefined);
+  assert.equal((await lifecycle.getJob(job.jobId)).status, 'VERIFIED');
+});
+
+async function requestEstimate(jobId, estimate, lifecycleMiddleware = estimateLifecycle) {
   // The downstream route supplies an estimate; lifecycle middleware alone
   // must persist it before the response is delivered.
   const app = express();
   app.use(express.json());
-  app.use('/api/estimateHeuristic', estimateLifecycle);
+  app.use('/api/estimateHeuristic', lifecycleMiddleware);
   app.post('/api/estimateHeuristic',
     (req, res) => res.json({ success: true, estimate }));
   app.use((err, req, res, next) => res.status(err.statusCode || 500).json({
