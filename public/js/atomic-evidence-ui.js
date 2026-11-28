@@ -153,12 +153,14 @@
   saveButton.onclick = async () => {
     const out = document.getElementById('testOut');
     const original = saveButton.textContent;
+    const context = captureJobContext();
     try {
-      if (!jobId) throw new Error('Run diagnosis first');
+      if (!context.jobId) throw new Error('Run diagnosis first');
       const evidence = collectPendingEvidence(true);
       saveButton.disabled = true;
       saveButton.textContent = '⏳ Saving evidence...';
-      const data = await atomicPost(`/api/jobs/${encodeURIComponent(jobId)}/tests/batch`, { evidence });
+      const data = await atomicPost(`/api/jobs/${encodeURIComponent(context.jobId)}/tests/batch`, { evidence });
+      if (!isCurrentJobContext(context)) return;
       const persisted = [...(data.tests || []), ...(data.reusedTests || [])];
       mergeSavedEvidence(persisted);
       clearPersistedInputs(persisted);
@@ -177,6 +179,7 @@
         stage('Test');
       }
     } catch (error) {
+      if (!isCurrentJobContext(context)) return;
       out.innerHTML = `<div class="status bad">${esc(error.message)}</div>`;
     } finally {
       saveButton.disabled = false;
@@ -187,9 +190,10 @@
   unverifiedButton.onclick = async () => {
     const out = document.getElementById('unverifiedOut');
     const original = unverifiedButton.textContent;
+    const context = captureJobContext();
     let submitted = [];
     try {
-      if (!jobId) throw new Error('Run diagnosis first');
+      if (!context.jobId) throw new Error('Run diagnosis first');
       submitted = collectPendingEvidence(false);
       document.getElementById('estimateCard').hidden = true;
       document.getElementById('invoiceCard').hidden = true;
@@ -197,7 +201,8 @@
       unverifiedButton.textContent = '⏳ Saving + reassessing...';
       out.innerHTML = `<div class="status">${submitted.length ? 'Saving new mechanic evidence, invalidating the prior candidate, and reassessing from the persisted case...' : 'Reassessing from the persisted case evidence...'}</div>`;
 
-      const data = await atomicPost(`/api/jobs/${encodeURIComponent(jobId)}/unverified-diagnosis`, { evidence: submitted });
+      const data = await atomicPost(`/api/jobs/${encodeURIComponent(context.jobId)}/unverified-diagnosis`, { evidence: submitted });
+      if (!isCurrentJobContext(context)) return;
       if (data.diagnosisState !== 'UNVERIFIED_DIAGNOSIS') {
         throw new Error('Backend did not return an UNVERIFIED_DIAGNOSIS');
       }
@@ -213,6 +218,7 @@
       document.getElementById('verifyCard').hidden = !eligible.length;
       stage(eligible.length ? 'Verify' : 'Test');
     } catch (error) {
+      if (!isCurrentJobContext(context)) return;
       const data = error.data || {};
       const persisted = [...(data.savedEvidence || []), ...(data.reusedEvidence || [])];
       if (persisted.length) {

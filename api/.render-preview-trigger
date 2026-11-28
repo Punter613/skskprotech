@@ -4,3 +4,6 @@ updated: 2026-11-27T03:36:00Z
 
 reason: PR #228 error redaction regression on current main
 updated: 2026-11-28
+
+reason: PR #231 frontend job isolation regression on current main
+updated: 2026-11-28
