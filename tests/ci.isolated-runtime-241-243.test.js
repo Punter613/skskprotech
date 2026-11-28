@@ -25,7 +25,8 @@ const targets = [
   { pr: 243, branch: 'fix/job-shop-scope-empty', service: 'p613-isolated-pr-243' },
   { pr: 246, branch: 'fix/retire-stripe-procurement', service: 'p613-isolated-pr-246' },
   { pr: 233, branch: 'chore/remove-orphaned-ai-worker-bull', service: 'p613-isolated-pr-233' },
-  { pr: 247, branch: 'ci/required-gates-always-trigger', service: 'p613-isolated-pr-247' }
+  { pr: 247, branch: 'ci/required-gates-always-trigger', service: 'p613-isolated-pr-247' },
+  { pr: 228, branch: 'security/redact-client-error-message-20261117', service: 'p613-isolated-pr-228' }
 ];
 
 function eligibility({ pr, branch }) {
@@ -60,7 +61,7 @@ function normalizeStep(source, isCi) {
   return source.split('\n').map(line => line.startsWith(' '.repeat(spaces)) ? line.slice(spaces) : line).join('\n').trimEnd();
 }
 
-test('all eleven workflows select the five exact-head test-only targets without a waiver', () => {
+test('all eleven workflows select the six exact-head test-only targets without a waiver', () => {
   const triggerFiles = fs.readdirSync(root).filter(file =>
     fs.readFileSync(path.join(root, file), 'utf8').includes("'api/.render-preview-trigger'"));
   assert.deepEqual(triggerFiles.filter(file => !workflows.has(file)), []);
@@ -83,15 +84,15 @@ test('all eleven workflows select the five exact-head test-only targets without 
       assert.ok(yaml.includes(`${eligibility(target)} && 'https://${target.service}.onrender.com'`), file);
     }
 
-    for (const pr of [246, 233, 247]) {
+    for (const pr of [246, 233, 247, 228]) {
     const guard = step(yaml, `Reject unpinned PR ${pr} runtime target`, isCi);
     assert.ok(guard.includes(`github.event.pull_request.number == ${pr} && env.ISOLATED_RUNTIME_${pr} != 'true'`), file);
     assert.ok(guard.includes('exit 1'), file);
-    assert.ok(yaml.indexOf(guard) < yaml.indexOf('Select pinned PR #241/#243/#246/#233/#247 isolated runtime credential'), file);
+    assert.ok(yaml.indexOf(guard) < yaml.indexOf('Select pinned PR #241/#243/#246/#233/#247/#228 isolated runtime credential'), file);
     }
-    const selected = step(yaml, 'Select pinned PR #241/#243/#246/#233/#247 isolated runtime credential', isCi);
-    const identity = step(yaml, 'Verify PR #241/#243/#246/#233/#247 isolated service identity', isCi);
-    const audit = step(yaml, 'Audit PR #241/#243/#246/#233/#247 isolated runtime success', isCi);
+    const selected = step(yaml, 'Select pinned PR #241/#243/#246/#233/#247/#228 isolated runtime credential', isCi);
+    const identity = step(yaml, 'Verify PR #241/#243/#246/#233/#247/#228 isolated service identity', isCi);
+    const audit = step(yaml, 'Audit PR #241/#243/#246/#233/#247/#228 isolated runtime success', isCi);
     const live = step(yaml, firstLiveStep, isCi);
     assert.ok(yaml.indexOf(selected) < yaml.indexOf(identity), file);
     assert.ok(yaml.indexOf(identity) < yaml.indexOf(live), file);
@@ -103,12 +104,13 @@ test('all eleven workflows select the five exact-head test-only targets without 
       assert.equal(normalized, baseline.get(kind), `${file}: ${kind} policy drift`);
     }
 
-    assert.match(selected, /case "\$\{ISOLATED_RUNTIME_241\}:\$\{ISOLATED_RUNTIME_243\}:\$\{ISOLATED_RUNTIME_246\}:\$\{ISOLATED_RUNTIME_233\}:\$\{ISOLATED_RUNTIME_247\}" in/, file);
-    assert.match(selected, /true:false:false:false:false\) TEST_KEY="\$ISOLATED_241_API_KEY"/, file);
-    assert.match(selected, /false:true:false:false:false\) TEST_KEY="\$ISOLATED_243_API_KEY"/, file);
-    assert.match(selected, /false:false:true:false:false\) TEST_KEY="\$ISOLATED_246_API_KEY"/, file);
-    assert.match(selected, /false:false:false:true:false\) TEST_KEY="\$ISOLATED_233_API_KEY"/, file);
-    assert.match(selected, /false:false:false:false:true\) TEST_KEY="\$ISOLATED_247_API_KEY"/, file);
+    assert.match(selected, /case "\$\{ISOLATED_RUNTIME_241\}:\$\{ISOLATED_RUNTIME_243\}:\$\{ISOLATED_RUNTIME_246\}:\$\{ISOLATED_RUNTIME_233\}:\$\{ISOLATED_RUNTIME_247\}:\$\{ISOLATED_RUNTIME_228\}" in/, file);
+    assert.match(selected, /true:false:false:false:false:false\) TEST_KEY="\$ISOLATED_241_API_KEY"/, file);
+    assert.match(selected, /false:true:false:false:false:false\) TEST_KEY="\$ISOLATED_243_API_KEY"/, file);
+    assert.match(selected, /false:false:true:false:false:false\) TEST_KEY="\$ISOLATED_246_API_KEY"/, file);
+    assert.match(selected, /false:false:false:true:false:false\) TEST_KEY="\$ISOLATED_233_API_KEY"/, file);
+    assert.match(selected, /false:false:false:false:true:false\) TEST_KEY="\$ISOLATED_247_API_KEY"/, file);
+    assert.match(selected, /false:false:false:false:false:true\) TEST_KEY="\$ISOLATED_228_API_KEY"/, file);
     assert.match(selected, /refusing shared preview-key fallback/, file);
     assert.match(selected, /if \[ -z "\$TEST_KEY" \]/, file);
     assert.match(selected, /SKSK_PREVIEW_API_KEY=%s/, file);
