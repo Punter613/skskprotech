@@ -35,7 +35,7 @@
 | *(no prefix)* | — | `src/routes/oem.js` — mounts `/api/knowledge-builder` and `/api/oem-data/:vin/:procedure` from inside the router (§9) |
 | `/api/intelligence` | API key + AI rate limit | `src/routes/intelligence.routes.js` — records feedback; never promotes (§7) |
 | `/api/buyer` | API key | `src/routes/buyer.js` — broken on every valid request (§9) |
-| `/api/payments` | — | `src/routes/payments.js`, **only if `STRIPE_SECRET_KEY` is set**; otherwise a 503 "Payments not configured" stub occupies the prefix |
+| `/api/payments/procure-parts` | — | Retired (SEC-01); returns 404 |
 
 **Explicitly absent.** There is no `/api/full-estimate`, no generic `/api/estimate`, no `/api/invoice`, no `/api/auth` mount. The retired intelligence sub-lane (`/api/intelligence/analyze|estimate|predict|economic|batch`) is gone for the reason it was retired: it could run diagnose→estimate without persisted TEST→VERIFY. Only the feedback and guard-catch endpoints remain under `/api/intelligence`.
 
@@ -133,7 +133,7 @@ Live and load-bearing:
 
 **Stripe webhook (fixed — PR #222).** `src/routes/webhooks.js` verifies the Stripe signature (that part was always real) and acknowledges. Before PR #222, a `checkout.session.completed` event with tenant metadata reset **every** vehicle of that tenant to `status:'OK'` / "All Systems Stable." **That update is removed entirely.** A payment confirms a commercial transaction; it is not vehicle evidence and it no longer touches fleet state. Open question carried from the analysis: the webhook's effective path is `/api/payments/webhook/webhook` (the router is mounted at `/api/payments/webhook` and defines `/webhook` inside itself). Whether Stripe's dashboard is configured with that doubled path cannot be determined from the repo.
 
-**Payments route (weakness still open).** `src/routes/payments.js` mounts only when `STRIPE_SECRET_KEY` is set (whether it is set in the deployed environment is not determinable from the repo). It defines its own local tenant check that trusts the raw `x-tenant-id` header — the exact pattern PR #220 eliminated elsewhere — and that value flows into Stripe `success_url`/`metadata`. It performs no database writes, which bounds the blast radius, but it has not been brought under the hardened pattern.
+**Payments route (retired — SEC-01).** The unused procurement checkout router and its fallback mount were removed. The separate signed webhook is unchanged.
 
 ## 9. Known defects and hazards still open on `main`
 
@@ -205,7 +205,7 @@ None of the museum is dangerous. All of it is weight, and it is the material the
 
 **Open questions the code could not establish** (carried from the underlying analysis; do not treat silence as an answer):
 - Whether Stripe is configured with the webhook's doubled effective path (`/api/payments/webhook/webhook`) — §8.
-- Whether `/api/payments` is live in the deployed environment (depends on `STRIPE_SECRET_KEY` in env, which is not in the repo).
+- Procurement checkout is retired (SEC-01); Stripe configuration remains relevant to the signed webhook.
 - Whether anything in the deployed frontend still calls `/api/scrape` or `/api/parts` — the current pages' calls were inventoried and none do, but the Pages-served JS bundles were not audited line-by-line; that check is the stated precondition for removing those mounts.
 - The exposed-key history item recorded in CLEANUP.md — **resolved as to credential validity (owner-attested):** the owner reports the SSH key was revoked months before November 2026 and no associated keys or tokens remain issued. The repository has not independently verified revocation. The key material remains in Git history; history removal is a separate optional hardening action. See CLEANUP.md.
 - Runtime behavior generally: the underlying analysis ran no server and probed no deployed endpoint. "Broken" verdicts here are structural certainties from the code as written; deployed flag states and provider behavior are outside what a code read can claim.

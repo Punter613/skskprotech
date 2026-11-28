@@ -3,6 +3,7 @@ name: DTC Provenance Runtime Gate
 on:
   pull_request:
     branches: [ main ]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       - 'src/core/evidence/dtc.provenance.js'
       - 'src/core/evidence/diagnostic.evidence.packet.js'
@@ -19,8 +20,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     env:
+      ISOLATED_RUNTIME_240: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 240 && github.event.pull_request.head.sha == '5a5cf160a3be1adbb236b5860228b58d77cceed7' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
+      ISOLATED_RUNTIME_244: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 244 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'ci/isolated-runtime-target-240-review' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_244_HEAD_SHA && vars.SKSK_ISOLATED_244_HEAD_SHA != '' }}
+      ISOLATED_RUNTIME_241: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 241 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/job-revision-guard' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_241_HEAD_SHA && vars.SKSK_ISOLATED_241_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
+      ISOLATED_RUNTIME_243: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 243 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/job-shop-scope-empty' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_243_HEAD_SHA && vars.SKSK_ISOLATED_243_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
+      ISOLATED_RUNTIME_246: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 246 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/retire-stripe-procurement' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_246_HEAD_SHA && vars.SKSK_ISOLATED_246_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
+      ISOLATED_RUNTIME_245: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 245 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'ci/isolated-runtime-target-241-243' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_245_HEAD_SHA && vars.SKSK_ISOLATED_245_HEAD_SHA != '' }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      PREVIEW_URL: https://p613-backend-pr-${{ github.event.number }}.onrender.com
+      PREVIEW_URL: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 241 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/job-revision-guard' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_241_HEAD_SHA && vars.SKSK_ISOLATED_241_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-241.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 243 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/job-shop-scope-empty' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_243_HEAD_SHA && vars.SKSK_ISOLATED_243_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-243.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 246 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/retire-stripe-procurement' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_246_HEAD_SHA && vars.SKSK_ISOLATED_246_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-246.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 240 && github.event.pull_request.head.sha == '5a5cf160a3be1adbb236b5860228b58d77cceed7' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-240.onrender.com' || format('https://p613-backend-pr-{0}.onrender.com', github.event.pull_request.number) }}
       SKSK_PREVIEW_API_KEY: ${{ secrets.SKSK_PREVIEW_API_KEY }}
 
     steps:
@@ -28,6 +35,85 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: "Select exact-head PR #240 isolated runtime target"
+        if: env.ISOLATED_RUNTIME_240 == 'true'
+        env:
+          ISOLATED_240_API_KEY: ${{ secrets.SKSK_ISOLATED_240_API_KEY }}
+        run: |
+          if [ -z "$ISOLATED_240_API_KEY" ]; then
+            echo "::error::SKSK_ISOLATED_240_API_KEY is missing; refusing to fall back to the default preview key."
+            exit 1
+          fi
+          echo "SKSK_PREVIEW_API_KEY=$ISOLATED_240_API_KEY" >> "$GITHUB_ENV"
+          echo '::notice::PR #240 isolated test target selected; runtime verification pending.'
+          {
+            echo '### ISOLATED TEST TARGET SELECTED — NOT YET VERIFIED'
+            echo 'PR #240 exact head 5a5cf160a3be1adbb236b5860228b58d77cceed7; test-only service https://p613-isolated-pr-240.onrender.com.'
+            echo 'No HTTP runtime checks are waived. The selected target must pass exact commit and service-identity checks.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Reject unpinned PR 246 runtime target
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 246 && env.ISOLATED_RUNTIME_246 != 'true'
+        run: |
+          echo '::error::PR 246 requires its exact-head isolated target; refusing default preview fallback.'
+          exit 1
+      - name: "Select pinned PR #241/#243/#246 isolated runtime credential"
+        if: env.ISOLATED_RUNTIME_241 == 'true' || env.ISOLATED_RUNTIME_243 == 'true' || env.ISOLATED_RUNTIME_246 == 'true'
+        env:
+          ISOLATED_241_API_KEY: ${{ secrets.SKSK_ISOLATED_241_API_KEY }}
+          ISOLATED_243_API_KEY: ${{ secrets.SKSK_ISOLATED_243_API_KEY }}
+          ISOLATED_246_API_KEY: ${{ secrets.SKSK_ISOLATED_246_API_KEY }}
+        run: |
+          case "${ISOLATED_RUNTIME_241}:${ISOLATED_RUNTIME_243}:${ISOLATED_RUNTIME_246}" in
+            true:false:false) TEST_KEY="$ISOLATED_241_API_KEY"; TARGET_PR=241 ;;
+            false:true:false) TEST_KEY="$ISOLATED_243_API_KEY"; TARGET_PR=243 ;;
+            false:false:true) TEST_KEY="$ISOLATED_246_API_KEY"; TARGET_PR=246 ;;
+            *) echo '::error::Ambiguous isolated runtime selector; refusing credential selection.'; exit 1 ;;
+          esac
+          if [ -z "$TEST_KEY" ]; then
+            echo "::error::SKSK_ISOLATED_${TARGET_PR}_API_KEY missing; refusing shared preview-key fallback."
+            exit 1
+          fi
+          printf 'SKSK_PREVIEW_API_KEY=%s\n' "$TEST_KEY" >> "$GITHUB_ENV"
+          echo "::notice::PR #${TARGET_PR} dedicated test credential selected; runtime verification pending."
+          {
+            echo '### ISOLATED TEST TARGET SELECTED — NOT YET VERIFIED'
+            echo "PR #${TARGET_PR} at pinned head $HEAD_SHA; target $PREVIEW_URL."
+            echo 'Every real HTTP assertion remains mandatory. No runtime waiver is enabled.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: "Select pinned PR #245 isolated policy bootstrap credential"
+        if: env.ISOLATED_RUNTIME_245 == 'true'
+        env:
+          ISOLATED_245_API_KEY: ${{ secrets.SKSK_ISOLATED_245_API_KEY }}
+        run: |
+          if [ -z "$ISOLATED_245_API_KEY" ]; then
+            echo '::error::SKSK_ISOLATED_245_API_KEY missing; refusing shared preview-key fallback.'
+            exit 1
+          fi
+          printf 'SKSK_PREVIEW_API_KEY=%s\n' "$ISOLATED_245_API_KEY" >> "$GITHUB_ENV"
+          echo '::notice::PR #245 pinned bootstrap credential selected; live verification pending.'
+          {
+            echo '### PR #245 POLICY BOOTSTRAP SELECTED — NOT YET VERIFIED'
+            echo "PR #245 at exact head $HEAD_SHA, pinned by SKSK_ISOLATED_245_HEAD_SHA."
+            echo 'Test-only service https://p613-backend-pr-245.onrender.com; no runtime waiver.'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: "Select pinned PR #244 isolated bootstrap credential"
+        if: env.ISOLATED_RUNTIME_244 == 'true'
+        env:
+          ISOLATED_244_API_KEY: ${{ secrets.SKSK_ISOLATED_244_API_KEY }}
+        run: |
+          if [ -z "$ISOLATED_244_API_KEY" ]; then
+            echo "::error::SKSK_ISOLATED_244_API_KEY missing; refusing shared preview-key fallback."
+            exit 1
+          fi
+          echo "SKSK_PREVIEW_API_KEY=$ISOLATED_244_API_KEY" >> "$GITHUB_ENV"
+          echo '::notice::PR #244 pinned test credential selected; runtime verification pending.'
+          {
+            echo '### PR #244 BOOTSTRAP TARGET SELECTED — NOT YET VERIFIED'
+            echo "PR #244 exact head $HEAD_SHA, pinned by repository variable SKSK_ISOLATED_244_HEAD_SHA."
+            echo 'Test-only service https://p613-backend-pr-244.onrender.com; no runtime waiver.'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Wait for exact Render preview head
         run: |
@@ -57,6 +143,71 @@ jobs:
             cat /tmp/dtc-health.json 2>/dev/null || true
             exit 1
           fi
+
+      - name: "Verify PR #245 isolated policy bootstrap identity"
+        if: env.ISOLATED_RUNTIME_245 == 'true'
+        run: |
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/pr-245-isolated-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::PR #245 bootstrap health unavailable (HTTP $HTTP_CODE)."; exit 1
+          fi
+          HEAD_SHA="$HEAD_SHA" node - <<'NODE'
+          const fs = require('node:fs');
+          const health = JSON.parse(fs.readFileSync('/tmp/pr-245-isolated-health.json', 'utf8'));
+          if (health?.ok !== true || health?.preview?.commit !== process.env.HEAD_SHA || health?.preview?.service !== 'p613-backend-pr-245') {
+            console.error('PR #245 bootstrap identity, health or exact head mismatch; refusing runtime verification.');
+            process.exit(1);
+          }
+          NODE
+      - name: "Verify PR #241/#243/#246 isolated service identity"
+        if: env.ISOLATED_RUNTIME_241 == 'true' || env.ISOLATED_RUNTIME_243 == 'true' || env.ISOLATED_RUNTIME_246 == 'true'
+        run: |
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/pr-241-243-isolated-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Isolated runtime health unavailable (HTTP $HTTP_CODE)."; exit 1
+          fi
+          HEAD_SHA="$HEAD_SHA" ISOLATED_RUNTIME_241="$ISOLATED_RUNTIME_241" node - <<'NODE'
+          const fs = require('node:fs');
+          const health = JSON.parse(fs.readFileSync('/tmp/pr-241-243-isolated-health.json', 'utf8'));
+          const service = process.env.ISOLATED_RUNTIME_241 === 'true' ? 'p613-isolated-pr-241' : process.env.ISOLATED_RUNTIME_243 === 'true' ? 'p613-isolated-pr-243' : 'p613-isolated-pr-246';
+          if (health?.ok !== true || health?.preview?.commit !== process.env.HEAD_SHA || health?.preview?.service !== service) {
+            console.error('Isolated service name, exact head, or runtime health mismatch; refusing verification.');
+            process.exit(1);
+          }
+          NODE
+      - name: "Verify PR #240 isolated service identity"
+        if: env.ISOLATED_RUNTIME_240 == 'true'
+        run: |
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/pr-240-isolated-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::PR #240 isolated runtime health unavailable (HTTP $HTTP_CODE)."
+            exit 1
+          fi
+          HEAD_SHA="$HEAD_SHA" node - <<'NODE'
+          const fs = require('node:fs');
+          const health = JSON.parse(fs.readFileSync('/tmp/pr-240-isolated-health.json', 'utf8'));
+          if (health?.ok !== true || health?.preview?.commit !== process.env.HEAD_SHA || health?.preview?.service !== 'p613-isolated-pr-240') {
+            console.error('Isolated test service identity or exact commit did not match; refusing runtime verification.');
+            process.exit(1);
+          }
+          NODE
+
+      - name: "Verify PR #244 isolated test service identity"
+        if: env.ISOLATED_RUNTIME_244 == 'true'
+        run: |
+          HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/pr-244-isolated-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::PR #244 isolated test service health unavailable (HTTP $HTTP_CODE)."
+            exit 1
+          fi
+          HEAD_SHA="$HEAD_SHA" node - <<'NODE'
+          const fs = require('node:fs');
+          const health = JSON.parse(fs.readFileSync('/tmp/pr-244-isolated-health.json', 'utf8'));
+          if (health?.ok !== true || health?.preview?.commit !== process.env.HEAD_SHA || health?.preview?.service !== 'p613-backend-pr-244') {
+            console.error('PR #244 test service identity or exact commit mismatch; runtime is not verified.');
+            process.exit(1);
+          }
+          NODE
 
       - name: Prove mixed DTC provenance on real Diagnose route
         run: |
@@ -140,3 +291,46 @@ jobs:
           }
           console.log('DTC provenance runtime passed: P0300 trusted; P0171/U0100 audit-only; diagnostic DTC slot trusted-only.');
           NODE
+
+      - name: "Audit PR #245 isolated policy bootstrap runtime success"
+        if: env.ISOLATED_RUNTIME_245 == 'true' && success()
+        run: |
+          {
+            echo '### RUNTIME VERIFIED AGAINST ISOLATED TEST SERVICE'
+            echo "PR #245 exact policy head $HEAD_SHA matched the repository pin."
+            echo 'Target: https://p613-backend-pr-245.onrender.com; health.ok, service name and commit matched.'
+            echo 'All actual HTTP checks in this workflow passed; no runtime waiver was used.'
+            echo "Evidence: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: "Audit PR #241/#243/#246 isolated runtime success"
+        if: (env.ISOLATED_RUNTIME_241 == 'true' || env.ISOLATED_RUNTIME_243 == 'true' || env.ISOLATED_RUNTIME_246 == 'true') && success()
+        run: |
+          if [ "$ISOLATED_RUNTIME_241" = 'true' ]; then TARGET_PR=241; elif [ "$ISOLATED_RUNTIME_243" = 'true' ]; then TARGET_PR=243; else TARGET_PR=246; fi
+          {
+            echo '### RUNTIME VERIFIED AGAINST ISOLATED TEST SERVICE'
+            echo "PR #${TARGET_PR} at pinned exact head $HEAD_SHA."
+            echo "Target: $PREVIEW_URL; health.ok, commit and Render service identity matched."
+            echo 'All required live HTTP assertions in this workflow passed; no runtime waiver was used.'
+            echo "Evidence: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: "Audit PR #244 pinned bootstrap runtime success"
+        if: env.ISOLATED_RUNTIME_244 == 'true' && success()
+        run: |
+          {
+            echo '### RUNTIME VERIFIED AGAINST ISOLATED TEST SERVICE'
+            echo "PR #244 exact head $HEAD_SHA matched the reviewed repository pin."
+            echo 'Target https://p613-backend-pr-244.onrender.com; health.ok, service identity, and commit matched.'
+            echo 'This workflow executed its real HTTP runtime assertions successfully; no waiver was used.'
+            echo "Evidence: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Audit PR #240 isolated test runtime success"
+        if: env.ISOLATED_RUNTIME_240 == 'true' && success()
+        run: |
+          {
+            echo '### RUNTIME VERIFIED AGAINST ISOLATED TEST SERVICE'
+            echo 'PR #240 at exact reviewed head 5a5cf160a3be1adbb236b5860228b58d77cceed7.'
+            echo 'Target: https://p613-isolated-pr-240.onrender.com; exact commit and Render service identity matched.'
+            echo 'This workflow executed its real HTTP runtime assertions successfully; no runtime waiver was used.'
+            echo "Evidence: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"

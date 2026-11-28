@@ -1,3 +1,6 @@
 Render preview trigger
-reason: Verify lifecycle response isolation after reset or vehicle switch
-updated: 2026-11-17T09:39:23.033Z
+reason: PR #243 tenant scope candidate on main 5ba3203b
+updated: 2026-11-27T03:36:00Z
+
+reason: PR #231 frontend job isolation regression on current main
+updated: 2026-11-28

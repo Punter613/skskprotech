@@ -1,5 +1,8 @@
 require('dotenv').config();
 
+// Must run before any Supabase client is created or the HTTP server binds.
+require('../src/startup/preview.database.guard').enforcePreviewDatabaseGuard();
+
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -84,8 +87,11 @@ const fleetRouter = require('../src/routes/fleet');
 const vehicleRouter = require('../src/routes/vehicle');
 const quickAskRouter = require('../src/routes/quick.ask');
 const { requireApiAccess, requireTestAccess, createRateLimiter } = require('../src/middleware/api.access');
+const { requireGuestDiagnosisKey, validateTestDiagnosis, createTestDiagnosisQuota } = require('../src/middleware/test.diagnose');
 const aiRateLimit = createRateLimiter();
 const protectAi = [requireApiAccess, aiRateLimit];
+const testerRateLimit = createRateLimiter({ max: 6, windowMs: 60_000 });
+const testerDailyQuota = createTestDiagnosisQuota();
 
 const {
   diagnosisLifecycle,
@@ -97,6 +103,10 @@ app.use('/api/parts', requireApiAccess, partsRouter);
 app.use('/api/jobs', requireApiAccess, jobsRouter);
 
 app.use('/api/diagnose', ...protectAi, diagnosisLifecycle, diagnose);
+// Test-key access is intentionally scoped to DIAGNOSE only: no shop identity,
+// no job persistence, no verification/estimate/invoice lifecycle, and bounded AI cost.
+app.use('/api/test/diagnose', requireGuestDiagnosisKey,
+  validateTestDiagnosis, testerRateLimit, testerDailyQuota, diagnose);
 app.use('/api/estimateHeuristic', requireApiAccess, estimateLifecycle, estimateHeuristic);
 
 app.use('/api/translate', ...protectAi, require('../src/routes/translate'));
@@ -110,21 +120,7 @@ app.use(oemRouter);
 app.use('/api/intelligence', ...protectAi, require('../src/routes/intelligence.routes'));
 app.use('/api/buyer', requireApiAccess, require('../src/routes/buyer'));
 
-// STANDALONE STRIPE SUBSCRIPTION INFRASTRUCTURE
-if (process.env.STRIPE_SECRET_KEY) {
-  try {
-    const payments = require('../src/routes/payments');
-    app.use('/api/payments', payments);
-    console.log('[Payments] Stripe standard checking endpoints loaded');
-  } catch (err) {
-    console.warn('[Payments] Delayed standard payment loading:', err.message);
-  }
-} else {
-  console.log('[Payments] STRIPE_SECRET_KEY not set - payments disabled');
-  app.use('/api/payments', (req, res) => {
-    res.status(503).json({ success: false, error: 'Payments not configured' });
-  });
-}
+// Procurement checkout retired (SEC-01). Stripe webhook remains mounted above.
 
 // 5. STATIC CORPORATE WEB PLATFORM ASSETS
 app.get('/fleet', (req, res) => res.sendFile(path.join(__dirname, '../public/fleet.html')));
@@ -177,17 +173,32 @@ app.get('/health', async (req, res) => {
 // registers these endpoints because Render sets IS_PULL_REQUEST to the string "true"
 // only for pull request preview services.
 if (process.env.IS_PULL_REQUEST === 'true') {
-  app.get('/health/preview-evidence', async (req, res) => {
+  // Internal loopback requests still traverse normal shop authentication.
+  // Select only a shop-bound key already configured on the preview service;
+  // never use the invitation-only diagnosis key for privileged smoke routes.
+  function previewSmokeHeaders() {
+    let bindings;
+    try { bindings = JSON.parse(process.env.SKSK_SHOP_KEY_BINDINGS || '{}'); }
+    catch { bindings = {}; }
+    const configured = new Set(String(process.env.SKSK_API_KEYS || process.env.SKSK_API_KEY || '')
+      .split(',').map(key => key.trim()).filter(Boolean));
+    const shopKey = Object.keys(bindings || {}).find(key => configured.has(key));
+    if (!shopKey) throw new Error('Preview smoke shop identity is not configured');
+    return { 'Content-Type': 'application/json', 'X-SKSK-API-Key': shopKey };
+  }
+
+  app.get('/health/preview-evidence', requireApiAccess, async (req, res) => {
     const startedAt = Date.now();
     const vin = String(req.query.vin || '5XXGT4L38LG384941').trim();
     const query = String(req.query.query || 'P1326 knock signal range performance flashing MIL reduced power').trim();
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
 
     try {
+      const headers = previewSmokeHeaders();
       const decodeStartedAt = Date.now();
       const decodeResponse = await fetch(`${localBase}/api/vehicle/decode`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ vin })
       });
       const decodeBody = await decodeResponse.json();
@@ -207,7 +218,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
       const quickAskStartedAt = Date.now();
       const quickAskResponse = await fetch(`${localBase}/api/quick-ask`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ vehicle: decodeBody.vehicle, query, limit: 5 })
       });
       const quickAskBody = await quickAskResponse.json();
@@ -258,12 +269,14 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     }
   });
 
-  app.get('/health/preview-unverified-diagnosis', async (req, res) => {
+  app.get('/health/preview-unverified-diagnosis', requireApiAccess, async (req, res) => {
     const startedAt = Date.now();
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
-    const jobId = `SKSK-PREVIEW-UNVERIFIED-${String(process.env.RENDER_PULL_REQUEST_ID || 'PR')}`;
+    const jobId = `SKSK-PREVIEW-UNVERIFIED-${String(process.env.RENDER_PULL_REQUEST_ID || 'PR')}-${require('node:crypto').randomUUID()}`;
 
     try {
+      const headers = previewSmokeHeaders();
+      const shopId = JSON.parse(process.env.SKSK_SHOP_KEY_BINDINGS || '{}')[headers['X-SKSK-API-Key']];
       const { createJob, recordDiagnosis, patchJob, getJob } = require('../src/services/job.lifecycle');
       await createJob({
         jobId,
@@ -272,7 +285,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
         customerStates: ['Flashing check-engine light after driving through standing water'],
         mechanicNotices: ['Engine currently runs smoothly'],
         obdCodes: ['P1326']
-      });
+      }, shopId);
       await recordDiagnosis(jobId, {
         primaryCause: 'Knock sensor circuit signal fault requires confirmation',
         secondaryCauses: ['Engine bearing knock signal requires confirmation'],
@@ -287,8 +300,8 @@ if (process.env.IS_PULL_REQUEST === 'true') {
         notes: 'Runtime canary diagnosis is intentionally unverified.',
         diagnosticConfidence: { percentage: 60, rating: 'MODERATE' },
         evidence: { oem: [], tsbs: [], available: false, sources: [] }
-      });
-      const seeded = await getJob(jobId);
+      }, null, shopId);
+      const seeded = await getJob(jobId, shopId);
       await patchJob(jobId, {
         diagnosis: {
           ...(seeded?.diagnosis || {}),
@@ -302,12 +315,12 @@ if (process.env.IS_PULL_REQUEST === 'true') {
             tsbReferences: []
           }
         }
-      });
+      }, shopId);
 
       const fallbackStartedAt = Date.now();
       const fallbackResponse = await fetch(`${localBase}/api/jobs/${encodeURIComponent(jobId)}/unverified-diagnosis`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: '{}'
       });
       const fallbackBody = await fallbackResponse.json();
@@ -315,7 +328,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
 
       const estimateResponse = await fetch(`${localBase}/api/estimateHeuristic`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           jobId,
           diagnosisVerified: true,
@@ -327,7 +340,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
 
       const lifecycleResponse = await fetch(`${localBase}/lifecycle.html`);
       const lifecycleHtml = await lifecycleResponse.text();
-      const persisted = await getJob(jobId);
+      const persisted = await getJob(jobId, shopId);
       const uiHasFallback = lifecycleHtml.includes('Get an Unverified Diagnosis') &&
         lifecycleHtml.includes('This diagnosis has not been physically verified. It does not authorize a repair and does not unlock Estimate.');
       const boundaryHeld = fallbackResponse.status === 200 &&
@@ -417,6 +430,9 @@ try {
 
 // 9. NETWORK PORT BIND LISTEN ENGINE
 const port = process.env.PORT || 3000;
+// Fail closed before binding: the backend DB credential contract must hold.
+require('../src/db').assertSupabaseConfig();
+
 const server = app.listen(port, () => {
   const retrieval = evidenceRetrievalProfile();
   const quickAsk = retrieval.quickAskSourceBudgetsMs;

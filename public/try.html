@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>SKSK ProTech · Tester Lab</title>
+  <style>
+    :root{color-scheme:dark;font-family:system-ui,-apple-system,sans-serif;background:#0a0b10;color:#f5f6fb}
+    *{box-sizing:border-box}body{margin:0;padding:22px 14px 65px;background:radial-gradient(ellipse at top,#251016,#0a0b10 64%)}
+    main{max-width:790px;margin:auto}.brand{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+    .mark{padding:12px;border-radius:14px;background:#ad101f;font-weight:900}.brand strong{font-size:1.2rem}
+    .brand small{display:block;color:#b6b6c7}h1{font-size:clamp(1.6rem,4vw,2.4rem);margin:22px 0 8px}
+    .muted{color:#b4b4c6;line-height:1.55}.panel{background:#151720;border:1px solid #333542;border-radius:17px;padding:20px;margin:20px 0}
+    label{display:block;margin:14px 0 5px;color:#d4d4dd;font-size:.88rem;font-weight:700}
+    input,textarea{width:100%;background:#0e1017;border:1px solid #454855;color:#fff;padding:12px;border-radius:10px;font:inherit}
+    input:focus,textarea:focus{outline:2px solid #dc2337;outline-offset:1px}textarea{resize:vertical;min-height:85px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    button{cursor:pointer;border:0;border-radius:12px;background:#b41427;color:white;padding:14px 23px;font:700 1rem inherit;min-height:46px}
+    button:disabled{opacity:.55;cursor:wait}.status{padding:12px;border-radius:10px;background:#262331;color:#f1b4c1;margin-top:14px}
+    .status.ok{background:#173026;color:#b7f5d2}.status.error{background:#42202a;color:#ffd2db}
+    .result{display:none}.result h2{font-size:1.3rem;margin-top:0}.result h3{color:#ff7381;margin-bottom:4px}
+    .result li{margin:7px 0;line-height:1.45}.pill{display:inline-block;border-radius:20px;padding:5px 10px;background:#393041;font-size:.75rem;font-weight:800}
+    a{color:#ff8592}footer{color:#898a9a;font-size:.85rem;line-height:1.6}
+    @media(max-width:600px){.grid,.grid.three{grid-template-columns:1fr}.panel{padding:16px}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="brand"><div class="mark">SK</div><div><strong>SKSK ProTech</strong><small>Independent diagnostic tester lab</small></div></div>
+  <h1>Take the diagnostic brain for a spin.</h1>
+  <p class="muted">Enter your invited testing key, a vehicle, and an issue. This runs the real diagnosis engine, including AI and safety checks, without creating shop jobs, estimates, invoices, or permanent customer records.</p>
+  <form id="testerForm" class="panel">
+    <label for="key">Testing access key</label>
+    <input id="key" type="password" required autocomplete="off" placeholder="Paste the key you were given">
+    <p class="muted" style="font-size:.79rem">The key stays in this page until you leave. Do not put it in a public post or URL.</p>
+    <label for="vin">VIN (optional if you enter year, make, and model below)</label>
+    <input id="vin" maxlength="17" spellcheck="false" placeholder="17-character VIN">
+    <div class="grid three">
+      <div><label for="year">Year</label><input id="year" type="number" min="1886" placeholder="2017"></div>
+      <div><label for="make">Make</label><input id="make" maxlength="60" placeholder="Kia"></div>
+      <div><label for="model">Model</label><input id="model" maxlength="60" placeholder="Sorento"></div>
+    </div>
+    <div class="grid">
+      <div><label for="mileage">Mileage</label><input id="mileage" type="number" min="0" max="2000000" placeholder="85000"></div>
+      <div><label for="codes">OBD codes (comma-separated)</label><input id="codes" placeholder="P0300, P0171" spellcheck="false"></div>
+    </div>
+    <label for="symptoms">What is the vehicle doing?</label>
+    <textarea id="symptoms" required maxlength="960" placeholder="Engine stumbles when idling and hesitates on acceleration."></textarea>
+    <label for="notes">Mechanic observations (optional)</label>
+    <textarea id="notes" maxlength="960" placeholder="Observed a rough idle. No repairs completed yet."></textarea>
+    <button id="run" type="submit">Run diagnosis</button>
+    <div id="status" class="status" role="status" aria-live="polite">Ready. Test keys have a limited daily request budget.</div>
+  </form>
+  <section id="result" class="panel result" aria-live="polite">
+    <h2>Diagnostic result <span id="risk" class="pill"></span></h2>
+    <h3>Primary candidate</h3><p id="cause"></p>
+    <h3>Next verification tests</h3><ul id="tests"></ul>
+    <h3>Other possibilities</h3><ul id="alternatives"></ul>
+    <h3>Notes</h3><p id="notesOut" class="muted"></p>
+    <p class="muted" id="trace"></p>
+    <p class="status">Diagnosis is a hypothesis, not verified repair authorization. A mechanic must measure and confirm the fault before repairs or estimates.</p>
+  </section>
+  <footer>Tester mode is deliberately isolated from shop accounts. Unverified OBD codes entered here are not treated as confirmed scan-tool evidence. A test may be delayed by external AI limits; retry later if the shared budget is exhausted.</footer>
+</main>
+<script>
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const list = id => String($(id).value || '').split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+  const showItems = (id, values) => {
+    const el = $(id); el.replaceChildren();
+    const rows = Array.isArray(values) && values.length ? values : ['None supplied'];
+    for (const value of rows) { const li = document.createElement('li'); li.textContent = String(value); el.append(li); }
+  };
+  $('testerForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const key = $('key').value.trim();
+    const vehicle = {};
+    if ($('year').value) vehicle.year = Number($('year').value);
+    if ($('make').value.trim()) vehicle.make = $('make').value.trim();
+    if ($('model').value.trim()) vehicle.model = $('model').value.trim();
+    const payload = {
+      vin: $('vin').value.trim().toUpperCase(), vehicle,
+      mileage: Number($('mileage').value || 0),
+      symptoms: list('symptoms').slice(0, 4),
+      mechanicNotices: list('notes').slice(0, 4),
+      obdCodes: list('codes').map(c => c.toUpperCase()).slice(0, 5)
+    };
+    // An empty VIN means the year/make/model path is in use.
+    if (!payload.vin) delete payload.vin;
+    $('run').disabled = true; $('result').style.display = 'none';
+    $('status').className = 'status'; $('status').textContent = 'Diagnosing… this may take 10–40 seconds.';
+    const start = performance.now();
+    try {
+      const response = await fetch('/api/test/diagnose', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-SKSK-API-Key': key },
+        body: JSON.stringify(payload), signal: AbortSignal.timeout(90_000)
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.details || data.error || `HTTP ${response.status}`);
+      const result = data.result || {};
+      $('cause').textContent = result.primaryCause || 'No specific cause identified';
+      $('risk').textContent = result.safetyRisk ? 'Safety risk: verify immediately' : `Priority: ${result.urgency || 'unknown'}`;
+      showItems('tests', result.recommendedTests || result.repairSteps);
+      showItems('alternatives', result.secondaryCauses);
+      $('notesOut').textContent = result.notes || 'Physical confirmation is required.';
+      $('trace').textContent = `Elapsed ${(performance.now() - start).toFixed(0)} ms · Trace ${data.traceLog?.traceId || 'unknown'}`;
+      $('result').style.display = 'block';
+      $('status').className = 'status ok'; $('status').textContent = 'Diagnosis returned. No shop job was created.';
+    } catch (err) {
+      $('status').className = 'status error';
+      $('status').textContent = `Test could not complete: ${err.message}`;
+    } finally { $('run').disabled = false; }
+  });
+</script>
+</body>
+</html>
