@@ -182,12 +182,19 @@ if (process.env.IS_PULL_REQUEST === 'true') {
     const vin = String(req.query.vin || '5XXGT4L38LG384941').trim();
     const query = String(req.query.query || 'P1326 knock signal range performance flashing MIL reduced power').trim();
     const localBase = `http://127.0.0.1:${process.env.PORT || 3000}`;
+    // Preview-only credential must also be registered in SKSK_API_KEYS and
+    // SKSK_SHOP_KEY_BINDINGS; the normal API auth middleware validates both.
+    const previewKey = String(process.env.SKSK_PREVIEW_EVIDENCE_API_KEY || '').trim();
+    if (!previewKey) {
+      return res.status(503).json({ ok: false, stage: 'preview-auth', error: 'Preview smoke credential is not configured' });
+    }
+    const previewHeaders = { 'Content-Type': 'application/json', 'x-sksk-api-key': previewKey };
 
     try {
       const decodeStartedAt = Date.now();
       const decodeResponse = await fetch(`${localBase}/api/vehicle/decode`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: previewHeaders,
         body: JSON.stringify({ vin })
       });
       const decodeBody = await decodeResponse.json();
@@ -207,7 +214,7 @@ if (process.env.IS_PULL_REQUEST === 'true') {
       const quickAskStartedAt = Date.now();
       const quickAskResponse = await fetch(`${localBase}/api/quick-ask`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: previewHeaders,
         body: JSON.stringify({ vehicle: decodeBody.vehicle, query, limit: 5 })
       });
       const quickAskBody = await quickAskResponse.json();
