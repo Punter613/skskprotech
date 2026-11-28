@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node api/server.js",
     "dev": "nodemon api/server.js",
+    "stress:50": "node scripts/stress-sksk-50.js",
+    "test:stress-harness": "node --test tests/stress-sksk-50.test.js",
     "render:preview": "node scripts/bump-render-preview-trigger.js",
     "knowledge:plan": "node scripts/plan-common-vehicle-ingestion.js",
     "lint": "node scripts/check-js-syntax.js",
