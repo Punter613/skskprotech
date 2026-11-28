@@ -4,18 +4,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     branches: [ main ]
-    paths:
-      - 'src/services/customer.estimate.center.js'
-      - 'src/routes/customer.estimate.center.js'
-      - 'src/routes/jobs.protected.js'
-      - 'public/estimate-center.html'
-      - 'public/_redirects'
-      - 'tests/customer.estimate.center.test.js'
-      - 'tests/frontend.customer.estimate.center.test.js'
-      - 'tests/frontend.lifecycle.recall.test.js'
-      - 'package.json'
-      - 'api/.render-preview-trigger'
-      - '.github/workflows/customer-estimate-runtime.yaml'
 
 jobs:
   exact-head-customer-estimate:

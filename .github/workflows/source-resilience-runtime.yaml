@@ -3,17 +3,6 @@ name: Evidence Source Resilience Runtime Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - 'src/core/evidence/source.resilience.js'
-      - 'src/core/evidence/diagnostic.evidence.packet.js'
-      - 'src/core/knowledge/quick.ask.bounded.js'
-      - 'src/services/vehicle.evidence.js'
-      - 'src/routes/diagnose.js'
-      - 'src/middleware/job.lifecycle.middleware.js'
-      - 'tests/source.resilience.test.js'
-      - 'package.json'
-      - 'api/.render-preview-trigger'
-      - '.github/workflows/source-resilience-runtime.yaml'
   workflow_dispatch:
 
 permissions:

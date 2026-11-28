@@ -3,15 +3,6 @@ name: Work Order Authorization Runtime Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - 'src/services/work.order.js'
-      - 'src/routes/work.order.js'
-      - 'src/routes/jobs.protected.js'
-      - 'tests/work.order.authorization.test.js'
-      - 'docs/work-order-authorization.md'
-      - 'package.json'
-      - 'api/.render-preview-trigger'
-      - '.github/workflows/work-order-runtime.yaml'
   workflow_dispatch:
 
 permissions:

@@ -4,16 +4,6 @@ on:
   pull_request:
     branches: [ main ]
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - 'src/core/evidence/dtc.provenance.js'
-      - 'src/core/evidence/diagnostic.evidence.packet.js'
-      - 'src/routes/diagnose.js'
-      - 'src/middleware/job.lifecycle.middleware.js'
-      - 'src/services/diagnostic.reassessment.js'
-      - 'src/services/ai/diagnose.schema.js'
-      - 'public/lifecycle.html'
-      - '.github/workflows/dtc-provenance-runtime.yaml'
-      - 'api/.render-preview-trigger'
 
 jobs:
   exact-head-dtc-provenance:

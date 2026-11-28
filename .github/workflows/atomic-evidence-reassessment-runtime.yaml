@@ -3,17 +3,6 @@ name: Atomic Evidence Reassessment Runtime Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - 'src/services/atomic.evidence.reassessment.js'
-      - 'src/routes/atomic.evidence.reassessment.js'
-      - 'src/routes/jobs.protected.js'
-      - 'public/lifecycle.html'
-      - 'public/js/atomic-evidence-ui.js'
-      - 'tests/atomic.evidence.reassessment.test.js'
-      - 'tests/frontend.atomic.evidence.reassessment.test.js'
-      - 'package.json'
-      - 'api/.render-preview-trigger'
-      - '.github/workflows/atomic-evidence-reassessment-runtime.yaml'
 
 permissions:
   contents: read

@@ -4,15 +4,6 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - 'src/services/ai/providerRouter.js'
-      - 'src/services/ai/providers/gemini.js'
-      - 'tests/provider.gemini.timeout.test.js'
-      - 'tests/provider.router.fallback.test.js'
-      - 'package.json'
-      - 'api/PROVIDER_RUNTIME_VERIFICATION.md'
-      - 'api/.render-preview-trigger'
-      - '.github/workflows/provider-runtime.yml'
 
 jobs:
   provider-runtime:

@@ -3,14 +3,6 @@ name: Component Applicability Runtime Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - 'src/core/evidence/component.applicability.js'
-      - 'src/middleware/job.lifecycle.middleware.js'
-      - 'src/services/diagnostic.reassessment.js'
-      - 'tests/component.applicability.test.js'
-      - 'package.json'
-      - 'api/.render-preview-trigger'
-      - '.github/workflows/component-applicability-runtime.yaml'
   workflow_dispatch:
 
 permissions:

@@ -4,14 +4,6 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - 'api/**'
-      - 'src/**'
-      - 'public/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'openapi.yaml'
-      - '.github/workflows/render-exact-head.yml'
 
 jobs:
   exact-head-runtime:

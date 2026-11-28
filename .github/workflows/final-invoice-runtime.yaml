@@ -3,16 +3,6 @@ name: Completed Work Final Invoice Runtime Gate
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
-    paths:
-      - 'src/services/final.work.invoice.js'
-      - 'src/routes/final.work.invoice.js'
-      - 'src/routes/work.order.js'
-      - 'src/routes/jobs.protected.js'
-      - 'tests/final.work.invoice.test.js'
-      - 'docs/final-invoice-completed-work.md'
-      - 'package.json'
-      - 'api/.render-preview-trigger'
-      - '.github/workflows/final-invoice-runtime.yaml'
   workflow_dispatch:
 
 permissions:
