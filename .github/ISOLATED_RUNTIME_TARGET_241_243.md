@@ -83,3 +83,21 @@ Neither `NO_PREVIEW_WAIVER_241` nor `NO_PREVIEW_WAIVER_243` exists.
 **Preserve:** production Render stays Manual Deploy; suspended legacy previews
 stay suspended. This policy does not create a credential, enable a service,
 activate a label, waive runtime work, or authorize a merge by itself.
+
+## PR #246 — SEC-01 isolated runtime amendment
+
+Owner-approved target: PR #246, base main, branch
+`fix/retire-stripe-procurement`, service `p613-isolated-pr-246`.
+All eleven workflows require the exact nonempty
+`SKSK_ISOLATED_246_HEAD_SHA` pin and `isolated-runtime-test` label.
+An ineligible PR #246 fails before default-preview runtime access.
+Use only the dedicated `SKSK_ISOLATED_246_API_KEY` Actions credential;
+missing credentials fail closed. All existing HTTP assertions remain mandatory.
+
+Provision only the approved test database, with individually revocable test
+credentials, authentication and persistence required, automatic deployment off,
+and no production environment group. Verify health, exact service identity,
+commit and test database before setting the pin and applying the label.
+Confirm the PR merge ref contains these selectors. Require all eleven workflow
+results and independent review at the final head. No waiver, production
+deployment or merge is authorized by this amendment.

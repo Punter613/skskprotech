@@ -47,7 +47,7 @@
     "test:supabase-least-privilege": "node --test tests/supabase.least-privilege.test.js",
     "test:auth-matrix": "node --test tests/auth.route.matrix.test.js",
     "test:identity": "node --test tests/supabase.identity.test.js",
-    "test:stripe-webhook": "node --test tests/stripe.webhook.failclosed.test.js",
+    "test:stripe-webhook": "node --test tests/stripe.webhook.failclosed.test.js tests/stripe.procurement.removed.test.js",
     "test:fleet-tenant": "node --test tests/fleet.tenant.identity.test.js tests/fleet.tenant.http.test.js tests/fleet.truth.boundary.test.js tests/fleet.truth.http.test.js",
     "test:job-tenant": "node --test tests/job.shop.scope.empty.test.js tests/job.tenant.isolation.test.js",
     "test:tenant-lifecycle": "node --test tests/tenant.lifecycle.behavior.test.js",
