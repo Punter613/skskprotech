@@ -20,9 +20,11 @@ jobs:
       ISOLATED_RUNTIME_241: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 241 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/job-revision-guard' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_241_HEAD_SHA && vars.SKSK_ISOLATED_241_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
       ISOLATED_RUNTIME_243: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 243 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/job-shop-scope-empty' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_243_HEAD_SHA && vars.SKSK_ISOLATED_243_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
       ISOLATED_RUNTIME_246: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 246 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/retire-stripe-procurement' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_246_HEAD_SHA && vars.SKSK_ISOLATED_246_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
+      ISOLATED_RUNTIME_233: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 233 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'chore/remove-orphaned-ai-worker-bull' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_233_HEAD_SHA && vars.SKSK_ISOLATED_233_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
+      ISOLATED_RUNTIME_247: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 247 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'ci/required-gates-always-trigger' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_247_HEAD_SHA && vars.SKSK_ISOLATED_247_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') }}
       ISOLATED_RUNTIME_245: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 245 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'ci/isolated-runtime-target-241-243' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_245_HEAD_SHA && vars.SKSK_ISOLATED_245_HEAD_SHA != '' }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      PREVIEW_URL: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 241 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/job-revision-guard' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_241_HEAD_SHA && vars.SKSK_ISOLATED_241_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-241.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 243 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/job-shop-scope-empty' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_243_HEAD_SHA && vars.SKSK_ISOLATED_243_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-243.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 246 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/retire-stripe-procurement' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_246_HEAD_SHA && vars.SKSK_ISOLATED_246_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-246.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 240 && github.event.pull_request.head.sha == '5a5cf160a3be1adbb236b5860228b58d77cceed7' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-240.onrender.com' || format('https://p613-backend-pr-{0}.onrender.com', github.event.pull_request.number) }}
+      PREVIEW_URL: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 241 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/job-revision-guard' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_241_HEAD_SHA && vars.SKSK_ISOLATED_241_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-241.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 243 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/job-shop-scope-empty' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_243_HEAD_SHA && vars.SKSK_ISOLATED_243_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-243.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 246 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'fix/retire-stripe-procurement' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_246_HEAD_SHA && vars.SKSK_ISOLATED_246_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-246.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 233 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'chore/remove-orphaned-ai-worker-bull' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_233_HEAD_SHA && vars.SKSK_ISOLATED_233_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-233.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 247 && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'ci/required-gates-always-trigger' && github.event.pull_request.head.sha == vars.SKSK_ISOLATED_247_HEAD_SHA && vars.SKSK_ISOLATED_247_HEAD_SHA != '' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-247.onrender.com' || github.event_name == 'pull_request' && github.event.pull_request.number == 240 && github.event.pull_request.head.sha == '5a5cf160a3be1adbb236b5860228b58d77cceed7' && contains(github.event.pull_request.labels.*.name, 'isolated-runtime-test') && 'https://p613-isolated-pr-240.onrender.com' || format('https://p613-backend-pr-{0}.onrender.com', github.event.pull_request.number) }}
       SKSK_PREVIEW_API_KEY: ${{ secrets.SKSK_PREVIEW_API_KEY }}
     steps:
       - name: Checkout PR head
@@ -80,17 +82,31 @@ jobs:
         run: |
           echo '::error::PR 246 requires its exact-head isolated target; refusing default preview fallback.'
           exit 1
-      - name: "Select pinned PR #241/#243/#246 isolated runtime credential"
-        if: env.ISOLATED_RUNTIME_241 == 'true' || env.ISOLATED_RUNTIME_243 == 'true' || env.ISOLATED_RUNTIME_246 == 'true'
+      - name: Reject unpinned PR 233 runtime target
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 233 && env.ISOLATED_RUNTIME_233 != 'true'
+        run: |
+          echo '::error::PR 233 requires its exact-head isolated target; refusing default preview fallback.'
+          exit 1
+      - name: Reject unpinned PR 247 runtime target
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 247 && env.ISOLATED_RUNTIME_247 != 'true'
+        run: |
+          echo '::error::PR 247 requires its exact-head isolated target; refusing default preview fallback.'
+          exit 1
+      - name: "Select pinned PR #241/#243/#246/#233/#247 isolated runtime credential"
+        if: env.ISOLATED_RUNTIME_241 == 'true' || env.ISOLATED_RUNTIME_243 == 'true' || env.ISOLATED_RUNTIME_246 == 'true' || env.ISOLATED_RUNTIME_233 == 'true' || env.ISOLATED_RUNTIME_247 == 'true'
         env:
           ISOLATED_241_API_KEY: ${{ secrets.SKSK_ISOLATED_241_API_KEY }}
           ISOLATED_243_API_KEY: ${{ secrets.SKSK_ISOLATED_243_API_KEY }}
           ISOLATED_246_API_KEY: ${{ secrets.SKSK_ISOLATED_246_API_KEY }}
+          ISOLATED_233_API_KEY: ${{ secrets.SKSK_ISOLATED_233_API_KEY }}
+          ISOLATED_247_API_KEY: ${{ secrets.SKSK_ISOLATED_247_API_KEY }}
         run: |
-          case "${ISOLATED_RUNTIME_241}:${ISOLATED_RUNTIME_243}:${ISOLATED_RUNTIME_246}" in
-            true:false:false) TEST_KEY="$ISOLATED_241_API_KEY"; TARGET_PR=241 ;;
-            false:true:false) TEST_KEY="$ISOLATED_243_API_KEY"; TARGET_PR=243 ;;
-            false:false:true) TEST_KEY="$ISOLATED_246_API_KEY"; TARGET_PR=246 ;;
+          case "${ISOLATED_RUNTIME_241}:${ISOLATED_RUNTIME_243}:${ISOLATED_RUNTIME_246}:${ISOLATED_RUNTIME_233}:${ISOLATED_RUNTIME_247}" in
+            true:false:false:false:false) TEST_KEY="$ISOLATED_241_API_KEY"; TARGET_PR=241 ;;
+            false:true:false:false:false) TEST_KEY="$ISOLATED_243_API_KEY"; TARGET_PR=243 ;;
+            false:false:true:false:false) TEST_KEY="$ISOLATED_246_API_KEY"; TARGET_PR=246 ;;
+            false:false:false:true:false) TEST_KEY="$ISOLATED_233_API_KEY"; TARGET_PR=233 ;;
+            false:false:false:false:true) TEST_KEY="$ISOLATED_247_API_KEY"; TARGET_PR=247 ;;
             *) echo '::error::Ambiguous isolated runtime selector; refusing credential selection.'; exit 1 ;;
           esac
           if [ -z "$TEST_KEY" ]; then
@@ -183,8 +199,8 @@ jobs:
             process.exit(1);
           }
           NODE
-      - name: "Verify PR #241/#243/#246 isolated service identity"
-        if: env.ISOLATED_RUNTIME_241 == 'true' || env.ISOLATED_RUNTIME_243 == 'true' || env.ISOLATED_RUNTIME_246 == 'true'
+      - name: "Verify PR #241/#243/#246/#233/#247 isolated service identity"
+        if: env.ISOLATED_RUNTIME_241 == 'true' || env.ISOLATED_RUNTIME_243 == 'true' || env.ISOLATED_RUNTIME_246 == 'true' || env.ISOLATED_RUNTIME_233 == 'true' || env.ISOLATED_RUNTIME_247 == 'true'
         run: |
           HTTP_CODE="$(curl --connect-timeout 5 --max-time 15 -sS -o /tmp/pr-241-243-isolated-health.json -w '%{http_code}' "$PREVIEW_URL/health" || true)"
           if [ "$HTTP_CODE" != "200" ]; then
@@ -193,7 +209,7 @@ jobs:
           HEAD_SHA="$HEAD_SHA" ISOLATED_RUNTIME_241="$ISOLATED_RUNTIME_241" node - <<'NODE'
           const fs = require('node:fs');
           const health = JSON.parse(fs.readFileSync('/tmp/pr-241-243-isolated-health.json', 'utf8'));
-          const service = process.env.ISOLATED_RUNTIME_241 === 'true' ? 'p613-isolated-pr-241' : process.env.ISOLATED_RUNTIME_243 === 'true' ? 'p613-isolated-pr-243' : 'p613-isolated-pr-246';
+          const service = process.env.ISOLATED_RUNTIME_241 === 'true' ? 'p613-isolated-pr-241' : process.env.ISOLATED_RUNTIME_243 === 'true' ? 'p613-isolated-pr-243' : process.env.ISOLATED_RUNTIME_246 === 'true' ? 'p613-isolated-pr-246' : process.env.ISOLATED_RUNTIME_233 === 'true' ? 'p613-isolated-pr-233' : 'p613-isolated-pr-247';
           if (health?.ok !== true || health?.preview?.commit !== process.env.HEAD_SHA || health?.preview?.service !== service) {
             console.error('Isolated service name, exact head, or runtime health mismatch; refusing verification.');
             process.exit(1);
@@ -329,10 +345,10 @@ jobs:
             echo 'All actual HTTP checks in this workflow passed; no runtime waiver was used.'
             echo "Evidence: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: "Audit PR #241/#243/#246 isolated runtime success"
-        if: (env.ISOLATED_RUNTIME_241 == 'true' || env.ISOLATED_RUNTIME_243 == 'true' || env.ISOLATED_RUNTIME_246 == 'true') && success()
+      - name: "Audit PR #241/#243/#246/#233/#247 isolated runtime success"
+        if: (env.ISOLATED_RUNTIME_241 == 'true' || env.ISOLATED_RUNTIME_243 == 'true' || env.ISOLATED_RUNTIME_246 == 'true' || env.ISOLATED_RUNTIME_233 == 'true' || env.ISOLATED_RUNTIME_247 == 'true') && success()
         run: |
-          if [ "$ISOLATED_RUNTIME_241" = 'true' ]; then TARGET_PR=241; elif [ "$ISOLATED_RUNTIME_243" = 'true' ]; then TARGET_PR=243; else TARGET_PR=246; fi
+          if [ "$ISOLATED_RUNTIME_241" = 'true' ]; then TARGET_PR=241; elif [ "$ISOLATED_RUNTIME_243" = 'true' ]; then TARGET_PR=243; elif [ "$ISOLATED_RUNTIME_246" = 'true' ]; then TARGET_PR=246; elif [ "$ISOLATED_RUNTIME_233" = 'true' ]; then TARGET_PR=233; else TARGET_PR=247; fi
           {
             echo '### RUNTIME VERIFIED AGAINST ISOLATED TEST SERVICE'
             echo "PR #${TARGET_PR} at pinned exact head $HEAD_SHA."
